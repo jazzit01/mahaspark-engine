@@ -9,12 +9,34 @@ def generate_ai_background(prompt: str, output_path: str = "assets/images/backgr
     """
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     
-    # Enhanced photorealistic styling with high subject focus
-    cinematic_prompt = (
-        f"{prompt}, professional photojournalism, 8k resolution, ultra-detailed, "
-        f"vivid cinematic lighting, highly focused main subject positioned clearly on the right half, "
-        f"clean dark contrast on left half, award winning press shot, masterpiece, sharp depth of field"
-    )
+     # Enhanced photorealistic styling with high subject focus
+    # Premium Editorial FLUX Prompt
+    cinematic_prompt = f"""
+    {prompt}
+
+    Create a PREMIUM EDITORIAL NEWS PHOTOGRAPH.
+
+    STYLE:
+    Reuters, AP News, BBC documentary photojournalism.
+    Ultra realistic, authentic Indian environment, natural lighting, 8K, highly detailed.
+
+    COMPOSITION:
+    - Vertical 9:16
+    - Hero subject on the RIGHT 55%
+    - LEFT 45% kept darker and clean for headline
+    - One clear scene only
+    - Strong depth and realistic perspective
+
+    QUALITY:
+    Professional DSLR photography, sharp focus, realistic skin tones.
+    Accurate Indian architecture, believable government offices, hospitals,
+    metro stations, police, courts and public infrastructure.
+
+    STRICTLY AVOID:
+    text, watermark, logo, caption, collage, split screen,
+    infographic, CGI, cartoon, illustration, fantasy lighting,
+    duplicate people, deformed hands, cropped faces, blurry image.
+    """
     
     encoded_prompt = urllib.parse.quote(cinematic_prompt)
     seed = random.randint(100000, 999999)
