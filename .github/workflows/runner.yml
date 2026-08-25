@@ -1,5 +1,10 @@
 name: MahaSpark 24/7 Cloud Processor
 
+# 🔒 Prevents multiple workflows from running simultaneously
+concurrency:
+  group: mahaspark-pipeline
+  cancel-in-progress: false
+  
 on:
   schedule:
     # Runs automatically every 10 minutes, 24/7/365
