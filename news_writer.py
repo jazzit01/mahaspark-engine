@@ -9,28 +9,21 @@ GEMINI_API_KEY = os.getenv(
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 EDITORIAL_SYSTEM_INSTRUCTION = """
-You are the Creative Director of MahaSpark.
-
-Your job is to create visually accurate, trustworthy editorial scenes for AI image generation.
+You are the Creative Director and Executive Editor of MahaSpark.
 
 VISUAL RULES:
 1. Generate ONE realistic scene only.
 2. Hero subject must dominate the RIGHT side.
-3. LEFT side should remain darker and visually clean for Marathi headlines.
+3. LEFT side should remain darker and visually clean for large Marathi headlines.
 4. Use authentic Indian locations, uniforms, vehicles and government infrastructure.
 5. Documentary photojournalism only (Reuters/AP quality).
 6. Never create collage, split screen, infographic or illustration.
 7. Never include text, logos, watermarks or readable signboards.
 
-SCENE STRUCTURE:
-- Primary hero subject
-- Secondary supporting subject
-- Exact location
-- Camera angle
-- Lighting
-- Background context
-
-The output must feel like a real press photograph.
+EDITORIAL RULES:
+- Headlines must be punchy and high impact (2-3 words per part).
+- Each bullet MUST BE ultra-crisp (strictly between 10 to 14 Marathi words, fitting in maximum 2 lines).
+- Highlight 1-2 key impactful words or figures in each bullet with <span class=\"hl\">...</span>.
 """
 
 
@@ -42,15 +35,15 @@ def generate_news_content(raw_news_text_or_topic: str) -> dict:
     Analyze the input and return strictly valid JSON matching this schema:
     {{
       "badge": "Category in Marathi (e.g. पुणे अपडेट, मोठी बातमी, वाहतूक)",
-      "headline_part1": "Location/Subject (White text, 2-4 words)",
-      "headline_part2": "Action/Hook (Yellow text, 2-4 words)",
-      "hook_pill": "Short high-curiosity stat or phrase (max 6 words)",
+      "headline_part1": "Location/Subject (White text, 2-3 words max)",
+      "headline_part2": "Action/Hook (Yellow text, 2-3 words max)",
+      "hook_pill": "Short high-curiosity stat or phrase (max 5 words)",
       "bullets": [
-        {{"icon": "🚆", "text": "First key point with <span class=\\"hl\\">important keyword</span> in Marathi"}},
-        {{"icon": "📍", "text": "Second key point with <span class=\\"hl\\">specific location/data</span> highlighted"}},
-        {{"icon": "✅", "text": "Third decision outcome with <span class=\\"hl\\">timeline/status</span> highlighted"}}
+        {{"icon": "⚡", "text": "Crisp 10-14 words key point with <span class=\\"hl\\">crucial keyword</span>"}},
+        {{"icon": "📍", "text": "Crisp 10-14 words impact detail with <span class=\\"hl\\">data or route</span>"}},
+        {{"icon": "✅", "text": "Crisp 10-14 words final outcome with <span class=\\"hl\\">official status</span>"}}
       ],
-      "visual_prompt": "Write a 40-60 word English editorial scene describing the primary hero subject, supporting subject, exact Indian location, camera angle and natural lighting. Vertical 9:16, hero on right, clean dark space on left, no text, no watermark.",
+      "visual_prompt": "Write a 40-60 word English editorial scene describing the primary hero subject on right side, exact Indian location, cinematic natural lighting. Vertical 9:16, dark negative space on left, no text, no watermark.",
       "yt_shorts_title": "Create a viral Marathi YouTube Shorts title (55-70 characters). Use curiosity + keyword + emoji. No clickbait.",
       "yt_shorts_description": "Write a 3-4 line SEO-optimized Marathi description. Start with the key news, include Maharashtra keywords naturally, end with: 📲 ताज्या आणि विश्वासार्ह बातम्यांसाठी Follow & Subscribe @mahasparkofficial",
       "yt_shorts_tags": "Generate 12 high-reach hashtags mixing trending, Marathi, Maharashtra and topic-specific tags (e.g. #MahaSpark #MarathiNews #BreakingNews).",

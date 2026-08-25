@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Mukta:wght@600;700;800;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Mukta:wght@600;700;800;900&family=Outfit:wght@700;800&display=swap');
 
     * {
       box-sizing: border-box;
@@ -32,7 +32,7 @@
       z-index: 1;
     }
 
-    /* 2. Deep Black Left Gradient (45–50% solid coverage for text legibility) */
+    /* 2. Deep Black Left Gradient (48% solid coverage for pristine legibility) */
     .gradient-overlay {
       position: absolute;
       top: 0;
@@ -42,9 +42,9 @@
       background: linear-gradient(
         90deg,
         rgba(3, 7, 18, 0.98) 0%,
-        rgba(3, 7, 18, 0.95) 46%,
-        rgba(3, 7, 18, 0.72) 58%,
-        rgba(3, 7, 18, 0.20) 78%,
+        rgba(3, 7, 18, 0.95) 48%,
+        rgba(3, 7, 18, 0.70) 60%,
+        rgba(3, 7, 18, 0.20) 80%,
         rgba(3, 7, 18, 0.0) 100%
       );
       z-index: 2;
@@ -59,26 +59,26 @@
       background: linear-gradient(
         180deg,
         rgba(3, 7, 18, 0.85) 0%,
-        transparent 18%,
-        transparent 72%,
-        rgba(3, 7, 18, 0.98) 100%
+        transparent 16%,
+        transparent 75%,
+        rgba(3, 7, 18, 0.95) 100%
       );
       z-index: 3;
     }
 
-    /* 3. Main Layout Wrapper */
+    /* 3. Main Editorial Layout Wrapper */
     .wrapper {
       position: relative;
       z-index: 10;
       width: 100%;
       height: 100%;
-      padding: 90px 75px 60px 75px;
+      padding: 90px 75px 80px 75px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
     }
 
-    /* Header */
+    /* Header Area */
     .header-area {
       display: flex;
       align-items: flex-start;
@@ -87,7 +87,7 @@
     }
 
     .brand-logo {
-      height: 145px;
+      height: 140px;
       width: auto;
       max-width: 320px;
       object-fit: contain;
@@ -106,39 +106,39 @@
       border: 1px solid rgba(255, 255, 255, 0.2);
     }
 
-    /* Body / Content Area with Generous Spacing */
+    /* Body / Content Area */
     .content-area {
-      max-width: 660px;
+      max-width: 750px;
       display: flex;
       flex-direction: column;
-      gap: 40px;
-      margin-top: -20px;
       text-align: left;
+      margin-top: 10px;
     }
 
-    /* Headline: Scaled +30% with Heavy Hierarchy */
+    /* Headline: Scaled +12-15% further with Heavy Visual Hierarchy */
     .headline-box {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 6px;
+      margin-bottom: 24px;
     }
 
     .headline-white {
       color: #FFFFFF;
-      font-size: 114px;
+      font-size: 128px;
       font-weight: 900;
-      line-height: 1.15;
+      line-height: 1.10;
       text-shadow: 0 5px 30px rgba(0, 0, 0, 0.95);
-      letter-spacing: -1px;
+      letter-spacing: -1.5px;
     }
 
     .headline-yellow {
       color: #FFC000;
-      font-size: 132px;
+      font-size: 148px;
       font-weight: 900;
-      line-height: 1.12;
-      text-shadow: 0 6px 35px rgba(0, 0, 0, 0.95), 0 0 25px rgba(255, 192, 0, 0.3);
-      letter-spacing: -1px;
+      line-height: 1.08;
+      text-shadow: 0 6px 35px rgba(0, 0, 0, 0.95), 0 0 30px rgba(255, 192, 0, 0.35);
+      letter-spacing: -1.5px;
     }
 
     .hook-pill {
@@ -149,20 +149,30 @@
       color: #FFFFFF;
       font-size: 36px;
       font-weight: 800;
-      padding: 12px 28px;
+      padding: 10px 24px;
       border-radius: 6px 14px 14px 6px;
       backdrop-filter: blur(12px);
       box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+      margin-bottom: 36px;
     }
 
-    /* Direct Bullets (Glass Cards Removed, Direct Placement on Dark Canvas) */
+    /* Thin Yellow Divider between Headline & Bullets */
+    .yellow-divider {
+      width: 180px;
+      height: 5px;
+      background: linear-gradient(90deg, #FFC000 0%, #FFA500 70%, transparent 100%);
+      border-radius: 3px;
+      margin-bottom: 40px;
+      box-shadow: 0 0 12px rgba(255, 192, 0, 0.5);
+    }
+
+    /* Direct Bullets Section */
     .bullet-list {
       display: flex;
       flex-direction: column;
-      gap: 34px;
-      margin-top: 10px;
+      gap: 32px;
       width: 100%;
-      max-width: 650px;
+      max-width: 660px;
     }
 
     .bullet-item {
@@ -170,91 +180,64 @@
       align-items: flex-start;
       gap: 20px;
       width: 100%;
-      background: transparent;
-      border: none;
-      padding: 0;
-      box-shadow: none;
-      backdrop-filter: none;
-      -webkit-backdrop-filter: none;
     }
 
-    /* Yellow Glowing Bullet Icons */
     .bullet-icon {
-      font-size: 38px;
-      line-height: 1.25;
+      font-size: 40px;
+      line-height: 1.2;
       flex-shrink: 0;
       color: #FFC000;
-      filter: drop-shadow(0 0 10px rgba(255, 192, 0, 0.5));
+      filter: drop-shadow(0 0 12px rgba(255, 192, 0, 0.6));
     }
 
-    /* Bullet Typography: Scaled +20% */
+    /* Bullet Font Size Scaled Up Slightly (Max 2 Lines per bullet) */
     .bullet-text {
       color: #F1F5F9;
-      font-size: 38px;
+      font-size: 42px;
       font-weight: 700;
-      line-height: 1.38;
+      line-height: 1.30;
       flex-grow: 1;
-      text-shadow: 0 3px 12px rgba(0, 0, 0, 0.85);
+      text-shadow: 0 3px 12px rgba(0, 0, 0, 0.9);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
 
-    /* Highlight Key Words in Yellow */
     .bullet-text span.hl,
     .bullet-text .hl {
       color: #FFC000;
       font-weight: 900;
     }
 
-    /* 4. Professional Social Footer Bar */
-    .footer-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: rgba(15, 23, 42, 0.75);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      padding: 20px 32px;
-      border-radius: 16px;
-      backdrop-filter: blur(16px);
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
-    }
-
-    .footer-left {
+    /* Minimal Editorial Watermark Footer (Clean Press Look) */
+    .footer-editorial {
       display: flex;
       align-items: center;
       gap: 16px;
+      padding-top: 20px;
     }
 
-    .social-icons-group {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-
-    .social-svg {
-      width: 38px;
-      height: 38px;
-      fill: #FFFFFF;
-      opacity: 0.95;
-    }
-
-    .handle-text {
-      color: #FFFFFF;
+    .footer-brand-text {
+      font-family: 'Outfit', sans-serif;
       font-size: 32px;
       font-weight: 800;
-      letter-spacing: 0.5px;
-      margin-left: 6px;
+      letter-spacing: 2px;
+      color: #FFFFFF;
+      text-transform: uppercase;
     }
 
-    .footer-right {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      background: #FFC000;
-      color: #030712;
-      font-size: 26px;
-      font-weight: 900;
-      padding: 10px 24px;
-      border-radius: 10px;
-      box-shadow: 0 4px 15px rgba(255, 192, 0, 0.35);
+    .footer-brand-text span {
+      color: #FFC000;
+    }
+
+    .footer-sub {
+      font-size: 20px;
+      font-weight: 600;
+      color: #94A3B8;
+      border-left: 2px solid rgba(255, 255, 255, 0.25);
+      padding-left: 14px;
+      letter-spacing: 0.5px;
     }
   </style>
 </head>
@@ -280,34 +263,17 @@
 
       <div class="hook-pill" id="hook-pill">1TB संवेदनशील डेटा डार्क वेबवर?</div>
 
+      <!-- Thin Yellow Divider -->
+      <div class="yellow-divider"></div>
+
       <div class="bullet-list" id="bullet-list">
         <!-- Bullets injected dynamically -->
       </div>
     </div>
 
-    <!-- Social Media Call-To-Action Footer -->
-    <div class="footer-bar">
-      <div class="footer-left">
-        <div class="social-icons-group">
-          <!-- Instagram SVG -->
-          <svg class="social-svg" viewBox="0 0 24 24">
-            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-          </svg>
-          <!-- YouTube SVG -->
-          <svg class="social-svg" viewBox="0 0 24 24">
-            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-          </svg>
-          <!-- Facebook SVG -->
-          <svg class="social-svg" viewBox="0 0 24 24">
-            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-          </svg>
-        </div>
-        <span class="handle-text">@MAHASPARKOFFICIAL</span>
-      </div>
-
-      <div class="footer-right">
-        <span>Follow & Subscribe</span>
-      </div>
+    <!-- Editorial Clean Footer (No Social Buttons) -->
+    <div class="footer-editorial">
+      
     </div>
   </div>
 
