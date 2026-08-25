@@ -1,9 +1,13 @@
 import json
+import os
 from google import genai
 from google.genai import types
 
-# 🔑 Your active key:
-GEMINI_API_KEY = "AQ.Ab8RN6Iyt8Gu6j8gsIKSN8QxYSFl77TuZnDXqvao37fRnj9deQ"
+
+# Reads GEMINI_API_KEY from environment (Cloud/GitHub Actions), falls back to hardcoded string locally
+GEMINI_API_KEY = os.getenv(
+    "GEMINI_API_KEY", "AQ.Ab8RN6Iyt8Gu6j8gsIKSN8QxYSFl77TuZnDXqvao37fRnj9deQ"
+)
 
 client = genai.Client(api_key=GEMINI_API_KEY)
 

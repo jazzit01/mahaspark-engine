@@ -2,9 +2,12 @@ import os
 import time
 import requests
 
-# 🔑 Credentials
-BOT_TOKEN = "8980392198:AAHB-vpgw4RkNqmZS9fJy-SAQTvc6udpcsg"
-CHAT_ID = "935514943"
+
+# Reads from environment (Cloud/GitHub Actions), falls back to hardcoded string locally
+BOT_TOKEN = os.getenv(
+    "TELEGRAM_BOT_TOKEN", "8980392198:AAHB-vpgw4RkNqmZS9fJy-SAQTvc6udpcsg"
+)
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "935514943")
 
 
 def send_news_post(image_path: str, pack: dict, max_retries: int = 3) -> bool:
