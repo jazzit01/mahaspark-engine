@@ -84,7 +84,6 @@ def render_news_tile(data: dict, output_path: str = "output/post.png") -> str:
 
 
 if __name__ == "__main__":
-  # High-tech Cyber / Hacker background photo URL for this test
   sample_hacker_bg = "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=1080&auto=format&fit=crop"
 
   test_data = {
@@ -96,20 +95,23 @@ if __name__ == "__main__":
       "bullets": [
           {
               "icon": "🛡️",
-              "text": "बँकेचा दावा: मुख्य Core Banking सर्व्हर पूर्णपणे सुरक्षित.",
+              "text": (
+                  "बँकेचा दावा: मुख्य <span class='hl'>Core Banking</span>"
+                  " सर्व्हर पूर्णपणे सुरक्षित."
+              ),
           },
           {
               "icon": "⚠️",
               "text": (
-                  "डार्क वेबवर 1TB पेक्षा जास्त संवेदनशील डेटा उपलब्ध असल्याचा"
-                  " संशय."
+                  "डार्क वेबवर <span class='hl'>1TB पेक्षा जास्त</span>"
+                  " संवेदनशील डेटा उपलब्ध असल्याचा संशय."
               ),
           },
           {
               "icon": "🔍",
               "text": (
-                  "सायबर फॉरेन्सिक्स पथकाकडून सखोल तांत्रिक तपास युद्धपातळीवर"
-                  " सुरू."
+                  "सायबर फॉरेन्सिक्स पथकाकडून <span class='hl'>सखोल तांत्रिक"
+                  " तपास</span> युद्धपातळीवर सुरू."
               ),
           },
       ],

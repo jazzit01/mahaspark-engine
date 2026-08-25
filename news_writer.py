@@ -3,12 +3,9 @@ import os
 from google import genai
 from google.genai import types
 
-
-# Reads GEMINI_API_KEY from environment (Cloud/GitHub Actions), falls back to hardcoded string locally
 GEMINI_API_KEY = os.getenv(
     "GEMINI_API_KEY", "AQ.Ab8RN6Iyt8Gu6j8gsIKSN8QxYSFl77TuZnDXqvao37fRnj9deQ"
 )
-
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 EDITORIAL_SYSTEM_INSTRUCTION = """
@@ -17,7 +14,6 @@ You are the Creative Director of MahaSpark.
 Your job is to create visually accurate, trustworthy editorial scenes for AI image generation.
 
 VISUAL RULES:
-
 1. Generate ONE realistic scene only.
 2. Hero subject must dominate the RIGHT side.
 3. LEFT side should remain darker and visually clean for Marathi headlines.
@@ -37,8 +33,9 @@ SCENE STRUCTURE:
 The output must feel like a real press photograph.
 """
 
+
 def generate_news_content(raw_news_text_or_topic: str) -> dict:
-    prompt = f"""
+  prompt = f"""
     RAW NEWS INPUT:
     \"\"\"{raw_news_text_or_topic}\"\"\"
 
@@ -49,27 +46,27 @@ def generate_news_content(raw_news_text_or_topic: str) -> dict:
       "headline_part2": "Action/Hook (Yellow text, 2-4 words)",
       "hook_pill": "Short high-curiosity stat or phrase (max 6 words)",
       "bullets": [
-        {{"icon": "🚆", "text": "First verified key point in crisp Marathi"}},
-        {{"icon": "📍", "text": "Second key route/impact detail"}},
-        {{"icon": "✅", "text": "Third decision/timeline outcome"}}
+        {{"icon": "🚆", "text": "First key point with <span class=\\"hl\\">important keyword</span> in Marathi"}},
+        {{"icon": "📍", "text": "Second key point with <span class=\\"hl\\">specific location/data</span> highlighted"}},
+        {{"icon": "✅", "text": "Third decision outcome with <span class=\\"hl\\">timeline/status</span> highlighted"}}
       ],
-      "visual_prompt": "Write a 40-60 word English editorial scene describing the primary hero subject, supporting subject, exact Indian location, camera angle and natural lighting. Vertical 9:16, hero on right, clean dark space on left, no text, no watermark."
+      "visual_prompt": "Write a 40-60 word English editorial scene describing the primary hero subject, supporting subject, exact Indian location, camera angle and natural lighting. Vertical 9:16, hero on right, clean dark space on left, no text, no watermark.",
       "yt_shorts_title": "Create a viral Marathi YouTube Shorts title (55-70 characters). Use curiosity + keyword + emoji. No clickbait.",
       "yt_shorts_description": "Write a 3-4 line SEO-optimized Marathi description. Start with the key news, include Maharashtra keywords naturally, end with: 📲 ताज्या आणि विश्वासार्ह बातम्यांसाठी Follow & Subscribe @mahasparkofficial",
-      "yt_shorts_tags": "Generate 12 high-reach hashtags mixing trending, Marathi, Maharashtra and topic-specific tags (e.g. #MahaSpark #MarathiNews #BreakingNews).,
+      "yt_shorts_tags": "Generate 12 high-reach hashtags mixing trending, Marathi, Maharashtra and topic-specific tags (e.g. #MahaSpark #MarathiNews #BreakingNews).",
       "ig_reels_caption": "Write an engaging Marathi caption with a strong 2-line hook, concise story summary, one question encouraging comments, and end with: ❤️ Follow @mahasparkofficial | 🔔 Subscribe for daily breaking news.",
       "ig_hashtags": "Generate 5 high-reach hashtags mixing trending, Marathi, Maharashtra and topic-specific tags (e.g. #MahaSpark #MarathiNews #BreakingNews)."
     }}
     """
 
-    print("🧠 MahaSpark Brain crafting high-impact news pack...")
-    response = client.models.generate_content(
-        model="gemini-3.6-flash",
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=EDITORIAL_SYSTEM_INSTRUCTION,
-            response_mime_type="application/json",
-            temperature=0.2
-        )
-    )
-    return json.loads(response.text)
+  print("🧠 MahaSpark Brain crafting high-impact news pack...")
+  response = client.models.generate_content(
+      model="gemini-2.5-flash",
+      contents=prompt,
+      config=types.GenerateContentConfig(
+          system_instruction=EDITORIAL_SYSTEM_INSTRUCTION,
+          response_mime_type="application/json",
+          temperature=0.2,
+      ),
+  )
+  return json.loads(response.text)
