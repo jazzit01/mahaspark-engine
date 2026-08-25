@@ -54,11 +54,11 @@ def generate_news_content(raw_news_text_or_topic: str) -> dict:
         {{"icon": "✅", "text": "Third decision/timeline outcome"}}
       ],
       "visual_prompt": "Write a 40-60 word English editorial scene describing the primary hero subject, supporting subject, exact Indian location, camera angle and natural lighting. Vertical 9:16, hero on right, clean dark space on left, no text, no watermark."
-      "yt_shorts_title": "Shorts Title in Marathi with emoji (under 70 chars)",
-      "yt_shorts_description": "Concise Marathi SEO description for YouTube Shorts.",
-      "yt_shorts_tags": "#MahaSpark #PuneMetro #MarathiNews #Maharashtra #Shorts",
-      "ig_reels_caption": "Engaging high-retention Marathi Instagram caption with call to action.",
-      "ig_hashtags": "#MahaSpark #PuneUpdates #PuneMetro #MarathiNews #BreakingNews"
+      "yt_shorts_title": "Create a viral Marathi YouTube Shorts title (55-70 characters). Use curiosity + keyword + emoji. No clickbait.",
+      "yt_shorts_description": "Write a 3-4 line SEO-optimized Marathi description. Start with the key news, include Maharashtra keywords naturally, end with: 📲 ताज्या आणि विश्वासार्ह बातम्यांसाठी Follow & Subscribe @mahasparkofficial",
+      "yt_shorts_tags": "Generate 12 high-reach hashtags mixing trending, Marathi, Maharashtra and topic-specific tags (e.g. #MahaSpark #MarathiNews #BreakingNews).,
+      "ig_reels_caption": "Write an engaging Marathi caption with a strong 2-line hook, concise story summary, one question encouraging comments, and end with: ❤️ Follow @mahasparkofficial | 🔔 Subscribe for daily breaking news.",
+      "ig_hashtags": "Generate 5 high-reach hashtags mixing trending, Marathi, Maharashtra and topic-specific tags (e.g. #MahaSpark #MarathiNews #BreakingNews)."
     }}
     """
 
