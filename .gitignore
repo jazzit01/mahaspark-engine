@@ -1,0 +1,5 @@
+credentials.json
+output/
+assets/images/background.jpg
+__pycache__/
+.env
