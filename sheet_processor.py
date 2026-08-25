@@ -3,6 +3,7 @@ import os
 import time
 import gspread
 from image_generator import generate_ai_background
+from news_fetcher import fetch_and_queue_news
 from news_writer import generate_news_content
 from renderer import render_news_tile
 from telegram_notifier import send_news_post
@@ -27,9 +28,16 @@ def get_sheet_client(max_retries: int = 3):
 
 
 def process_pending_news():
+  # 1. Fetch live RSS news and append to sheet first
+  try:
+    fetch_and_queue_news(max_items_per_run=2)
+  except Exception as e:
+    print(f"⚠️ Auto-fetch error (continuing with existing queue): {e}")
+
+  # 2. Process all pending items
   sheet = get_sheet_client()
   records = sheet.get_all_records()
-  print("📊 Connected to Google Sheet! Scanning for PENDING news items...")
+  print("📊 Scanning sheet for PENDING news items...")
 
   for i, row in enumerate(records, start=2):
     status = str(row.get("Status", "")).strip().upper()
@@ -43,18 +51,13 @@ def process_pending_news():
       sheet.update_cell(i, 1, "PROCESSING")
 
       try:
-        # 1. Generate full content pack
         pack = generate_news_content(raw_input)
-
-        # 2. Generate high-def background photo
         bg_path = generate_ai_background(pack["visual_prompt"])
         pack["background_path"] = bg_path
 
-        # 3. Render 1080x1920 graphic
         output_path = f"output/post_row_{i}.png"
         final_image = render_news_tile(pack, output_path)
 
-        # 4. Populate Google Sheet columns (Col C to K)
         sheet.update_cell(i, 3, pack["badge"])
         sheet.update_cell(
             i, 4, f"{pack['headline_part1']} {pack['headline_part2']}"
@@ -71,13 +74,9 @@ def process_pending_news():
         )
         sheet.update_cell(i, 11, os.path.abspath(final_image))
 
-        # 5. Dispatch instantly to Telegram
         send_news_post(final_image, pack)
-
         sheet.update_cell(i, 1, "DONE")
-        print(
-            f"✅ Row {i} Processed & Dispatched! Image path: {final_image}"
-        )
+        print(f"✅ Row {i} Processed & Dispatched!")
 
       except Exception as e:
         print(f"❌ Error processing row {i}: {e}")
