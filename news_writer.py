@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from google import genai
 from google.genai import types
 
@@ -23,11 +24,13 @@ VISUAL RULES:
 EDITORIAL RULES:
 - Headlines must be punchy and high impact (2-3 words per part).
 - Each bullet MUST BE ultra-crisp (strictly between 10 to 14 Marathi words, fitting in maximum 2 lines).
-- Highlight 1-2 key impactful words or figures in each bullet with <span class=\"hl\">...</span>.
+- Highlight 1-2 key impactful words or figures in each bullet with <span class="hl">...</span>.
 """
 
 
-def generate_news_content(raw_news_text_or_topic: str) -> dict:
+def generate_news_content(
+    raw_news_text_or_topic: str, max_retries: int = 4
+) -> dict:
   prompt = f"""
     RAW NEWS INPUT:
     \"\"\"{raw_news_text_or_topic}\"\"\"
@@ -52,14 +55,30 @@ def generate_news_content(raw_news_text_or_topic: str) -> dict:
     }}
     """
 
-  print("🧠 MahaSpark Brain crafting high-impact news pack...")
-  response = client.models.generate_content(
-      model="gemini-3.6-flash",
-      contents=prompt,
-      config=types.GenerateContentConfig(
-          system_instruction=EDITORIAL_SYSTEM_INSTRUCTION,
-          response_mime_type="application/json",
-          temperature=0.2,
-      ),
+  for attempt in range(1, max_retries + 1):
+    try:
+      print(f"🧠 MahaSpark Brain analyzing story (Attempt {attempt})...")
+      response = client.models.generate_content(
+          model="gemini-3.6-flash",
+          contents=prompt,
+          config=types.GenerateContentConfig(
+              system_instruction=EDITORIAL_SYSTEM_INSTRUCTION,
+              response_mime_type="application/json",
+              temperature=0.2,
+          ),
+      )
+      return json.loads(response.text)
+
+    except Exception as e:
+      err_str = str(e)
+      if "503" in err_str or "429" in err_str or "UNAVAILABLE" in err_str:
+        wait_sec = attempt * 3
+        print(f"⏳ Google API high demand ({e}). Backing off for {wait_sec}s...")
+        time.sleep(wait_sec)
+      else:
+        # Non-retryable error
+        raise e
+
+  raise Exception(
+      f"Failed to generate news pack after {max_retries} attempts due to Google API demand."
   )
-  return json.loads(response.text)
