@@ -1,55 +1,52 @@
 import os
-import random
 import urllib.parse
 import requests
 
-def generate_ai_background(prompt: str, output_path: str = "assets/images/background.jpg") -> str:
-    """
-    Generates a copyright-free, ultra-sharp news visual using FLUX.
-    """
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    
-     # Enhanced photorealistic styling with high subject focus
-    # Premium Editorial FLUX Prompt
-    cinematic_prompt = f"""
-    {prompt}
+FALLBACK_REMOTE_URL = "https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=1080&auto=format&fit=crop"
 
-    Create a PREMIUM EDITORIAL NEWS PHOTOGRAPH.
 
-    STYLE:
-    Reuters, AP News, BBC documentary photojournalism.
-    Ultra realistic, authentic Indian environment, natural lighting, 8K, highly detailed.
+def generate_ai_background(visual_prompt: str) -> str:
+  """Generates high-res 9:16 vertical editorial images using free FLUX via Pollinations."""
+  os.makedirs("assets/images", exist_ok=True)
+  output_path = "assets/images/background.jpg"
 
-    COMPOSITION:
-    - Vertical 9:16
-    - Hero subject on the RIGHT 55%
-    - LEFT 45% kept darker and clean for headline
-    - One clear scene only
-    - Strong depth and realistic perspective
+  # Enhance prompt for clean photojournalistic vertical output
+  enhanced_prompt = f"{visual_prompt}, hyper-realistic documentary photojournalism, authentic Indian editorial scene, cinematic lighting, 8k, no text, no watermark, 9:16 vertical aspect ratio"
+  encoded_prompt = urllib.parse.quote(enhanced_prompt)
 
-    QUALITY:
-    Professional DSLR photography, sharp focus, realistic skin tones.
-    Accurate Indian architecture, believable government offices, hospitals,
-    metro stations, police, courts and public infrastructure.
+  # Free, keyless Flux endpoint (1080x1920 portrait format)
+  image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1080&height=1920&model=flux&nologo=true&seed=42"
 
-    STRICTLY AVOID:
-    text, watermark, logo, caption, collage, split screen,
-    infographic, CGI, cartoon, illustration, fantasy lighting,
-    duplicate people, deformed hands, cropped faces, blurry image.
-    """
-    
-    encoded_prompt = urllib.parse.quote(cinematic_prompt)
-    seed = random.randint(100000, 999999)
-    
-    flux_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1080&height=1920&model=flux&nologo=true&seed={seed}"
-    
-    print(f"📸 Generating Hero Visual with FLUX (Seed: {seed})...")
-    response = requests.get(flux_url, timeout=60)
-    
-    if response.status_code == 200:
-        with open(output_path, "wb") as f:
-            f.write(response.content)
-        print(f"✅ Background saved at: {output_path}")
-        return output_path
+  headers = {
+      "User-Agent": (
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,"
+          " like Gecko) Chrome/122.0.0.0 Safari/537.36"
+      )
+  }
+
+  try:
+    print(f"📸 Generating free Flux visual: {visual_prompt[:60]}...")
+    response = requests.get(image_url, headers=headers, timeout=60)
+
+    if response.status_code == 200 and len(response.content) > 5000:
+      with open(output_path, "wb") as f:
+        f.write(response.content)
+      print(f"✅ Background generated & saved: {output_path}")
+      return output_path
     else:
-        raise Exception(f"Image generation failed with status {response.status_code}")
+      raise Exception(
+          f"Pollinations returned status {response.status_code} or empty image"
+      )
+
+  except Exception as e:
+    print(f"⚠️ Primary image generation failed ({e}). Downloading fallback...")
+    try:
+      resp = requests.get(FALLBACK_REMOTE_URL, headers=headers, timeout=20)
+      if resp.status_code == 200:
+        with open(output_path, "wb") as f:
+          f.write(resp.content)
+        return output_path
+    except Exception as err:
+      print(f"❌ Fallback download error: {err}")
+
+  return output_path
