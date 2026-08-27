@@ -1,8 +1,13 @@
+from datetime import datetime
+import os
 import time
+import zoneinfo
 import feedparser
 import gspread
 
-SHEET_ID = "1Hoq6Qshq7RZNh3cV7AmmUqVbF1ULnwXqf1uaU4_FlC4"
+SHEET_ID = os.getenv(
+    "GOOGLE_SHEET_ID", "1Hoq6Qshq7RZNh3cV7AmmUqVbF1ULnwXqf1uaU4_FlC4"
+)
 CREDS_FILE = "credentials.json"
 
 # Curated High-Authority RSS Feeds for Maharashtra & Breaking News
@@ -14,6 +19,12 @@ RSS_FEEDS = [
     # Lokmat Maharashtra Live RSS
     "https://www.lokmat.com/rss/maharashtra.xml",
 ]
+
+
+def get_current_ist_time() -> str:
+  """Returns the exact current IST timestamp when the story is queued."""
+  ist_zone = zoneinfo.ZoneInfo("Asia/Kolkata")
+  return datetime.now(ist_zone).strftime("%d-%m-%Y %I:%M:%S %p")
 
 
 def get_sheet():
@@ -59,17 +70,31 @@ def fetch_and_queue_news(max_items_per_run: int = 3):
         ):
           continue
 
-        # Append row to Google Sheets
+        # Get the creation timestamp
+        added_time = get_current_ist_time()
+
+        # Build full 13-column array to lock timestamp into Col L (index 12)
         row_data = [
-            "PENDING",  # Col A: Status
-            full_text_clean,  # Col B: Raw_News_Input
+            "PENDING",  # Col A (1): Status
+            full_text_clean,  # Col B (2): Raw_News_Input
+            "",  # Col C (3): Badge
+            "",  # Col D (4): Headline
+            "",  # Col E (5): Hook_Pill
+            "",  # Col F (6): Bullets
+            "",  # Col G (7): YT_Title
+            "",  # Col H (8): YT_Desc
+            "",  # Col I (9): YT_Tags
+            "",  # Col J (10): IG_Caption
+            "",  # Col K (11): Image_Path
+            added_time,  # Col L (12): Created_At
+            "",  # Col M (13): Error_Log
         ]
 
         sheet.append_row(row_data)
         existing_headlines.add(title.lower())
         existing_headlines.add(full_text_clean.lower())
         new_entries_added += 1
-        print(f"📥 Queued new story: {title}")
+        print(f"📥 Queued new story ({added_time}): {title}")
 
         if new_entries_added >= max_items_per_run:
           break

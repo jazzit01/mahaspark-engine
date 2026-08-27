@@ -1,8 +1,6 @@
-from datetime import datetime
 import json
 import os
 import time
-import zoneinfo
 import gspread
 from image_generator import generate_ai_background
 from news_fetcher import fetch_and_queue_news
@@ -14,19 +12,13 @@ SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "1Hoq6Qshq7RZNh3cV7AmmUqVbF1ULnwXqf1uaU4
 CREDS_FILE = "credentials.json"
 
 
-def get_current_ist_time() -> str:
-  """Returns current time in Indian Standard Time (IST)."""
-  ist_zone = zoneinfo.ZoneInfo("Asia/Kolkata")
-  return datetime.now(ist_zone).strftime("%d-%m-%Y %I:%M:%S %p")
-
-
 def get_sheet_client():
   gc = gspread.service_account(filename=CREDS_FILE)
   return gc.open_by_key(SHEET_ID).sheet1
 
 
 def run_autonomous_pipeline():
-  # 1. Scrape RSS Feeds
+  # 1. Fetch breaking news and record initial creation time
   print("📡 [1/2] Fetching live Marathi breaking news...")
   try:
     fetch_and_queue_news(max_items_per_run=2)
@@ -44,25 +36,23 @@ def run_autonomous_pipeline():
 
     if status == "PENDING" and raw_input:
       print(f"\n⚡ Processing Row {i}: {raw_input[:60]}...")
-      time_now = get_current_ist_time()
 
-      # Mark status and timestamp start
-      sheet.update_cell(i, 1, "PROCESSING")  # Col A: Status
-      sheet.update_cell(i, 12, time_now)  # Col L: Processed_At
+      # Update status to PROCESSING (Col L Created_At is NOT modified)
+      sheet.update_cell(i, 1, "PROCESSING")
 
       try:
-        # Step A: Copy Generation
+        # Step A: Copywriting via Gemini
         pack = generate_news_content(raw_input)
 
-        # Step B: Image Generation
+        # Step B: Background via Free Flux
         bg_path = generate_ai_background(pack["visual_prompt"])
         pack["background_path"] = bg_path
 
-        # Step C: Visual Rendering
+        # Step C: Rendering via Playwright
         output_path = f"output/post_row_{i}.png"
         final_image = render_news_tile(pack, output_path)
 
-        # Step D: Update Data Columns
+        # Step D: Update Data Columns (Cols 3 through 11)
         sheet.update_cell(i, 3, pack.get("badge", ""))
         sheet.update_cell(
             i,
@@ -83,22 +73,21 @@ def run_autonomous_pipeline():
         )
         sheet.update_cell(i, 11, os.path.abspath(final_image))
 
-        # Step E: Dispatch
+        # Step E: Dispatch to Telegram
         send_news_post(final_image, pack)
 
-        # Step F: Mark Success & Clear Any Old Error Log
+        # Step F: Mark Success & Log Outcome (Col M)
         sheet.update_cell(i, 1, "DONE")
-        sheet.update_cell(i, 12, get_current_ist_time())
         sheet.update_cell(i, 13, "SUCCESS - Delivered to Telegram")
-        print(f"✅ Row {i} processed and logged successfully!")
+        print(f"✅ Row {i} processed and delivered!")
 
       except Exception as e:
         err_msg = f"{type(e).__name__}: {str(e)[:250]}"
         print(f"❌ Error on row {i}: {err_msg}")
         sheet.update_cell(i, 1, "ERROR")
-        sheet.update_cell(i, 12, get_current_ist_time())
         sheet.update_cell(i, 13, err_msg)  # Col M: Error_Log
 
+      # Pacing delay between rows to respect API rate limits
       time.sleep(4)
 
 
