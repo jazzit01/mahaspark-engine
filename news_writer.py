@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import time
 from google import genai
 from google.genai import types
@@ -29,7 +30,7 @@ EDITORIAL RULES:
 
 
 def generate_news_content(
-    raw_news_text_or_topic: str, max_retries: int = 4
+    raw_news_text_or_topic: str, max_retries: int = 5
 ) -> dict:
   prompt = f"""
     RAW NEWS INPUT:
@@ -71,14 +72,26 @@ def generate_news_content(
 
     except Exception as e:
       err_str = str(e)
-      if "503" in err_str or "429" in err_str or "UNAVAILABLE" in err_str:
-        wait_sec = attempt * 3
-        print(f"⏳ Google API high demand ({e}). Backing off for {wait_sec}s...")
+
+      # Handle 429 Rate Limit (Extract the exact wait time)
+      if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+        match = re.search(r"retry in (\d+(?:\.\d+)?)s", err_str)
+        wait_sec = float(match.group(1)) + 2.0 if match else (attempt * 15)
+        print(
+            f"⏳ Gemini Rate Limit reached. Pausing for {wait_sec:.1f}s before"
+            " retry..."
+        )
         time.sleep(wait_sec)
+
+      # Handle 503 Capacity Spikes
+      elif "503" in err_str or "UNAVAILABLE" in err_str:
+        wait_sec = attempt * 5
+        print(f"⏳ Server busy (503). Waiting {wait_sec}s...")
+        time.sleep(wait_sec)
+
       else:
-        # Non-retryable error
         raise e
 
   raise Exception(
-      f"Failed to generate news pack after {max_retries} attempts due to Google API demand."
+      f"Failed to generate news pack after {max_retries} attempts due to rate limits."
   )

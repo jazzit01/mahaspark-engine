@@ -99,6 +99,8 @@ def run_autonomous_pipeline():
         sheet.update_cell(i, 12, get_current_ist_time())
         sheet.update_cell(i, 13, err_msg)  # Col M: Error_Log
 
+      time.sleep(4)
+
 
 if __name__ == "__main__":
   run_autonomous_pipeline()
