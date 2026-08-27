@@ -54,7 +54,7 @@ def generate_news_content(raw_news_text_or_topic: str) -> dict:
 
   print("🧠 MahaSpark Brain crafting high-impact news pack...")
   response = client.models.generate_content(
-      model="gemini-2.5-flash",
+      model="gemini-3.6-flash",
       contents=prompt,
       config=types.GenerateContentConfig(
           system_instruction=EDITORIAL_SYSTEM_INSTRUCTION,

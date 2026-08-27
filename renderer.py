@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+import requests
 
 
 def image_to_base64(image_path: str) -> str:
@@ -16,27 +17,53 @@ def image_to_base64(image_path: str) -> str:
   return f"data:{mime};base64,{encoded}"
 
 
+def url_to_base64(url: str) -> str:
+  """Downloads a remote image and converts it to Base64 to ensure it renders without load delays."""
+  try:
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        )
+    }
+    resp = requests.get(url, headers=headers, timeout=15)
+    if resp.status_code == 200:
+      content_type = resp.headers.get("Content-Type", "image/jpeg").split(";")[
+          0
+      ]
+      encoded = base64.b64encode(resp.content).decode("utf-8")
+      return f"data:{content_type};base64,{encoded}"
+  except Exception as e:
+    print(f"⚠️ Failed to fetch remote background image: {e}")
+  return ""
+
+
 def render_news_tile(data: dict, output_path: str = "output/post.png") -> str:
   template_path = Path("template.html").resolve()
   os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-  # Convert local logo to Base64 so it never fails to load
+  # Convert local logo to Base64
   logo_b64 = image_to_base64("assets/images/logo.png")
 
-  # Handle background image: local file to Base64 or external URL
+  # Handle background image: Convert local file OR remote URL to Base64
   bg_src = data.get("background_path", "")
-  if os.path.exists(bg_src):
-    bg_src = image_to_base64(bg_src)
+  if bg_src.startswith("http://") or bg_src.startswith("https://"):
+    bg_b64 = url_to_base64(bg_src)
+  elif os.path.exists(bg_src):
+    bg_b64 = image_to_base64(bg_src)
+  else:
+    bg_b64 = ""
 
   with sync_playwright() as p:
     browser = p.chromium.launch()
     page = browser.new_page(viewport={"width": 1080, "height": 1920})
-    page.goto(f"file://{template_path}", wait_until="networkidle")
+    page.goto(f"file://{template_path}", wait_until="load")
 
     script = f"""
         () => {{
             const bgImg = document.getElementById('bg-img');
-            bgImg.src = '{bg_src}';
+            if ('{bg_b64}') {{
+                bgImg.src = '{bg_b64}';
+            }}
 
             const logoImg = document.getElementById('logo-img');
             if ('{logo_b64}') {{
@@ -74,7 +101,13 @@ def render_news_tile(data: dict, output_path: str = "output/post.png") -> str:
         }}
         """
     page.evaluate(script)
-    page.wait_for_timeout(400)
+
+    # Ensure the background image is fully decoded before screenshotting
+    page.evaluate(
+        "() => document.getElementById('bg-img').complete || new"
+        " Promise(resolve => document.getElementById('bg-img').onload = resolve)"
+    )
+    page.wait_for_timeout(300)
 
     abs_output = os.path.abspath(output_path)
     page.screenshot(path=abs_output, type="png")

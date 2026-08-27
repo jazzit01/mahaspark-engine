@@ -1,13 +1,26 @@
 import os
+import re
 import time
 import requests
-
 
 # Reads from environment (Cloud/GitHub Actions), falls back to hardcoded string locally
 BOT_TOKEN = os.getenv(
     "TELEGRAM_BOT_TOKEN", "8980392198:AAHB-vpgw4RkNqmZS9fJy-SAQTvc6udpcsg"
 )
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "935514943")
+
+
+def clean_html_for_telegram(text: str) -> str:
+  """Converts web HTML spans to Telegram-supported tags so captions never throw 400 errors."""
+  if not text:
+    return ""
+  # Convert <span class="hl">word</span> to <b>word</b>
+  text = re.sub(
+      r'<span\s+class=["\']hl["\']>(.*?)</span>', r"<b>\1</b>", text, flags=re.I
+  )
+  # Strip any other unsupported HTML tags
+  text = re.sub(r"</?(?!(b|i|a|code|pre|tg-spoiler)\b)[a-z0-9]+[^>]*>", "", text)
+  return text
 
 
 def send_news_post(image_path: str, pack: dict, max_retries: int = 3) -> bool:
@@ -19,20 +32,28 @@ def send_news_post(image_path: str, pack: dict, max_retries: int = 3) -> bool:
       f"{pack.get('headline_part1', '')}"
       f" {pack.get('headline_part2', '')}".strip()
   )
-  bullets_summary = "\n".join(
-      [f"{b['icon']} {b['text']}" for b in pack.get("bullets", [])]
-  )
 
-  # 1. Primary Photo Caption
+  # Clean HTML tags inside bullets so Telegram accepts the caption[cite: 6]
+  bullet_lines = []
+  for b in pack.get("bullets", []):
+    raw_text = b.get("text", "") if isinstance(b, dict) else str(b)
+    clean_text = clean_html_for_telegram(raw_text)
+    icon = b.get("icon", "⚡") if isinstance(b, dict) else "⚡"
+    bullet_lines.append(f"{icon} {clean_text}")
+
+  bullets_summary = "\n".join(bullet_lines)
+
+  # 1. Primary Photo Caption[cite: 6]
   photo_caption = (
       f"🔥 <b>MAHASPARK BREAKING UPDATE</b> 🔥\n\n"
-      f"📍 <b>{headline}</b>\n"
-      f"🏷️ <i>{pack.get('badge', '')}</i> | ⚡ <i>{pack.get('hook_pill', '')}</i>\n\n"
+      f"📍 <b>{clean_html_for_telegram(headline)}</b>\n"
+      f"🏷️ <i>{clean_html_for_telegram(pack.get('badge', ''))}</i> | ⚡"
+      f" <i>{clean_html_for_telegram(pack.get('hook_pill', ''))}</i>\n\n"
       f"{bullets_summary}\n\n"
       f"🔗 @MAHASPARKOFFICIAL"
   )
 
-  # 2. Formatted Copy Package for Social Distribution
+  # 2. Formatted Copy Package for Social Distribution[cite: 6]
   full_copy_payload = (
       f"📱 <b>INSTAGRAM REEL / POST COPY:</b>\n"
       f"<code>{pack.get('ig_reels_caption', '')}\n\n{pack.get('ig_hashtags', '')}</code>\n\n"
@@ -61,7 +82,9 @@ def send_news_post(image_path: str, pack: dict, max_retries: int = 3) -> bool:
         photo_delivered = True
         break
       else:
-        print(f"⚠️ Telegram Photo Upload Status {resp1.status_code}: {resp1.text}")
+        print(
+            f"⚠️ Telegram Photo Upload Status {resp1.status_code}: {resp1.text}"
+        )
     except Exception as e:
       print(
           f"⚠️ Telegram upload attempt {attempt} failed ({e}). Retrying in"
