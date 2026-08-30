@@ -45,7 +45,8 @@ def run_autonomous_pipeline():
         pack = generate_news_content(raw_input)
 
         # Step B: Background via Free Flux
-        bg_path = generate_ai_background(pack["visual_prompt"])
+        entity_q = pack.get("person_or_event_query", "")
+        bg_path = generate_ai_background(pack["visual_prompt"], entity_query=entity_q)
         pack["background_path"] = bg_path
 
         # Step C: Rendering via Playwright
