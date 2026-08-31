@@ -5,70 +5,81 @@ import requests
 IG_USER_ID = os.getenv("INSTAGRAM_USER_ID", "17841405800341984")
 IG_ACCESS_TOKEN = os.getenv(
     "INSTAGRAM_ACCESS_TOKEN",
-    "EAAWsoO8J6QQBSTZA4IKUwqkwYy9lxYomnL8xzdOuR3Eo3cqMYvN5cVXx6aUVzNYms1VEUnYOk5DmAFzJQquL0uUbHtnTLpLkZCnTw9QrAXenZANusNWit03tVDgZAKaG4LmUY5wMZBOeyPZBAo6rPJeqz8vn84jzTUzRZCifQ6I7WxnJVaR5eNAGmSHnAYfPSvhwTLSMbbnxQ9KZBN8Yz2nq",
+    "EAAWsoO8J6QQBSTZA4IKUwqkwYy9lxYomnL8xzdOuR3Eo3cqMYvN5cVXx6aUVzNYms1VEUnYOk5DmAFzJQquL0uUbHtnTLpLkZCnTw9QrAXenZANusNWit03tVDgZAKaG4LmUY5wMZBOeyPZBAo6rPJeqz8vn84jzTUzRZCifQ6I7WxnJVaR5eNAGmSHnAYfPSvhwTLSMbbnxQ9KZBN8Yz2nq"
 )
-IMGBB_API_KEY = os.getenv("IMGBB_API_KEY", "3917b524a07f8c8e8a260d60c57dbf5a")
 
 GRAPH_API_VERSION = "v20.0"
 BASE_URL = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
 
 
-def upload_image_to_public_url(local_image_path: str) -> str:
-  """Uploads local card to ImgBB (auto-expires in 1h) so Meta can fetch it."""
-  if not os.path.exists(local_image_path):
-    raise FileNotFoundError(f"Local graphic missing at: {local_image_path}")
+def post_reel_to_instagram(local_video_path: str, caption_text: str) -> str:
+    """Uploads local MP4 directly to Meta via Resumable Upload protocol and publishes Reel."""
+    if not os.path.exists(local_video_path):
+        raise FileNotFoundError(f"Video file not found: {local_video_path}")
 
-  if not IMGBB_API_KEY:
-    raise ValueError(
-        "IMGBB_API_KEY is required to generate a public URL for Meta."
-    )
+    file_size = os.path.getsize(local_video_path)
+    print(f"📦 Initiating Direct Meta Reels container ({file_size} bytes)...")
 
-  url = "https://api.imgbb.com/1/upload"
-  with open(local_image_path, "rb") as file:
-    payload = {"key": IMGBB_API_KEY, "expiration": 3600}
-    files = {"image": file}
-    resp = requests.post(url, data=payload, files=files, timeout=30).json()
+    # 1. Initialize Resumable Upload Container
+    init_url = f"{BASE_URL}/{IG_USER_ID}/media"
+    init_payload = {
+        "media_type": "REELS",
+        "upload_type": "resumable",
+        "caption": caption_text,
+        "share_to_feed": "true",
+        "access_token": IG_ACCESS_TOKEN,
+    }
+    
+    init_resp = requests.post(init_url, data=init_payload, timeout=30).json()
+    if "id" not in init_resp:
+        raise Exception(f"Container initialization failed: {init_resp}")
 
-    if resp.get("success"):
-      return resp["data"]["url"]
-    else:
-      raise Exception(f"ImgBB upload failed: {resp}")
+    creation_id = init_resp["id"]
+    upload_url = init_resp.get("uri", f"https://rupload.facebook.com/ig-api-upload/{GRAPH_API_VERSION}/{creation_id}")
+    print(f"⏳ Container initialized ({creation_id}). Streaming bytes to Meta servers...")
 
+    # 2. Upload the Binary MP4 Video Directly to Meta
+    with open(local_video_path, "rb") as video_file:
+        video_bytes = video_file.read()
 
-def post_to_instagram(local_image_path: str, caption_text: str) -> str:
-  """Publishes news card to @mahasparkofficial via Meta Graph API."""
-  print("📤 Uploading news card to public host for Instagram...")
-  public_image_url = upload_image_to_public_url(local_image_path)
+    upload_headers = {
+        "Authorization": f"OAuth {IG_ACCESS_TOKEN}",
+        "offset": "0",
+        "file_size": str(file_size),
+        "Content-Type": "application/octet-stream",
+    }
 
-  print("📦 Creating Instagram media container...")
-  container_resp = requests.post(
-      f"{BASE_URL}/{IG_USER_ID}/media",
-      data={
-          "image_url": public_image_url,
-          "caption": caption_text,
-          "access_token": IG_ACCESS_TOKEN,
-      },
-      timeout=30,
-  ).json()
+    upload_res = requests.post(upload_url, headers=upload_headers, data=video_bytes, timeout=120)
+    if upload_res.status_code not in (200, 201):
+        raise Exception(f"Direct video upload failed ({upload_res.status_code}): {upload_res.text}")
 
-  if "id" not in container_resp:
-    raise Exception(f"Failed to create IG container: {container_resp}")
+    print("✅ Video binary uploaded to Meta. Waiting for server processing...")
 
-  creation_id = container_resp["id"]
-  print(f"✅ Container created ({creation_id}). Waiting for Meta ingestion...")
+    # 3. Poll Container Status Until FINISHED
+    status_url = f"{BASE_URL}/{creation_id}?fields=status_code&access_token={IG_ACCESS_TOKEN}"
+    for attempt in range(20):
+        time.sleep(5)
+        status_data = requests.get(status_url, timeout=30).json()
+        status = status_data.get("status_code")
+        print(f"   Status check ({attempt + 1}/20): {status}")
 
-  time.sleep(5)
+        if status == "FINISHED":
+            print("✅ Video successfully processed by Meta servers.")
+            break
+        elif status == "ERROR":
+            raise Exception(f"Meta server failed processing video: {status_data}")
 
-  print("🚀 Publishing post to @mahasparkofficial...")
-  publish_resp = requests.post(
-      f"{BASE_URL}/{IG_USER_ID}/media_publish",
-      data={"creation_id": creation_id, "access_token": IG_ACCESS_TOKEN},
-      timeout=30,
-  ).json()
+    # 4. Publish the Processed Reel
+    print("🚀 Publishing Reel to @mahasparkofficial...")
+    publish_resp = requests.post(
+        f"{BASE_URL}/{IG_USER_ID}/media_publish",
+        data={"creation_id": creation_id, "access_token": IG_ACCESS_TOKEN},
+        timeout=30,
+    ).json()
 
-  if "id" not in publish_resp:
-    raise Exception(f"Failed to publish IG post: {publish_resp}")
+    if "id" not in publish_resp:
+        raise Exception(f"Failed to publish Reel: {publish_resp}")
 
-  post_id = publish_resp["id"]
-  print(f"🎉 Post live on Instagram! (Post ID: {post_id})")
-  return post_id
+    post_id = publish_resp["id"]
+    print(f"🎉 Live Reel published successfully! Post ID: {post_id}")
+    return post_id

@@ -3,5 +3,6 @@ gspread
 feedparser
 requests
 playwright
-duckduckgo_search
+imageio-ffmpeg
+ddgs
 tzdata
