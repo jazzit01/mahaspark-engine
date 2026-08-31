@@ -1,23 +1,19 @@
 name: MahaSpark 24/7 Cloud Processor
 
-# 🔒 Prevents multiple workflows from running simultaneously
 concurrency:
   group: mahaspark-pipeline
   cancel-in-progress: false
-  
+
 on:
   schedule:
-    # Runs automatically every 10 minutes, 24/7/365
-    - cron: '*/10 * * * *'
-  # Allows instant manual trigger from GitHub UI anytime
+    # Runs automatically every 15 minutes
+    - cron: '*/15 * * * *'
   workflow_dispatch:
 
 jobs:
   process-news:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE20: true
 
     steps:
       - name: Checkout Code
@@ -32,8 +28,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install google-genai requests gspread playwright feedparser
-          playwright install --with-deps chromium
+          playwright install chromium --with-deps
 
       - name: Inject Credentials & Output Folders
         env:
@@ -42,10 +37,14 @@ jobs:
           echo "$GCP_CREDS" > credentials.json
           mkdir -p output assets/images
 
-      - name: Run Processing Engine
+      - name: Run Processing Engine (Ingest, Generate & Publish)
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          IMGBB_API_KEY: ${{ secrets.IMGBB_API_KEY }}
         run: |
+          python news_fetcher.py
           python sheet_processor.py
