@@ -4,3 +4,4 @@ feedparser
 requests
 playwright
 duckduckgo_search
+tzdata

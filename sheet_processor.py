@@ -7,6 +7,7 @@ from news_fetcher import fetch_and_queue_news
 from news_writer import generate_news_content
 from renderer import render_news_tile
 from telegram_notifier import send_news_post
+from instagram_publisher import post_to_instagram
 
 SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "1Hoq6Qshq7RZNh3cV7AmmUqVbF1ULnwXqf1uaU4_FlC4")
 CREDS_FILE = "credentials.json"
@@ -80,6 +81,14 @@ def run_autonomous_pipeline():
         # Step F: Mark Success & Log Outcome (Col M)
         sheet.update_cell(i, 1, "DONE")
         sheet.update_cell(i, 13, "SUCCESS - Delivered to Telegram")
+        # Publish to Instagram
+        ig_full_caption = (
+            f"{pack.get('ig_reels_caption', '')}\n\n{pack.get('ig_hashtags', '')}"
+        )
+        try:
+          post_to_instagram(final_image, ig_full_caption)
+        except Exception as ig_err:
+          print(f"⚠️ Instagram sharing error: {ig_err}")
         print(f"✅ Row {i} processed and delivered!")
 
       except Exception as e:
