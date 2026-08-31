@@ -1,0 +1,6 @@
+google-genai
+gspread
+feedparser
+requests
+playwright
+duckduckgo_search
