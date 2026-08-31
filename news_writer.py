@@ -57,9 +57,9 @@ def generate_news_content(raw_news_text_or_topic: str) -> dict:
     }}
 
     AUDIO MOOD RULES:
-    - 'serious': Accidents, deaths, tragedies, hospitalizations, funeral, flood, disaster.
+    - 'serious': STRICTLY for natural floods, flash floods, fatal casualties, and deaths only.
     - 'crime': Police arrests, FIRs, raids, court rulings, scams, fraud.
-    - 'breaking': Urgent alerts, major political developments, sudden government decisions.
+    - 'breaking': Urgent alerts, major political developments, tragedies, hospitalizations, sudden disasters, accidents, and immediate government decisions.
     - 'upbeat': Sports victories, achievements, festivals, positive milestones.
     - 'neutral': General government schemes, administrative notices, agriculture, weather.
     """
