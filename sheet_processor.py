@@ -3,7 +3,7 @@ import os
 import time
 import gspread
 from image_generator import generate_ai_background
-from instagram_publisher import post_reel_to_facebook, post_reel_to_instagram
+from instagram_publisher import post_reel_to_instagram
 from news_fetcher import fetch_and_queue_news
 from news_writer import generate_news_content
 from renderer import render_news_tile
@@ -46,7 +46,7 @@ def run_autonomous_pipeline():
         # Step A: Copywriting via Gemini
         pack = generate_news_content(raw_input)
 
-        # Step B: Background Visual via Flux AI Generator
+        # Step B: Background Visual
         entity_q = pack.get("person_or_event_query", "")
         bg_path = generate_ai_background(
             pack.get("visual_prompt", ""), entity_query=entity_q
@@ -79,7 +79,7 @@ def run_autonomous_pipeline():
         ]
         sheet.update(range_name=f"C{i}:K{i}", values=[content_row])
 
-        # Step E: Build the 6-second mood-matched video
+        # Step E: Build the mood-matched video
         mood = pack.get("audio_mood", "neutral")
         video_path = f"output/reel_{i}.mp4"
         create_news_reel(
@@ -89,28 +89,19 @@ def run_autonomous_pipeline():
         # Step F: Dispatch Video to Telegram
         tg_success = send_news_video(video_path, pack)
 
-        # Step G: Publish to Instagram Reels + Facebook Reels
+        # Step G: Publish to Instagram Reels Only
         ig_success = False
-        fb_success = False
-
         try:
           post_reel_to_instagram(video_path, caption_text)
           ig_success = True
         except Exception as ig_err:
           print(f"⚠️ Instagram Reel error (non-fatal): {ig_err}")
 
-        try:
-          post_reel_to_facebook(video_path, caption_text)
-          fb_success = True
-        except Exception as fb_err:
-          print(f"⚠️ Facebook Reel error (non-fatal): {fb_err}")
-
         # Step H: Mark Success & Log Outcome (Col A and M)
         sheet.update_cell(i, 1, "DONE")
         status_msg = (
             f"SUCCESS - Telegram Video: {'OK' if tg_success else 'FAIL'} | IG"
-            f" Reel: {'OK' if ig_success else 'FAIL'} | FB Reel:"
-            f" {'OK' if fb_success else 'FAIL'}"
+            f" Reel: {'OK' if ig_success else 'FAIL'}"
         )
         sheet.update_cell(i, 13, status_msg)
 
