@@ -12,6 +12,7 @@ AUDIO_MOOD_MAP = {
 
 DURATION_POOL = [9.9, 10.15, 11.6, 12.12, 13.0, 14.2, 14.9]
 
+
 def create_news_reel(layers: dict, mood: str = "neutral", output_video_path: str = "output/reel.mp4") -> str:
     bg_img = layers.get("bg")
     hl_img = layers.get("hl")
@@ -19,9 +20,9 @@ def create_news_reel(layers: dict, mood: str = "neutral", output_video_path: str
     b1_img = layers.get("b1")
     b2_img = layers.get("b2")
 
-    for p in [bg_img, hl_img, pill_img, b1_img, b2_img]:
+    for name, p in [("bg", bg_img), ("hl", hl_img), ("pill", pill_img), ("b1", b1_img), ("b2", b2_img)]:
         if not p or not os.path.exists(p):
-            raise FileNotFoundError(f"Missing required layer plate: {p}")
+            raise FileNotFoundError(f"Missing required layer plate '{name}': {p}")
 
     os.makedirs(os.path.dirname(output_video_path), exist_ok=True)
 
@@ -32,28 +33,27 @@ def create_news_reel(layers: dict, mood: str = "neutral", output_video_path: str
     audio_path = AUDIO_MOOD_MAP.get(mood.lower(), AUDIO_MOOD_MAP["neutral"])
     has_audio = os.path.exists(audio_path)
 
-    # 1. Ken Burns background zoom
+    # 1. Base Zoom (Ken Burns micro-motion)
     base_filter = (
         f"scale=4320:-2,"
-        f"zoompan=z='min(zoom+0.0004,1.04)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={total_frames}:s=1080x1920:fps={fps},"
+        f"zoompan=z='min(zoom+0.0003,1.035)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={total_frames}:s=1080x1920:fps={fps},"
         f"format=yuv420p"
     )
 
-    # 2. Layer Sequence (Transitions):
-    #   Headline: st=0.6, d=0.45
-    #   Hook Pill: st=1.6, d=0.40
-    #   Bullet 1: st=3.2, d=0.40
-    #   Bullet 2: st=5.0, d=0.40
+    # 2. Smooth Persistent Stacking:
+    # We use format=yuva420p + fade=t=in:alpha=1 without any enable toggles.
+    # Because each overlay has eof_action=pass and repeatlast=1, each element
+    # remains on the screen permanently after fading in.
     filter_complex = (
         f"[0:v]{base_filter}[bg];"
-        f"[1:v]format=rgba,fade=t=in:st=0.6:d=0.45:alpha=1[hl];"
-        f"[2:v]format=rgba,fade=t=in:st=1.6:d=0.40:alpha=1[pill];"
-        f"[3:v]format=rgba,fade=t=in:st=3.2:d=0.40:alpha=1[b1];"
-        f"[4:v]format=rgba,fade=t=in:st=5.0:d=0.40:alpha=1[b2];"
-        f"[bg][hl]overlay=0:0:enable='gte(t,0.6)'[step1];"
-        f"[step1][pill]overlay=0:0:enable='gte(t,1.6)'[step2];"
-        f"[step2][b1]overlay=0:0:enable='gte(t,3.2)'[step3];"
-        f"[step3][b2]overlay=0:0:enable='gte(t,5.0)'[v]"
+        f"[1:v]format=yuva420p,fade=t=in:st=0.6:d=0.35:alpha=1[hl];"
+        f"[2:v]format=yuva420p,fade=t=in:st=1.6:d=0.35:alpha=1[pill];"
+        f"[3:v]format=yuva420p,fade=t=in:st=3.0:d=0.35:alpha=1[b1];"
+        f"[4:v]format=yuva420p,fade=t=in:st=4.6:d=0.35:alpha=1[b2];"
+        f"[bg][hl]overlay=0:0:eof_action=pass:repeatlast=1[s1];"
+        f"[s1][pill]overlay=0:0:eof_action=pass:repeatlast=1[s2];"
+        f"[s2][b1]overlay=0:0:eof_action=pass:repeatlast=1[s3];"
+        f"[s3][b2]overlay=0:0:eof_action=pass:repeatlast=1[v]"
     )
 
     cmd = [
@@ -85,18 +85,31 @@ def create_news_reel(layers: dict, mood: str = "neutral", output_video_path: str
         "-t", str(duration),
         "-c:v", "libx264",
         "-preset", "fast",
-        "-crf", "20",
+        "-crf", "19",
+        "-pix_fmt", "yuv420p",
         "-c:a", "aac",
         "-b:a", "192k",
         "-movflags", "+faststart",
         output_video_path
     ]
 
-    print(f"🎬 Rendering Reel with Staggered Elements ({duration}s, mood: {mood})...")
+    print(f"🎬 Rendering Reel ({duration}s, mood: {mood})...")
     res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     if res.returncode != 0:
         raise RuntimeError(f"FFmpeg error: {res.stderr.decode('utf-8', errors='ignore')[-400:]}")
 
-    print(f"✅ Finished reel: {output_video_path} ({duration}s)")
+    # Generate static thumbnail snapshot from 5.2s mark
+    thumb_path = output_video_path.replace(".mp4", "_thumb.jpg")
+    thumb_cmd = [
+        "ffmpeg", "-y",
+        "-ss", "00:00:05.200",
+        "-i", output_video_path,
+        "-vframes", "1",
+        "-q:v", "2",
+        thumb_path
+    ]
+    subprocess.run(thumb_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    print(f"✅ Finished reel: {output_video_path} (Duration: {duration}s)")
     return os.path.abspath(output_video_path)
