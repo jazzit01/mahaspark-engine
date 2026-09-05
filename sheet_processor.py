@@ -53,9 +53,10 @@ def run_autonomous_pipeline():
         )
         pack["background_path"] = bg_path
 
-        # Step C: Rendering Graphic Card via Playwright
+        # Step C: Rendering Graphic Card Plates
         output_path = f"output/post_row_{i}.png"
-        final_image = render_news_tile(pack, output_path)
+        rendered_layers = render_news_tile(pack, output_path)
+        final_image = rendered_layers["full"]
 
         # Step D: Single Batch Update for Columns C to K (Cols 3 to 11)
         full_headline = (
@@ -79,12 +80,10 @@ def run_autonomous_pipeline():
         ]
         sheet.update(range_name=f"C{i}:K{i}", values=[content_row])
 
-        # Step E: Build the mood-matched video
+        # Step E: Build the animated staggered video
         mood = pack.get("audio_mood", "neutral")
         video_path = f"output/reel_{i}.mp4"
-        create_news_reel(
-            image_path=final_image, mood=mood, output_video_path=video_path
-        )
+        create_news_reel(layers=rendered_layers, mood=mood, output_video_path=video_path)
 
         # Step F: Dispatch Video to Telegram
         tg_success = send_news_video(video_path, pack)

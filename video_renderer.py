@@ -1,8 +1,8 @@
 import os
+import random
 import subprocess
-import imageio_ffmpeg
 
-MOOD_AUDIO_MAP = {
+AUDIO_MOOD_MAP = {
     "serious": "assets/audio/serious.mp3",
     "crime": "assets/audio/crime.mp3",
     "breaking": "assets/audio/breaking.mp3",
@@ -10,43 +10,93 @@ MOOD_AUDIO_MAP = {
     "neutral": "assets/audio/neutral.mp3",
 }
 
-def create_news_reel(image_path: str, mood: str, output_video_path: str, duration: int = 6) -> str:
-    """Combines the 1080x1920 news card image and mood-based audio into a Reels-ready MP4."""
-    if not os.path.exists(image_path):
-        raise FileNotFoundError(f"Image not found at: {image_path}")
+DURATION_POOL = [9.9, 10.15, 11.6, 12.12, 13.0, 14.2, 14.9]
 
-    audio_path = MOOD_AUDIO_MAP.get(mood, "assets/audio/neutral.mp3")
-    if not os.path.exists(audio_path):
-        audio_files = [f for f in os.listdir("assets/audio") if f.endswith(".mp3")]
-        if not audio_files:
-            raise FileNotFoundError("No .mp3 audio files found in assets/audio/")
-        audio_path = os.path.join("assets/audio", audio_files[0])
+def create_news_reel(layers: dict, mood: str = "neutral", output_video_path: str = "output/reel.mp4") -> str:
+    bg_img = layers.get("bg")
+    hl_img = layers.get("hl")
+    pill_img = layers.get("pill")
+    b1_img = layers.get("b1")
+    b2_img = layers.get("b2")
+
+    for p in [bg_img, hl_img, pill_img, b1_img, b2_img]:
+        if not p or not os.path.exists(p):
+            raise FileNotFoundError(f"Missing required layer plate: {p}")
 
     os.makedirs(os.path.dirname(output_video_path), exist_ok=True)
-    ffmpeg_bin = imageio_ffmpeg.get_ffmpeg_exe()
 
-    print(f"🎬 Rendering Reel with audio mood: [{mood}] -> {audio_path}")
+    duration = random.choice(DURATION_POOL)
+    fps = 30
+    total_frames = int(duration * fps)
+
+    audio_path = AUDIO_MOOD_MAP.get(mood.lower(), AUDIO_MOOD_MAP["neutral"])
+    has_audio = os.path.exists(audio_path)
+
+    # 1. Ken Burns background zoom
+    base_filter = (
+        f"scale=4320:-2,"
+        f"zoompan=z='min(zoom+0.0004,1.04)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={total_frames}:s=1080x1920:fps={fps},"
+        f"format=yuv420p"
+    )
+
+    # 2. Layer Sequence (Transitions):
+    #   Headline: st=0.6, d=0.45
+    #   Hook Pill: st=1.6, d=0.40
+    #   Bullet 1: st=3.2, d=0.40
+    #   Bullet 2: st=5.0, d=0.40
+    filter_complex = (
+        f"[0:v]{base_filter}[bg];"
+        f"[1:v]format=rgba,fade=t=in:st=0.6:d=0.45:alpha=1[hl];"
+        f"[2:v]format=rgba,fade=t=in:st=1.6:d=0.40:alpha=1[pill];"
+        f"[3:v]format=rgba,fade=t=in:st=3.2:d=0.40:alpha=1[b1];"
+        f"[4:v]format=rgba,fade=t=in:st=5.0:d=0.40:alpha=1[b2];"
+        f"[bg][hl]overlay=0:0:enable='gte(t,0.6)'[step1];"
+        f"[step1][pill]overlay=0:0:enable='gte(t,1.6)'[step2];"
+        f"[step2][b1]overlay=0:0:enable='gte(t,3.2)'[step3];"
+        f"[step3][b2]overlay=0:0:enable='gte(t,5.0)'[v]"
+    )
 
     cmd = [
-        ffmpeg_bin,
-        "-y",
-        "-loop", "1",
-        "-i", image_path,
-        "-i", audio_path,
+        "ffmpeg", "-y",
+        "-loop", "1", "-i", bg_img,
+        "-loop", "1", "-i", hl_img,
+        "-loop", "1", "-i", pill_img,
+        "-loop", "1", "-i", b1_img,
+        "-loop", "1", "-i", b2_img,
+    ]
+
+    if has_audio:
+        fade_start = max(0.0, duration - 0.8)
+        audio_filter = f"afade=t=out:st={fade_start:.2f}:d=0.8"
+        cmd += [
+            "-stream_loop", "-1",
+            "-i", audio_path,
+            "-filter_complex", f"{filter_complex};[5:a]{audio_filter}[a]",
+            "-map", "[v]",
+            "-map", "[a]",
+        ]
+    else:
+        cmd += [
+            "-filter_complex", filter_complex,
+            "-map", "[v]",
+        ]
+
+    cmd += [
+        "-t", str(duration),
         "-c:v", "libx264",
-        "-tune", "stillimage",
-        "-r", "30",                         # Force constant 30 fps
-        "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2", # Strictly 9:16
+        "-preset", "fast",
+        "-crf", "20",
         "-c:a", "aac",
         "-b:a", "192k",
-        "-ar", "44100",                     # Standard 44.1kHz audio sampling
-        "-pix_fmt", "yuv420p",
-        "-movflags", "+faststart",          # Moves moov atom to front for web/Meta streaming
-        "-t", str(duration),
-        "-shortest",
+        "-movflags", "+faststart",
         output_video_path
     ]
 
-    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    print(f"✅ Reel video ready: {output_video_path}")
-    return output_video_path
+    print(f"🎬 Rendering Reel with Staggered Elements ({duration}s, mood: {mood})...")
+    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    if res.returncode != 0:
+        raise RuntimeError(f"FFmpeg error: {res.stderr.decode('utf-8', errors='ignore')[-400:]}")
+
+    print(f"✅ Finished reel: {output_video_path} ({duration}s)")
+    return os.path.abspath(output_video_path)
