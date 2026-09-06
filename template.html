@@ -20,7 +20,7 @@
       position: relative;
     }
 
-    /* 1. Background Photo (Only this will zoom) */
+    /* 1. Background Photo (Only plate that zooms) */
     .bg-image {
       position: absolute;
       top: 0;
@@ -30,9 +30,10 @@
       object-fit: cover;
       object-position: center;
       z-index: 1;
+      display: block;
     }
 
-    /* 2. Studio Scrim: Keeps the photo authentic, rich, and high-contrast */
+    /* 2. Studio Scrim: Keeps the background photo authentic while providing text contrast */
     .studio-scrim {
       position: absolute;
       top: 0;
@@ -49,7 +50,7 @@
       z-index: 2;
     }
 
-    /* 3. Broadcast Container: Structured naturally from top to bottom */
+    /* 3. Broadcast Container */
     .broadcast-container {
       position: relative;
       z-index: 10;
@@ -61,14 +62,14 @@
       justify-content: flex-start;
     }
 
-    /* Top Bar: Clean, pinned, and clear of phone UI */
+    /* Top Bar: Fixed at top, with 145px space below to push text into the reading sweet spot */
     .top-bar {
       display: flex;
       align-items: center;
       justify-content: space-between;
       width: 100%;
       height: 120px;
-      margin-bottom: 70px;
+      margin-bottom: 180px;
     }
 
     .brand-logo {
@@ -91,7 +92,7 @@
       text-transform: uppercase;
     }
 
-    /* Editorial Text Content Area: Placed in the upper-middle visual quadrant */
+    /* Editorial Text Content Area */
     .editorial-content {
       width: 100%;
       max-width: 900px;
@@ -100,24 +101,24 @@
       text-align: left;
     }
 
-    /* Headline Cadence: Crisp, cohesive, authoritative */
+    /* Headline: Proper line heights with 36px breathing room below */
     .headline-wrap {
       display: flex;
       flex-direction: column;
-      line-height: 1.12;
-      margin-bottom: 24px;
+      line-height: 1.15;
+      margin-bottom: 40px;
     }
 
     .headline-part1 {
       color: #FFFFFF;
-      font-size: 82px;
+      font-size: 80px;
       font-weight: 900;
       letter-spacing: -0.5px;
       text-shadow: 0 3px 10px rgba(0, 0, 0, 0.95);
     }
 
     .headline-part2 {
-      font-size: 92px;
+      font-size: 90px;
       font-weight: 900;
       letter-spacing: -0.5px;
       text-shadow: 0 3px 10px rgba(0, 0, 0, 0.95);
@@ -144,7 +145,7 @@
 
     /* Context Hook Pill */
     .hook-pill-wrap {
-      margin-bottom: 22px;
+      margin-bottom: 24px;
       display: flex;
     }
 
@@ -163,14 +164,14 @@
       width: 120px;
       height: 4px;
       border-radius: 2px;
-      margin-bottom: 26px;
+      margin-bottom: 34px;
     }
 
-    /* Bullet Points */
+    /* Bullet Points: 28px gap for clean separation */
     .bullet-wrap {
       display: flex;
       flex-direction: column;
-      gap: 18px;
+      gap: 28px;
       width: 100%;
     }
 
@@ -202,14 +203,15 @@
     }
 
     /* Multi-Plate Capture Modes */
-    /* 1. Raw photo only */
+    /* 1. Raw photo only: Keeps bg-image 100% visible and block-level */
+    body.mode-raw-bg .bg-image { display: block !important; }
     body.mode-raw-bg .studio-scrim,
     body.mode-raw-bg .top-bar,
-    body.mode-raw-bg .editorial-content { visibility: hidden !important; }
+    body.mode-raw-bg .editorial-content { display: none !important; }
 
-    /* 2. Fixed Frame Only (Scrim + Logo + Badge — strictly zero zoom) */
-    body.mode-frame .bg-image,
-    body.mode-frame .editorial-content { visibility: hidden !important; }
+    /* 2. Fixed Frame Only: bg-image removed completely, frame rendered on transparent base */
+    body.mode-frame .bg-image { display: none !important; }
+    body.mode-frame .editorial-content { display: none !important; }
 
     /* 3. Text Overlays */
     body.mode-hl .bg-image,

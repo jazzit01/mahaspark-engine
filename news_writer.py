@@ -12,25 +12,30 @@ client = genai.Client(api_key=GEMINI_API_KEY)
 
 EDITORIAL_SYSTEM_INSTRUCTION = """
 You are the Chief Editor of MahaSpark News.
-Transform raw news input into grammatically complete, high-impact, professional Marathi news cards.
+Transform raw news input into grammatically complete, fact-rich, high-impact Marathi news broadcast cards.
 
-STRICT EDITORIAL RULES:
-1. HEADLINE (Continuous Natural Sentence):
-   - 'headline_part1' (White text): Primary subject, entity, or location (e.g., "पुण्यात भीषण अपघात,", "मनोज जरांगे पाटलांचा").
-   - 'headline_part2' (Yellow text): Direct active-verb action or consequence (e.g., "कंटेनरने ५ वाहनांना उडवले!", "सरकारला नवा इशारा जाहीर!").
-   - Together they MUST form ONE complete, grammatical Marathi headline sentence.
+STRICT EDITORIAL & FACT-DELIVERY RULES:
+1. NO VAGUE EUPHEMISMS OR EMPTY FILLER:
+   - STRICTLY FORBIDDEN: Do not write vague phrases like "टोकाचे पाऊल उचलले", "अचानक काहीतरी घडले", "पोलीस अधिक तपास करत आहेत", or "हळहळ व्यक्त होत आहे" without concrete context.
+   - MANDATORY: State the exact concrete facts: What actually happened? (उदा. गळफास घेऊन आत्महत्या, इमारतीवरून उडी मारून जीवन संपवले, ५ लाखांची लाच स्वीकारताना रंगेहात अटक, कंटेनरने दुचाकीला चिरडले).
 
-2. HOOK PILL:
-   - A punchy 4 to 7 word factual context tag or crucial stat (e.g., "३ जणांचा जागीच मृत्यू, १० जखमी").
+2. HEADLINE (Continuous Grammatical Sentence):
+   - 'headline_part1' (White text): Primary subject, entity, or specific location (e.g., "पुण्यातील हिंजवडीत,", "मनोज जरांगे पाटलांचा").
+   - 'headline_part2' (Yellow text): The direct, specific event or breaking action (e.g., "IT इंजिनिअरची गळफास घेऊन आत्महत्या!", "सरकारला आंदोलनाचा नवा इशारा!").
+   - Together they MUST form ONE complete, clear Marathi headline.
 
-3. BULLET POINTS (Strictly 2 Focused Points):
+3. HOOK PILL (Cause / Trigger / Stat):
+   - A punchy 4 to 7 word factual context tag revealing the trigger, reason, or primary impact (e.g., "कामाच्या तणावातून उचलले पाऊल", "३ जणांचा जागीच मृत्यू, १० जखमी").
+   - Must NOT merely repeat the headline.
+
+4. BULLET POINTS (Strictly 2 Fact-Packed Points):
    - Exactly 2 bullets. Both must be complete, well-formed Marathi sentences (12 to 18 words).
-   - Bullet 1 (काय घडले व तपशील): The core incident, key facts, numbers, casualties, or exact spot.
-   - Bullet 2 (कारवाई व सद्यस्थिती): Official reaction, police/court action, hospital status, or next steps.
+   - Bullet 1 (घटना, व्यक्ती व अचूक ठिकाण): The concrete incident detail—who was the person/vehicle, exact society/locality/spot, and the exact method or occurrence.
+   - Bullet 2 (शोध, कारण, गुन्हा किंवा कारवाई): The investigation detail—suicide note findings, FIR/arrest sections, family/police statements, or hospital status. Never use generic closing filler.
    - Highlight strictly 1 key phrase per bullet in <span class="hl">...</span>.
 
-4. AUDIO MOOD RULES:
-   - 'serious': STRICTLY natural disasters, fatal casualties, and deaths only.
+5. AUDIO MOOD RULES:
+   - 'serious': STRICTLY fatal casualties, suicides, and deaths only.
    - 'crime': Police arrests, FIRs, raids, court rulings, scams, fraud.
    - 'breaking': Accidents, sudden tragedies, hospitalizations, major political developments, urgent alerts.
    - 'upbeat': Sports victories, achievements, festivals, welfare bonuses.
@@ -55,12 +60,12 @@ def generate_news_content(raw_news_text_or_topic: str) -> dict:
     Analyze and output STRICT valid JSON:
     {{
       "badge": "Short Marathi category (e.g. मोठी बातमी, राजकीय, क्राईम डायरी, पुणे विशेष)",
-      "headline_part1": "Subject or Location (White text, 2-4 words)",
-      "headline_part2": "Action or Result completing the sentence (Yellow text, active verb)",
-      "hook_pill": "Factual highlight or impact (4-7 words)",
+      "headline_part1": "Subject or specific location (White text, 2-4 words)",
+      "headline_part2": "Specific incident/action completing the sentence (Yellow text)",
+      "hook_pill": "Factual trigger, reason or impact stat (4-7 words)",
       "bullets": [
-        {{"icon": "⚡", "text": "घडलेल्या घटनेचे व तपशीलाचे पहिले स्पष्ट पूर्ण वाक्य ज्यात <span class=\\"hl\\">मुख्य माहिती</span> असेल."}},
-        {{"icon": "🚨", "text": "प्रशासन, पोलीस कारवाई किंवा सद्यस्थितीचे दुसरे पूर्ण वाक्य ज्यात <span class=\\"hl\\">सद्यस्थिती</span> असेल."}}
+        {{"icon": "⚡", "text": "घडलेली नेमकी घटना, व्यक्ती व परिसराचा अचूक तपशील देणारे पूर्ण वाक्य ज्यात <span class=\\"hl\\">नेमकी घटना</span> असेल."}},
+        {{"icon": "🚨", "text": "पोलीस तपास, सुसाईड नोट/FIR, प्रत्यक्ष कारण किंवा पुढील कारवाईचे माहितीपूर्ण वाक्य ज्यात <span class=\\"hl\\">कारवाई/तपास</span> असेल."}}
       ],
       "audio_mood": "serious | crime | breaking | upbeat | neutral",
       "is_real_person_or_event": true,
