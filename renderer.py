@@ -1,5 +1,6 @@
 import json
 import os
+import random
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
@@ -22,7 +23,7 @@ def render_news_tile(pack: dict, output_path: str = "output/post.png") -> dict:
   }
 
   bullets = pack.get("bullets", [])[:2]
-  theme = pack.get("headline_theme", "yellow")
+  theme = random.choice(["yellow", "red"])
 
   with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)

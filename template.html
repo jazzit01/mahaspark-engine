@@ -33,6 +33,7 @@
       display: block;
     }
 
+<<<<<<< HEAD
     /* 2. Studio Scrim: Keeps the background photo authentic while providing text contrast */
     .studio-scrim {
       position: absolute;
@@ -52,6 +53,9 @@
     }
 
     /* 3. Broadcast Container */
+=======
+    /* 2. Broadcast Container */
+>>>>>>> 3ecd00d (feat: enhance news tile rendering with random theme selection and update video renderer zoom filter)
     .broadcast-container {
       position: relative;
       z-index: 10;
@@ -74,7 +78,11 @@
     }
 
     .brand-logo {
+<<<<<<< HEAD
       height: 130px;
+=======
+      height: 120px;
+>>>>>>> 3ecd00d (feat: enhance news tile rendering with random theme selection and update video renderer zoom filter)
       width: auto;
       max-width: 400px;
       object-fit: contain;
@@ -206,7 +214,6 @@
     /* Multi-Plate Capture Modes */
     /* 1. Raw photo only: Keeps bg-image 100% visible and block-level */
     body.mode-raw-bg .bg-image { display: block !important; }
-    body.mode-raw-bg .studio-scrim,
     body.mode-raw-bg .top-bar,
     body.mode-raw-bg .editorial-content { display: none !important; }
 
@@ -216,21 +223,18 @@
 
     /* 3. Text Overlays */
     body.mode-hl .bg-image,
-    body.mode-hl .studio-scrim,
     body.mode-hl .top-bar,
     body.mode-hl .hook-pill-wrap,
     body.mode-hl .broadcast-divider,
     body.mode-hl .bullet-wrap { visibility: hidden !important; }
 
     body.mode-pill .bg-image,
-    body.mode-pill .studio-scrim,
     body.mode-pill .top-bar,
     body.mode-pill .headline-wrap,
     body.mode-pill .broadcast-divider,
     body.mode-pill .bullet-wrap { visibility: hidden !important; }
 
     body.mode-b1 .bg-image,
-    body.mode-b1 .studio-scrim,
     body.mode-b1 .top-bar,
     body.mode-b1 .headline-wrap,
     body.mode-b1 .hook-pill-wrap,
@@ -238,7 +242,6 @@
     body.mode-b1 #bullet-1 { visibility: hidden !important; }
 
     body.mode-b2 .bg-image,
-    body.mode-b2 .studio-scrim,
     body.mode-b2 .top-bar,
     body.mode-b2 .headline-wrap,
     body.mode-b2 .hook-pill-wrap,
@@ -251,9 +254,7 @@
   <!-- Background Photo (Only plate that moves) -->
   <img id="bg-img" class="bg-image" src="" alt="Background" />
 
-  <!-- Fixed Broadcast Scrim & UI -->
-  <div class="studio-scrim"></div>
-
+  <!-- Fixed Broadcast UI -->
   <div class="broadcast-container">
     <div class="top-bar">
       <img id="logo-img" class="brand-logo" src="" alt="MahaSpark" />

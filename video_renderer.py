@@ -48,6 +48,7 @@ def create_news_reel(
 
   # Ken Burns micro-zoom strictly on the raw background photo
   zoom_filter = (
+      f"boxblur=2:1,"
       f"scale=4320:-2,"
       f"zoompan=z='min(zoom+0.0003,1.035)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={total_frames}:s=1080x1920:fps={fps},"
       f"format=yuva420p"
@@ -55,7 +56,7 @@ def create_news_reel(
 
   # Multi-plate stacking:
   # [0:v] raw photo zooms
-  # [1:v] frame (logo + badge + scrim) stays 100% locked
+    # [1:v] frame (logo + badge) stays 100% locked
   # [2:v] to [5:v] text overlays stack cumulatively
   filter_complex = (
       f"[0:v]{zoom_filter}[zoomed_bg];"
