@@ -87,7 +87,7 @@ def render_news_tile(pack: dict, output_path: str = "output/post.png") -> dict:
     page.evaluate(f"document.body.className = 'mode-raw-bg theme-{theme}';")
     page.screenshot(path=layer_paths["raw_bg"])
 
-    # 3. Fixed Frame Only (Logo + Badge + Scrim, 100% transparent and static)
+    # 3. Fixed Frame Only (Logo + Badge, 100% transparent and static)
     page.evaluate(f"document.body.className = 'mode-frame theme-{theme}';")
     page.screenshot(path=layer_paths["frame"], omit_background=True)
 

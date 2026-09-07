@@ -216,7 +216,7 @@ It then changes the body class and captures each layer independently:
 ```text
 mode-all       -> full preview
 mode-raw-bg    -> raw background
-mode-frame     -> scrim + logo + badge
+mode-frame     -> logo + badge
 mode-hl        -> headline
 mode-pill      -> hook pill
 mode-b1        -> first bullet
@@ -326,19 +326,6 @@ Defined in `template.html` and in Playwright in `renderer.py`.
 ```
 
 This is the only moving visual layer.
-
-#### Layer 2: Studio scrim
-
-A full-canvas vertical gradient:
-
-```text
-Top:    rgba(7, 10, 20, 0.70)
-25%:    rgba(7, 10, 20, 0.25)
-55%:    rgba(7, 10, 20, 0.75)
-Bottom: rgba(7, 10, 20, 0.95)
-```
-
-It is included in the static frame plate.
 
 #### Layer 10: Broadcast content
 
@@ -487,7 +474,7 @@ The final FFmpeg stack is:
 
 ```text
 raw background with zoom
-  -> static frame: scrim + logo + badge
+  -> static frame: logo + badge
   -> headline
   -> hook pill
   -> bullet 1
@@ -520,6 +507,12 @@ When audio exists, input 6 is the mood MP3 and uses:
 ```
 
 ### Background animation
+
+```text
+boxblur=2:1
+```
+
+Applies a subtle blur to the raw background before scaling and zooming. Text and graphic plates remain sharp because they are separate overlay inputs.
 
 ```text
 scale=4320:-2
@@ -732,7 +725,6 @@ Key layout selectors:
 
 ```text
 .bg-image
-.studio-scrim
 .broadcast-container
 .top-bar
 .brand-logo
