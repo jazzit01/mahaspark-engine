@@ -13,6 +13,18 @@ AUDIO_MOOD_MAP = {
 DURATION_POOL = [9.9, 10.15, 11.6, 12.12, 13.0, 14.2, 14.9]
 
 
+def get_mood_timing(mood: str) -> float:
+  mood_key = str(mood or "neutral").lower()
+  durations = {
+      "serious": 12.2,
+      "crime": 11.4,
+      "breaking": 10.6,
+      "upbeat": 9.8,
+      "neutral": 10.8,
+  }
+  return durations.get(mood_key, 10.8)
+
+
 def create_news_reel(
     layers: dict,
     mood: str = "neutral",
@@ -39,7 +51,7 @@ def create_news_reel(
 
   os.makedirs(os.path.dirname(output_video_path), exist_ok=True)
 
-  duration = random.choice(DURATION_POOL)
+  duration = get_mood_timing(mood)
   fps = 30
   total_frames = int(duration * fps)
 

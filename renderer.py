@@ -1,11 +1,21 @@
 import json
 import os
-import random
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 TEMPLATE_PATH = Path("template.html").resolve()
 LOGO_PATH = Path("assets/images/logo.png").resolve()
+
+
+def pick_theme_from_mood(pack: dict) -> str:
+  mood = str(pack.get("audio_mood", "neutral")).lower()
+  return {
+      "serious": "red",
+      "crime": "red",
+      "breaking": "yellow",
+      "upbeat": "yellow",
+      "neutral": "yellow",
+  }.get(mood, "yellow")
 
 
 def render_news_tile(pack: dict, output_path: str = "output/post.png") -> dict:
@@ -22,8 +32,19 @@ def render_news_tile(pack: dict, output_path: str = "output/post.png") -> dict:
       "b2": f"{base_stem}_b2.png",
   }
 
-  bullets = pack.get("bullets", [])[:2]
-  theme = random.choice(["yellow", "red"])
+  if not isinstance(pack, dict):
+    raise ValueError("News pack must be a dictionary.")
+
+  required = ["badge", "headline_part1", "headline_part2", "hook_pill", "bullets"]
+  for field in required:
+    if field not in pack or pack.get(field) in (None, ""):
+      raise ValueError(f"Render input missing required field: {field}")
+
+  bullets = (pack.get("bullets") or [])[:2]
+  if len(bullets) < 2:
+    raise ValueError("At least two bullet points are required for render.")
+
+  theme = pick_theme_from_mood(pack)
 
   with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
