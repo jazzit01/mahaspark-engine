@@ -10,7 +10,7 @@ AUDIO_MOOD_MAP = {
     "neutral": "assets/audio/neutral.mp3",
 }
 
-DURATION_POOL = [9.9, 10.15, 11.6, 12.12, 13.0, 14.2, 14.9]
+DURATION_POOL = [5.9, 8.15, 6.6, 7.12, 8.12, 7.2, 6.9,8.5, 9.0, 7.8, 6.5, 8.0, 7.5, 6.8, 7.0, 8.3, 9.1, 7.4, 6.7, 8.2]
 
 
 def get_mood_timing(mood: str) -> float:
