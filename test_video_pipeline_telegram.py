@@ -30,8 +30,8 @@ def run_telegram_video_test(
   print("🧪 Generating test news package...")
   pack = generate_news_content(news_input)
 
-  print("🎨 Selecting production background asset...")
-  pack["background_path"] = generate_ai_background()
+  print("🎨 Generating custom AI background asset...")
+  pack["background_path"] = generate_ai_background(pack.get("visual_prompt", ""))
 
   preview_path = output_video_path.replace(".mp4", ".png")
   layers = render_news_tile(pack, preview_path)

@@ -58,30 +58,30 @@ def create_news_reel(
   audio_path = AUDIO_MOOD_MAP.get(mood.lower(), AUDIO_MOOD_MAP["neutral"])
   has_audio = os.path.exists(audio_path)
 
-  # Ken Burns micro-zoom strictly on the raw background photo
+  # Dynamic Zoom: Starts slightly faster, then slows down for a "hook" effect
+  # Also reduced blur slightly for better clarity on high-end devices
   zoom_filter = (
-      f"boxblur=2:1,"
-      f"scale=4320:-2,"
-      f"zoompan=z='min(zoom+0.0003,1.035)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={total_frames}:s=1080x1920:fps={fps},"
+      f"scale=3840:-2,"
+      f"boxblur=1:1,"
+      f"zoompan=z='min(zoom+0.0006,1.15)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={total_frames}:s=1080x1920:fps={fps},"
       f"format=yuva420p"
   )
 
-  # Multi-plate stacking:
-  # [0:v] raw photo zooms
-    # [1:v] frame (logo + badge) stays 100% locked
-  # [2:v] to [5:v] text overlays stack cumulatively
+  # Simplified, extremely compatible filtergraph
   filter_complex = (
       f"[0:v]{zoom_filter}[zoomed_bg];"
       f"[1:v]format=yuva420p[static_frame];"
-      f"[2:v]format=yuva420p,fade=t=in:st=0.6:d=0.35:alpha=1[hl];"
-      f"[3:v]format=yuva420p,fade=t=in:st=1.6:d=0.35:alpha=1[pill];"
-      f"[4:v]format=yuva420p,fade=t=in:st=3.0:d=0.35:alpha=1[b1];"
-      f"[5:v]format=yuva420p,fade=t=in:st=4.6:d=0.35:alpha=1[b2];"
-      f"[zoomed_bg][static_frame]overlay=0:0:eof_action=pass:repeatlast=1[base];"
-      f"[base][hl]overlay=0:0:eof_action=pass:repeatlast=1[s1];"
-      f"[s1][pill]overlay=0:0:eof_action=pass:repeatlast=1[s2];"
-      f"[s2][b1]overlay=0:0:eof_action=pass:repeatlast=1[s3];"
-      f"[s3][b2]overlay=0:0:eof_action=pass:repeatlast=1[v]"
+      f"[2:v]format=yuva420p,fade=t=in:st=0.4:d=0.2:alpha=1[hl];"
+      f"[3:v]format=yuva420p,fade=t=in:st=1.2:d=0.2:alpha=1[pill];"
+      f"[4:v]format=yuva420p,fade=t=in:st=2.3:d=0.2:alpha=1[b1];"
+      f"[5:v]format=yuva420p,fade=t=in:st=3.6:d=0.2:alpha=1[b2];"
+      f"[zoomed_bg][static_frame]overlay=0:0[base];"
+      f"[base][hl]overlay=0:0[s1];"
+      f"[s1][pill]overlay=0:0[s2];"
+      f"[s2][b1]overlay=0:0[s3];"
+      f"[s3][b2]overlay=0:0[v_stacked];"
+      f"[v_stacked]vignette=angle=0.3[v_vignette];"
+      f"[v_vignette]eq=contrast=1.1:brightness=-0.05:saturation=1.1[v]"
   )
 
   cmd = [

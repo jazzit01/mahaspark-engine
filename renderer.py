@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+
 from playwright.sync_api import sync_playwright
 
 TEMPLATE_PATH = Path("template.html").resolve()
@@ -88,11 +89,10 @@ def render_news_tile(pack: dict, output_path: str = "output/post.png") -> dict:
 
     bullet_html = ""
     for idx, b in enumerate(bullets):
-      icon = b.get("icon", "⚡")
       text = b.get("text", "")
       bullet_html += f"""
             <div class="bullet-row" id="bullet-{idx}">
-              <div class="bullet-icon">{icon}</div>
+              <div class="bullet-icon"></div>
               <div class="bullet-text">{text}</div>
             </div>
             """
@@ -104,9 +104,13 @@ def render_news_tile(pack: dict, output_path: str = "output/post.png") -> dict:
     page.evaluate(f"document.body.className = 'mode-all theme-{theme}';")
     page.screenshot(path=layer_paths["full"])
 
-    # 2. Raw Photo Only (This plate is the only one sent to zoompan)
+
+    # 2. Raw Photo Only + Overlay (This plate is the only one sent to zoompan)
+    # We hide the overlay during the raw capture to allow FFmpeg to handle vignette
+    page.evaluate("document.querySelector('.bg-overlay').style.display = 'none';")
     page.evaluate(f"document.body.className = 'mode-raw-bg theme-{theme}';")
     page.screenshot(path=layer_paths["raw_bg"])
+    page.evaluate("document.querySelector('.bg-overlay').style.display = 'block';")
 
     # 3. Fixed Frame Only (Logo + Badge, 100% transparent and static)
     page.evaluate(f"document.body.className = 'mode-frame theme-{theme}';")
