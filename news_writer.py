@@ -69,7 +69,8 @@ NON-NEGOTIABLE QUALITY RULES:
 # Check the exact model names and your real limits at https://aistudio.google.com (Rate limits).
 CANDIDATE_MODELS = [
     m.strip()
-    for m in get_env_value("GEMINI_MODELS", "gemini-3.5-flash-lite,gemini-3.1-flash-lite").split(",")
+    # "or" matters: GitHub Actions passes an unset variable as an empty string, not as "missing".
+    for m in (get_env_value("GEMINI_MODELS") or "gemini-3.5-flash-lite,gemini-3.1-flash-lite").split(",")
     if m.strip()
 ]
 
@@ -271,7 +272,7 @@ def _build_attempts() -> list:
     api_key = get_env_value(provider["key_env"])
     if not api_key:
       continue
-    model = get_env_value(provider["model_env"], provider["default_model"])
+    model = get_env_value(provider["model_env"]) or provider["default_model"]
     attempts.append(
         (
             provider["name"],

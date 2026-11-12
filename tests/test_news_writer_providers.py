@@ -116,3 +116,33 @@ def test_json_error_position_429_is_not_mistaken_for_quota():
     err = json.JSONDecodeError("Expecting ',' delimiter", "x" * 500, 429)
     assert str(err).count("429") >= 1
     assert not news_writer._is_quota_error(Exception("Expecting ',' delimiter: line 1 column 430 (char 429)"))
+
+
+def test_empty_env_values_fall_back_to_defaults(monkeypatch):
+    """GitHub Actions passes unset variables as empty strings."""
+    import importlib
+
+    monkeypatch.setenv("GEMINI_MODELS", "")
+    monkeypatch.setenv("GROQ_MODEL", "")
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq")
+    reloaded = importlib.reload(news_writer)
+    try:
+        assert reloaded.CANDIDATE_MODELS == ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]
+        attempts = reloaded._build_attempts()
+        assert [(p, m) for p, m, _ in attempts] == [("groq", "llama-3.3-70b-versatile")]
+    finally:
+        monkeypatch.delenv("GEMINI_MODELS", raising=False)
+        monkeypatch.delenv("GROQ_MODEL", raising=False)
+        importlib.reload(news_writer)
+
+
+def test_gemini_models_override_is_respected(monkeypatch):
+    import importlib
+
+    monkeypatch.setenv("GEMINI_MODELS", "model-a, model-b")
+    reloaded = importlib.reload(news_writer)
+    try:
+        assert reloaded.CANDIDATE_MODELS == ["model-a", "model-b"]
+    finally:
+        monkeypatch.delenv("GEMINI_MODELS", raising=False)
+        importlib.reload(news_writer)
