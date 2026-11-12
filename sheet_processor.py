@@ -11,7 +11,6 @@ from news_writer import LLMUnavailableError, generate_news_content
 from renderer import render_news_tile
 from video_renderer import create_news_reel
 from telegram_notifier import send_news_video
-from instagram_publisher import post_reel_to_instagram
 
 SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "1Hoq6Qshq7RZNh3cV7AmmUqVbF1ULnwXqf1uaU4_FlC4")
 CREDS_FILE = "credentials.json"
@@ -20,6 +19,11 @@ CREDS_FILE = "credentials.json"
 def get_sheet_client():
     gc = gspread.service_account(filename=CREDS_FILE)
     return gc.open_by_key(SHEET_ID).sheet1
+
+
+def instagram_enabled() -> bool:
+    """Instagram auto-posting is opt-in. Anything other than 'true' keeps it off."""
+    return os.getenv("ENABLE_INSTAGRAM", "").strip().lower() == "true"
 
 
 def cleanup_temp_outputs(row_index: int):
@@ -107,17 +111,24 @@ def run_autonomous_pipeline():
                 # Step F: Dispatch to Telegram
                 tg_success = send_news_video(video_path, pack)
 
-                # Step G: Publish to Instagram Reels
-                ig_success = False
-                try:
-                    post_reel_to_instagram(video_path, caption_text)
-                    ig_success = True
-                except Exception as ig_err:
-                    print(f"⚠️ Instagram Reel error: {ig_err}")
+                # Step G: Publish to Instagram Reels (OFF by default: Telegram only).
+                # Turn it back on with the repository variable ENABLE_INSTAGRAM=true.
+                ig_status = "OFF"
+                if instagram_enabled():
+                    try:
+                        from instagram_publisher import post_reel_to_instagram
+
+                        post_reel_to_instagram(video_path, caption_text)
+                        ig_status = "OK"
+                    except Exception as ig_err:
+                        ig_status = "FAIL"
+                        print(f"⚠️ Instagram Reel error: {ig_err}")
+                else:
+                    print("⏭️ Instagram posting is off (ENABLE_INSTAGRAM is not 'true'). Telegram only.")
 
                 # Step H: Update Status in Sheet
                 sheet.update_cell(i, 1, "DONE")
-                status_msg = f"SUCCESS - Telegram: {'OK' if tg_success else 'FAIL'} | IG Reel: {'OK' if ig_success else 'FAIL'}"
+                status_msg = f"SUCCESS - Telegram: {'OK' if tg_success else 'FAIL'} | IG Reel: {ig_status}"
                 sheet.update_cell(i, 13, status_msg)
 
                 # Step I: Delete temp images and video immediately after dispatch
