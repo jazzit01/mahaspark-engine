@@ -1,12 +1,13 @@
 import glob
 import json
 import os
+import sys
 import time
 import gspread
 
 from image_generator import generate_ai_background
 from news_fetcher import fetch_and_queue_news
-from news_writer import generate_news_content
+from news_writer import LLMUnavailableError, generate_news_content
 from renderer import render_news_tile
 from video_renderer import create_news_reel
 from telegram_notifier import send_news_video
@@ -57,6 +58,8 @@ def run_autonomous_pipeline():
     headers = [h.strip() for h in all_rows[0]]
     status_col_idx = headers.index("Status") if "Status" in headers else 0
     raw_col_idx = headers.index("Raw_News_Input") if "Raw_News_Input" in headers else 1
+
+    providers_unavailable = False
 
     for i, row in enumerate(all_rows[1:], start=2):
         status = row[status_col_idx].strip().upper() if len(row) > status_col_idx else ""
@@ -122,6 +125,16 @@ def run_autonomous_pipeline():
                 print(f"🧹 Cleaned up temporary files for row {i}")
                 print(f"✅ Row {i} completed!")
 
+            except LLMUnavailableError as e:
+                # The story is fine, no AI provider could be used. Put it back in the queue (not
+                # ERROR, which is never retried) and stop: every other row would fail the same way.
+                err_msg = f"AI unavailable, will retry next run: {str(e)[:220]}"
+                print(f"⏸️ Row {i} returned to PENDING. {err_msg}")
+                sheet.update_cell(i, 1, "PENDING")
+                sheet.update_cell(i, 13, err_msg)
+                providers_unavailable = True
+                break
+
             except Exception as e:
                 err_msg = f"{type(e).__name__}: {str(e)[:250]}"
                 print(f"❌ Error on row {i}: {err_msg}")
@@ -129,6 +142,11 @@ def run_autonomous_pipeline():
                 sheet.update_cell(i, 13, err_msg)
 
             time.sleep(4)
+
+    if providers_unavailable:
+        # Make the GitHub Actions run show as failed (and email you) instead of a misleading green tick.
+        print("❌ No AI provider could be used in this run. Check the API keys and model names above.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

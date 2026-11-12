@@ -129,7 +129,10 @@ def test_empty_env_values_fall_back_to_defaults(monkeypatch):
     try:
         assert reloaded.CANDIDATE_MODELS == ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]
         attempts = reloaded._build_attempts()
-        assert [(p, m) for p, m, _ in attempts] == [("groq", "llama-3.3-70b-versatile")]
+        assert [(p, m) for p, m, _ in attempts] == [
+            ("groq", "openai/gpt-oss-120b"),
+            ("groq", "openai/gpt-oss-20b"),
+        ]
     finally:
         monkeypatch.delenv("GEMINI_MODELS", raising=False)
         monkeypatch.delenv("GROQ_MODEL", raising=False)
@@ -146,3 +149,46 @@ def test_gemini_models_override_is_respected(monkeypatch):
     finally:
         monkeypatch.delenv("GEMINI_MODELS", raising=False)
         importlib.reload(news_writer)
+
+
+def test_display_names_are_converted_to_api_ids():
+    assert news_writer._normalize_gemini_model("Gemini 3.1 Flash Lite") == "gemini-3.1-flash-lite"
+    assert news_writer._normalize_gemini_model("models/gemini-2.5-flash") == "gemini-2.5-flash"
+
+
+def test_rejected_key_skips_provider_once_and_missing_model_skips_only_that_model(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq")
+    monkeypatch.setenv("CEREBRAS_API_KEY", "test-cerebras")
+    calls = []
+
+    def fake(provider, key, model, prompt):
+        calls.append((provider["name"], model))
+        if provider["name"] == "groq":
+            raise RuntimeError("HTTP 401: invalid api key")
+        if model == "gpt-oss-120b":
+            raise RuntimeError("HTTP 404: model does not exist")
+        return good_reply()
+
+    monkeypatch.setattr(news_writer, "_call_openai_compatible", fake)
+    news_writer.generate_news_content("row one")
+    news_writer.generate_news_content("row two")
+
+    assert [c for c in calls if c[0] == "groq"] == [("groq", "openai/gpt-oss-120b")]
+    assert calls.count(("cerebras", "gpt-oss-120b")) == 1
+    assert calls.count(("cerebras", "llama-3.3-70b")) == 2
+
+
+def test_provider_outage_raises_llm_unavailable_but_bad_content_does_not(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq")
+    monkeypatch.setattr(
+        news_writer, "_call_openai_compatible",
+        lambda *a: (_ for _ in ()).throw(RuntimeError("HTTP 401: invalid api key")),
+    )
+    with pytest.raises(news_writer.LLMUnavailableError):
+        news_writer.generate_news_content("some news")
+
+    news_writer._EXHAUSTED.clear()
+    monkeypatch.setattr(news_writer, "_call_openai_compatible", lambda *a: "not json")
+    with pytest.raises(Exception) as info:
+        news_writer.generate_news_content("some news")
+    assert not isinstance(info.value, news_writer.LLMUnavailableError)
