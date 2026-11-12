@@ -64,24 +64,41 @@ NON-NEGOTIABLE QUALITY RULES:
    - 'neutral': General administrative schemes, agriculture, weather.
 """
 
+def _split_models(value: str) -> list:
+    return [m.strip() for m in (value or "").split(",") if m.strip()]
+
+
+def _normalize_gemini_model(name: str) -> str:
+    """Accept the API id ("gemini-3.1-flash-lite") or the name AI Studio displays
+    ("Gemini 3.1 Flash Lite") and return the API id the Gemini API expects."""
+    name = name.strip()
+    if name.lower().startswith("models/"):
+        name = name[len("models/"):]
+    return re.sub(r"\s+", "-", name).lower()
+
+
 # Free-tier friendly order: the Flash-Lite models have a far larger free daily quota than the
 # full Flash models. Override without editing code: GEMINI_MODELS="model-a,model-b".
 # Check the exact model names and your real limits at https://aistudio.google.com (Rate limits).
-CANDIDATE_MODELS = [
-    m.strip()
-    # "or" matters: GitHub Actions passes an unset variable as an empty string, not as "missing".
-    for m in (get_env_value("GEMINI_MODELS") or "gemini-3.5-flash-lite,gemini-3.1-flash-lite").split(",")
-    if m.strip()
-]
+# Note the "or": GitHub Actions passes an unset variable as an empty string, not as "missing".
+CANDIDATE_MODELS = list(
+    dict.fromkeys(
+        _normalize_gemini_model(m)
+        for m in _split_models(get_env_value("GEMINI_MODELS") or "gemini-3.5-flash-lite,gemini-3.1-flash-lite")
+    )
+)
 
 # Extra free providers, tried in this order after Gemini. Each one is used only if its key is set.
 # All three speak the OpenAI chat-completions format, so one small function handles them.
+# Free-tier model names change every few months (Groq retired llama-3.3-70b-versatile for free
+# accounts on 2026-08-16), so each provider has a list: a model that no longer exists is skipped
+# for the run and the next one is tried. Override with e.g. GROQ_MODEL="model-a,model-b".
 OPENAI_COMPATIBLE_PROVIDERS = [
     {
         "name": "groq",
         "key_env": "GROQ_API_KEY",
         "model_env": "GROQ_MODEL",
-        "default_model": "llama-3.3-70b-versatile",
+        "default_models": ["openai/gpt-oss-120b", "openai/gpt-oss-20b"],
         "url": "https://api.groq.com/openai/v1/chat/completions",
         "json_mode": True,
     },
@@ -89,7 +106,7 @@ OPENAI_COMPATIBLE_PROVIDERS = [
         "name": "cerebras",
         "key_env": "CEREBRAS_API_KEY",
         "model_env": "CEREBRAS_MODEL",
-        "default_model": "llama-3.3-70b",
+        "default_models": ["gpt-oss-120b", "llama-3.3-70b"],
         "url": "https://api.cerebras.ai/v1/chat/completions",
         "json_mode": True,
     },
@@ -97,15 +114,22 @@ OPENAI_COMPATIBLE_PROVIDERS = [
         "name": "openrouter",
         "key_env": "OPENROUTER_API_KEY",
         "model_env": "OPENROUTER_MODEL",
-        "default_model": "meta-llama/llama-3.3-70b-instruct:free",
+        "default_models": ["openai/gpt-oss-120b:free", "meta-llama/llama-3.3-70b-instruct:free"],
         "url": "https://openrouter.ai/api/v1/chat/completions",
         "json_mode": False,  # not every free OpenRouter model supports response_format
     },
 ]
 
-# Providers/models whose quota ran out during this run. Skipped for the rest of the run so the
-# remaining rows do not waste calls (and time) on a quota that cannot recover in seconds.
+# Providers/models that cannot be used for the rest of this run (quota used up, key rejected, or
+# model name does not exist). Skipped so the remaining rows do not waste calls and time on
+# something that cannot recover within seconds.
 _EXHAUSTED: set = set()
+
+class LLMUnavailableError(RuntimeError):
+  """No AI provider could be used (quota, bad key, missing model, outage), as opposed to the
+  AI answering with a story that failed the quality rules. The story itself is fine, so the caller
+  should keep it queued and try again later instead of marking it as an error."""
+
 
 VALID_AUDIO_MOODS = {"serious", "crime", "breaking", "upbeat", "neutral"}
 BLOCKED_NEWS_PATTERNS = [
@@ -214,6 +238,35 @@ def _is_quota_error(exc: Exception) -> bool:
   return bool(re.search(r"HTTP 429|RESOURCE_EXHAUSTED|QUOTA|RATE.?LIMIT", text))
 
 
+def _is_auth_error(exc: Exception) -> bool:
+  """True when the provider rejects the API key itself (every model on it will fail the same way)."""
+  if _error_code(exc) in (401, 403):
+    return True
+  text = str(exc).upper()
+  return any(
+      token in text
+      for token in (
+          "API KEY NOT VALID",
+          "INVALID API KEY",
+          "INVALID_API_KEY",
+          "UNAUTHENTICATED",
+          "PERMISSION_DENIED",
+          "HTTP 401",
+          "HTTP 403",
+      )
+  )
+
+
+def _is_model_missing(exc: Exception) -> bool:
+  """True when this model name does not exist (or is not available to this key)."""
+  if _error_code(exc) == 404:
+    return True
+  text = str(exc).upper()
+  return any(
+      token in text for token in ("HTTP 404", "DOES NOT EXIST", "MODEL_NOT_FOUND", "NOT_FOUND", "IS NOT FOUND")
+  )
+
+
 def _is_transient_error(exc: Exception) -> bool:
   """True for short-lived failures worth one quick retry (overload, timeouts)."""
   if _error_code(exc) in (500, 502, 503, 504):
@@ -272,14 +325,15 @@ def _build_attempts() -> list:
     api_key = get_env_value(provider["key_env"])
     if not api_key:
       continue
-    model = get_env_value(provider["model_env"]) or provider["default_model"]
-    attempts.append(
-        (
-            provider["name"],
-            model,
-            lambda prompt, p=provider, k=api_key, m=model: _call_openai_compatible(p, k, m, prompt),
-        )
-    )
+    models = _split_models(get_env_value(provider["model_env"])) or provider["default_models"]
+    for model in dict.fromkeys(models):
+      attempts.append(
+          (
+              provider["name"],
+              model,
+              lambda prompt, p=provider, k=api_key, m=model: _call_openai_compatible(p, k, m, prompt),
+          )
+      )
 
   return attempts
 
@@ -316,16 +370,17 @@ def generate_news_content(raw_news_text_or_topic: str) -> dict:
 
   attempts = _build_attempts()
   if not attempts:
-    raise RuntimeError(
+    raise LLMUnavailableError(
         "No LLM API key configured. Set GEMINI_API_KEY and/or one of GROQ_API_KEY,"
         " CEREBRAS_API_KEY, OPENROUTER_API_KEY (all have free tiers)."
     )
 
   last_error = ""
+  bad_content = False  # True once any model actually answered, but with something unusable
 
   for provider, model_name, call in attempts:
     slot = f"{provider}:{model_name}"
-    # A provider-wide quota (Groq, Cerebras, OpenRouter) is tracked per provider, not per model.
+    # A provider-wide failure (Groq, Cerebras, OpenRouter) is tracked per provider, not per model.
     if slot in _EXHAUSTED or provider in _EXHAUSTED:
       continue
 
@@ -338,6 +393,7 @@ def generate_news_content(raw_news_text_or_topic: str) -> dict:
       except ValueError as e:
         # Bad JSON or failed quality rules: the quota is fine, this model just wrote something
         # unusable. Move on to the next model/provider instead of burning more calls on it.
+        bad_content = True
         last_error = f"[{slot}] {type(e).__name__}: {str(e)}"
         print(f"⚠️ {slot} returned unusable content: {last_error[:160]}")
         break
@@ -352,6 +408,23 @@ def generate_news_content(raw_news_text_or_topic: str) -> dict:
           print(f"⛔ {slot} is out of free quota. Switching provider.")
           break
 
+        if _is_auth_error(e):
+          # The key itself is rejected, so every model on this provider will fail the same way.
+          _EXHAUSTED.add(provider)
+          print(
+              f"🔑 {provider} rejected the API key ({str(e)[:100]}). Skipping {provider} for the"
+              f" rest of this run. Fix the {provider.upper()}_API_KEY secret."
+          )
+          break
+
+        if _is_model_missing(e):
+          _EXHAUSTED.add(slot)
+          print(
+              f"🚫 {slot} does not exist or is not available to this key. Skipping it for the"
+              f" rest of this run. Fix the model name in the {provider.upper()}_MODEL(S) variable."
+          )
+          break
+
         if _is_transient_error(e) and attempt == 0:
           print(f"⚠️ {slot} temporarily unavailable. Retrying once in 3s...")
           time.sleep(3)
@@ -360,6 +433,11 @@ def generate_news_content(raw_news_text_or_topic: str) -> dict:
         print(f"⚠️ Error on {slot}: {last_error[:160]}")
         break
 
-  raise Exception(
-      f"Content generation failed on every configured free provider. Last Error: {last_error}"
+  message = (
+      "Content generation failed on every configured free provider."
+      f" Last Error: {last_error or 'all providers were already unavailable earlier in this run'}"
   )
+  if bad_content:
+    # At least one model answered but nothing passed the quality rules: a problem with this story.
+    raise Exception(message)
+  raise LLMUnavailableError(message)

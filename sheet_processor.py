@@ -1,16 +1,16 @@
 import glob
 import json
 import os
+import sys
 import time
 import gspread
 
 from image_generator import generate_ai_background
 from news_fetcher import fetch_and_queue_news
-from news_writer import generate_news_content
+from news_writer import LLMUnavailableError, generate_news_content
 from renderer import render_news_tile
 from video_renderer import create_news_reel
 from telegram_notifier import send_news_video
-from instagram_publisher import post_reel_to_instagram
 
 SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "1Hoq6Qshq7RZNh3cV7AmmUqVbF1ULnwXqf1uaU4_FlC4")
 CREDS_FILE = "credentials.json"
@@ -19,6 +19,11 @@ CREDS_FILE = "credentials.json"
 def get_sheet_client():
     gc = gspread.service_account(filename=CREDS_FILE)
     return gc.open_by_key(SHEET_ID).sheet1
+
+
+def instagram_enabled() -> bool:
+    """Instagram auto-posting is opt-in. Anything other than 'true' keeps it off."""
+    return os.getenv("ENABLE_INSTAGRAM", "").strip().lower() == "true"
 
 
 def cleanup_temp_outputs(row_index: int):
@@ -57,6 +62,8 @@ def run_autonomous_pipeline():
     headers = [h.strip() for h in all_rows[0]]
     status_col_idx = headers.index("Status") if "Status" in headers else 0
     raw_col_idx = headers.index("Raw_News_Input") if "Raw_News_Input" in headers else 1
+
+    providers_unavailable = False
 
     for i, row in enumerate(all_rows[1:], start=2):
         status = row[status_col_idx].strip().upper() if len(row) > status_col_idx else ""
@@ -104,23 +111,40 @@ def run_autonomous_pipeline():
                 # Step F: Dispatch to Telegram
                 tg_success = send_news_video(video_path, pack)
 
-                # Step G: Publish to Instagram Reels
-                ig_success = False
-                try:
-                    post_reel_to_instagram(video_path, caption_text)
-                    ig_success = True
-                except Exception as ig_err:
-                    print(f"⚠️ Instagram Reel error: {ig_err}")
+                # Step G: Publish to Instagram Reels (OFF by default: Telegram only).
+                # Turn it back on with the repository variable ENABLE_INSTAGRAM=true.
+                ig_status = "OFF"
+                if instagram_enabled():
+                    try:
+                        from instagram_publisher import post_reel_to_instagram
+
+                        post_reel_to_instagram(video_path, caption_text)
+                        ig_status = "OK"
+                    except Exception as ig_err:
+                        ig_status = "FAIL"
+                        print(f"⚠️ Instagram Reel error: {ig_err}")
+                else:
+                    print("⏭️ Instagram posting is off (ENABLE_INSTAGRAM is not 'true'). Telegram only.")
 
                 # Step H: Update Status in Sheet
                 sheet.update_cell(i, 1, "DONE")
-                status_msg = f"SUCCESS - Telegram: {'OK' if tg_success else 'FAIL'} | IG Reel: {'OK' if ig_success else 'FAIL'}"
+                status_msg = f"SUCCESS - Telegram: {'OK' if tg_success else 'FAIL'} | IG Reel: {ig_status}"
                 sheet.update_cell(i, 13, status_msg)
 
                 # Step I: Delete temp images and video immediately after dispatch
                 cleanup_temp_outputs(i)
                 print(f"🧹 Cleaned up temporary files for row {i}")
                 print(f"✅ Row {i} completed!")
+
+            except LLMUnavailableError as e:
+                # The story is fine, no AI provider could be used. Put it back in the queue (not
+                # ERROR, which is never retried) and stop: every other row would fail the same way.
+                err_msg = f"AI unavailable, will retry next run: {str(e)[:220]}"
+                print(f"⏸️ Row {i} returned to PENDING. {err_msg}")
+                sheet.update_cell(i, 1, "PENDING")
+                sheet.update_cell(i, 13, err_msg)
+                providers_unavailable = True
+                break
 
             except Exception as e:
                 err_msg = f"{type(e).__name__}: {str(e)[:250]}"
@@ -129,6 +153,11 @@ def run_autonomous_pipeline():
                 sheet.update_cell(i, 13, err_msg)
 
             time.sleep(4)
+
+    if providers_unavailable:
+        # Make the GitHub Actions run show as failed (and email you) instead of a misleading green tick.
+        print("❌ No AI provider could be used in this run. Check the API keys and model names above.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
