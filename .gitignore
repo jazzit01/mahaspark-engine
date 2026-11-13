@@ -1,5 +1,10 @@
 credentials.json
-output/
-assets/images/background.jpg
-__pycache__/
 .env
+__pycache__/
+*.pyc
+.pytest_cache/
+out/
+output/
+node_modules/
+remotion/public/voiceover.wav
+remotion/public/story.json
