@@ -1,7 +1,7 @@
 """Telegram delivery: the finished reel, the 5W1H source summary and the original source URL.
 
-Credentials come only from the environment (TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID); there are no
-hard-coded fallbacks.
+The bot token comes only from the environment (TELEGRAM_BOT_TOKEN). The chat id defaults to the
+channel this project has always posted to and can be overridden with TELEGRAM_CHAT_ID.
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ import requests
 
 from config import REEL_PATH, STORY_PATH, get_env_value
 
+DEFAULT_CHAT_ID = "935514943"  # previous working destination, kept as the default
 CAPTION_LIMIT = 1000
 MESSAGE_LIMIT = 4000
 MAX_VIDEO_BYTES = 49 * 1024 * 1024  # Bot API upload limit is 50 MB
@@ -33,9 +34,9 @@ FIVE_W_LABELS = [
 
 def _credentials() -> tuple[str, str]:
     token = get_env_value("TELEGRAM_BOT_TOKEN")
-    chat_id = get_env_value("TELEGRAM_CHAT_ID")
-    if not token or not chat_id:
-        raise RuntimeError("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set in the environment.")
+    chat_id = get_env_value("TELEGRAM_CHAT_ID", DEFAULT_CHAT_ID)
+    if not token:
+        raise RuntimeError("TELEGRAM_BOT_TOKEN must be set in the environment.")
     return token, chat_id
 
 

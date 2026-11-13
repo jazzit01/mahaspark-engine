@@ -1,7 +1,7 @@
 # MahaSpark Engine: maintenance guide
 
 A scheduled pipeline that turns one verified Marathi news story per run into a prime-time vertical
-news reel (1080x1920, 30 fps) and delivers it to Telegram. Optional Instagram Reels publishing.
+news reel (1080x1920, 30 fps) and delivers it to Telegram.
 
 ```
 RSS -> Sheet queue -> article text -> 5W1H + phonetic script (Gemini) -> Gemini TTS voiceover
@@ -14,14 +14,13 @@ RSS -> Sheet queue -> article text -> 5W1H + phonetic script (Gemini) -> Gemini 
 | Path | Role |
 |---|---|
 | `scripts/pipeline.py` | Orchestrator. `python scripts/pipeline.py` (scheduled), or `--text "<title>\n<article>" --url ... [--skip-render] [--skip-telegram]` for a local one-off that does not touch the Sheet. |
-| `scripts/fetch_news.py` | RSS feeds, Google News link resolution, article text extraction. |
+| `scripts/fetch_news.py` | RSS feeds, Google News link resolution (`googlenewsdecoder`), article text extraction. Items whose publisher article can't be read are skipped at ingestion, never queued. |
 | `scripts/sheet_queue.py` | Google Sheet job queue. Columns A-M legacy, N `Source_URL`, O `Visual_Theme`, P `Summary_5W1H`. |
 | `scripts/editorial_prompts.py` | The editorial system prompt (Marathi voice, 5W1H, phonetic rules). Edit wording here. |
 | `scripts/editorial_engine.py` | Pydantic schema, deterministic validators, `write_story`, `synthesize_voiceover`. |
 | `scripts/llm_providers.py` | Gemini first, then Groq, Cerebras, OpenRouter. Quota/auth/404 handling, one repair attempt. |
 | `scripts/align_timings.py` | `faster-whisper` (`small`, `int8`, CPU) timestamps aligned to the known script words. |
 | `scripts/send_telegram.py` | Video + 5W1H summary + source URL. Credentials from environment only. |
-| `scripts/publish_instagram.py` | Opt-in Reels upload (`ENABLE_INSTAGRAM=true`). |
 | `scripts/make_whoosh.py` | Regenerates `remotion/public/whoosh.wav` (the committed file is its output). |
 | `remotion/` | Remotion v4 TypeScript project (see Broadcast design). |
 | `assets/archive/` | Retired static backgrounds (`bg1-6`). Not used by the pipeline. |
@@ -115,8 +114,8 @@ Hourly cron + manual dispatch, 30 min timeout, one run at a time. It caches pip,
 (`remotion/node_modules/.remotion`), the Whisper model (`~/.cache/huggingface`) and `~/.cache/ms-playwright`
 (kept as requested; Playwright is no longer used, so it stays empty). It runs the unit tests, then
 `python scripts/pipeline.py`. Secrets: `GCP_CREDENTIALS`, `GEMINI_API_KEY`, `TELEGRAM_BOT_TOKEN`,
-`TELEGRAM_CHAT_ID`, optional `GROQ_/CEREBRAS_/OPENROUTER_API_KEY`, `INSTAGRAM_USER_ID`,
-`INSTAGRAM_ACCESS_TOKEN`. Variables: `ENABLE_INSTAGRAM`, `GEMINI_MODELS`, `GEMINI_TTS_MODEL`, `GEMINI_TTS_VOICE`.
+optional `TELEGRAM_CHAT_ID` (defaults to the project's existing chat), optional `GROQ_/CEREBRAS_/OPENROUTER_API_KEY`.
+Variables: `GEMINI_MODELS`, `GEMINI_TTS_MODEL`, `GEMINI_TTS_VOICE`.
 
 Sheet status flow: `PENDING -> PROCESSING -> DONE | ERROR | REJECTED`. If no AI provider is usable, the row
 returns to `PENDING` and is retried next run; `ERROR` rows are never retried.

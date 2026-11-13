@@ -1,7 +1,7 @@
 """End-to-end MahaSpark pipeline (one story per run).
 
 RSS fetch -> Sheet queue -> prime-time 5W1H + phonetic TTS script -> Gemini voiceover ->
-faster-whisper alignment -> Remotion render -> Telegram (+ optional Instagram).
+faster-whisper alignment -> Remotion render -> Telegram.
 
 Scheduled use (GitHub Actions):   python scripts/pipeline.py
 Local one-off, no Sheet needed:   python scripts/pipeline.py --text "<article text>" --url <url> --skip-telegram
@@ -22,25 +22,31 @@ import fetch_news
 import send_telegram
 from config import COMPOSITION_ID, OUT_DIR, REEL_PATH, REMOTION_DIR, STORY_PATH, VOICEOVER_PATH
 from llm_providers import ContentRejected, LLMUnavailableError
-from publish_instagram import instagram_enabled, post_reel_to_instagram
 from sheet_queue import DONE, ERROR, PENDING, PROCESSING, REJECTED, SheetQueue
 
 MAX_NEW_ITEMS_PER_RUN = 2
+MAX_CANDIDATES_TO_CHECK = 15  # feed items inspected per run while looking for readable articles
 MAX_STORIES_PER_RUN = int(os.getenv("MAX_STORIES_PER_RUN", "1") or "1")
 
 
 def queue_new_items(queue: SheetQueue, max_items: int = MAX_NEW_ITEMS_PER_RUN) -> int:
     known = queue.known_keys()
-    added = 0
+    added = checked = 0
     print("🔍 Scanning RSS feeds for Maharashtra and national updates...")
     for candidate in fetch_news.iter_candidates():
-        if added >= max_items:
+        if added >= max_items or checked >= MAX_CANDIDATES_TO_CHECK:
             break
         raw = candidate.raw_input
         if raw.lower() in known or candidate.title.lower() in known:
             continue
+        checked += 1
         url = fetch_news.resolve_article_url(candidate.link)
         if url and url.lower() in known:
+            continue
+        # A 5W1H script needs the real article, not just a headline. Items whose publisher page cannot be
+        # read are skipped (and NOT queued), so they never end up as permanent REJECTED rows.
+        if not fetch_news.fetch_article_text(url):
+            print(f"⏭️ Skipped, publisher article could not be read: {candidate.title[:70]}")
             continue
         queue.append_pending(raw, url)
         known.update({raw.lower(), candidate.title.lower(), url.lower()})
@@ -84,22 +90,9 @@ def produce_reel(title: str, summary: str, article_text: str, source_url: str) -
 
 
 def deliver(story: dict, source_url: str) -> str:
-    """Send to Telegram, then Instagram when enabled. Returns the status text for the Sheet."""
+    """Send to Telegram. Returns the status text for the Sheet."""
     telegram_ok = send_telegram.send_reel(REEL_PATH, story, source_url)
-
-    instagram_status = "OFF"
-    if instagram_enabled():
-        try:
-            caption = f"{story.get('social_caption', '')}\n\n{story.get('hashtags', '')}".strip()
-            post_reel_to_instagram(str(REEL_PATH), caption)
-            instagram_status = "OK"
-        except Exception as exc:  # noqa: BLE001
-            instagram_status = "FAIL"
-            print(f"⚠️ Instagram Reel error: {exc}")
-    else:
-        print("⏭️ Instagram posting is off (ENABLE_INSTAGRAM is not 'true'). Telegram only.")
-
-    return f"SUCCESS - Telegram: {'OK' if telegram_ok else 'FAIL'} | IG Reel: {instagram_status}"
+    return f"SUCCESS - Telegram: {'OK' if telegram_ok else 'FAIL'}"
 
 
 def run_scheduled() -> int:
@@ -119,12 +112,14 @@ def run_scheduled() -> int:
         title, _, summary = row.raw_input.partition(" - ")
 
         try:
-            article = fetch_news.fetch_article_text(row.source_url)
+            # Older rows may still hold an unresolved Google News link, so resolve it again here.
+            source_url = fetch_news.resolve_article_url(row.source_url)
+            article = fetch_news.fetch_article_text(source_url)
             if not article:
                 print("ℹ️ No full article text available; using the RSS title and summary only.")
-            story = produce_reel(title, summary, article, row.source_url)
+            story = produce_reel(title, summary, article, source_url)
             queue.write_story(row.index, story)
-            status_note = deliver(story, row.source_url)
+            status_note = deliver(story, source_url)
             queue.set_status(row.index, DONE, status_note)
             print(f"✅ Row {row.index} completed.")
             processed += 1

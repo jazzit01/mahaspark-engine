@@ -97,6 +97,24 @@ def _decode_google_news_id(link: str) -> str | None:
     return found.group(0).decode("ascii", errors="ignore") if found else None
 
 
+def _decode_with_library(link: str) -> str | None:
+    """Current Google News links are opaque tokens; ``googlenewsdecoder`` asks Google for the real URL."""
+    try:
+        from googlenewsdecoder import gnewsdecoder
+    except ImportError:
+        return None
+    try:
+        result = gnewsdecoder(link, interval=1)
+    except Exception as exc:  # noqa: BLE001 - network/format errors must never stop the run
+        print(f"⚠️ googlenewsdecoder failed: {exc}")
+        return None
+    ok = result.get("success", result.get("status"))  # older releases used "status"
+    url = result.get("decoded_url") if ok else None
+    if url and "news.google.com" not in urlparse(url).netloc.lower():
+        return url
+    return None
+
+
 def resolve_article_url(link: str) -> str:
     """Return the publisher URL for a feed link; the original link if it cannot be resolved."""
     if not link:
@@ -104,6 +122,10 @@ def resolve_article_url(link: str) -> str:
     host = urlparse(link).netloc.lower()
     if "news.google.com" not in host:
         return link
+
+    resolved = _decode_with_library(link)
+    if resolved:
+        return resolved
 
     decoded = _decode_google_news_id(link)
     if decoded and "news.google.com" not in urlparse(decoded).netloc.lower():
@@ -137,10 +159,21 @@ def extract_article_text(html: str) -> str:
     return "\n".join(paragraphs)[:MAX_ARTICLE_CHARS]
 
 
+_ARTICLE_CACHE: dict[str, str] = {}
+
+
 def fetch_article_text(url: str) -> str:
-    """Download ``url`` and return its article text, or "" when it cannot be read or is too short."""
+    """Download ``url`` and return its article text, or "" when it cannot be read or is too short.
+
+    Results are cached for the run, so the ingestion check and the later script step fetch a page once."""
     if not url or "news.google.com" in urlparse(url).netloc.lower():
         return ""
+    if url not in _ARTICLE_CACHE:
+        _ARTICLE_CACHE[url] = _download_article_text(url)
+    return _ARTICLE_CACHE[url]
+
+
+def _download_article_text(url: str) -> str:
     try:
         resp = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=REQUEST_TIMEOUT)
         if resp.status_code != 200:

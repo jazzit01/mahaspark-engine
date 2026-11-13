@@ -32,3 +32,44 @@ def test_google_news_id_decoding_finds_embedded_url():
 
 def test_google_news_links_are_never_fetched_as_articles():
     assert fn.fetch_article_text("https://news.google.com/rss/articles/abc") == ""
+
+
+def test_google_news_link_uses_decoder_result(monkeypatch):
+    monkeypatch.setattr(fn, "_decode_with_library", lambda link: "https://www.loksatta.com/pune/air-quality/")
+    assert fn.resolve_article_url("https://news.google.com/rss/articles/CBMiabc") == "https://www.loksatta.com/pune/air-quality/"
+
+
+def test_direct_links_are_returned_unchanged(monkeypatch):
+    monkeypatch.setattr(fn, "_decode_with_library", lambda link: "SHOULD-NOT-BE-USED")
+    assert fn.resolve_article_url("https://www.lokmat.com/maharashtra/x/") == "https://www.lokmat.com/maharashtra/x/"
+
+
+def test_decoder_failure_never_raises(monkeypatch):
+    import sys
+    import types
+
+    def boom(*_a, **_k):
+        raise RuntimeError("429")
+
+    fake = types.SimpleNamespace(gnewsdecoder=boom)
+    monkeypatch.setitem(sys.modules, "googlenewsdecoder", fake)
+    assert fn._decode_with_library("https://news.google.com/rss/articles/abc") is None
+
+
+def test_decoder_supports_success_and_legacy_status_keys(monkeypatch):
+    import sys
+    import types
+
+    for payload in ({"success": True, "decoded_url": "https://a.com/x"}, {"status": True, "decoded_url": "https://a.com/x"}):
+        fake = types.SimpleNamespace(gnewsdecoder=lambda *_a, _p=payload, **_k: _p)
+        monkeypatch.setitem(sys.modules, "googlenewsdecoder", fake)
+        assert fn._decode_with_library("https://news.google.com/rss/articles/abc") == "https://a.com/x"
+
+
+def test_article_is_downloaded_once_per_run(monkeypatch):
+    fn._ARTICLE_CACHE.clear()
+    calls = []
+    monkeypatch.setattr(fn, "_download_article_text", lambda url: calls.append(url) or "x" * 400)
+    fn.fetch_article_text("https://a.com/1")
+    fn.fetch_article_text("https://a.com/1")
+    assert calls == ["https://a.com/1"]
