@@ -1,0 +1,23 @@
+{
+  "name": "mahaspark-remotion",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MahaSpark prime-time broadcast motion-graphics engine (Remotion v4, 1080x1920 @ 30fps).",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts MahaSparkReel ../out/mahaspark_reel.mp4 --props=public/story.json",
+    "typecheck": "tsc --noEmit",
+    "skills:add": "remotion skills add"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.506",
+    "@remotion/google-fonts": "4.0.506",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remotion": "4.0.506"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "typescript": "^5.8.0"
+  }
+}
