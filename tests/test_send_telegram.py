@@ -33,3 +33,15 @@ def test_no_hardcoded_secrets_in_scripts():
     pattern = re.compile(r"\d{8,}:[A-Za-z0-9_-]{30,}|EAA[A-Za-z0-9]{20,}")
     for path in Path(tg.__file__).parent.glob("*.py"):
         assert not pattern.search(path.read_text(encoding="utf-8")), path.name
+
+
+def test_chat_id_defaults_to_previous_working_chat(monkeypatch):
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "token")
+    monkeypatch.delenv("TELEGRAM_CHAT_ID", raising=False)
+    assert tg._credentials() == ("token", "935514943")
+
+
+def test_chat_id_can_be_overridden(monkeypatch):
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "token")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "42")
+    assert tg._credentials() == ("token", "42")
