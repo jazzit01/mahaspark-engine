@@ -82,3 +82,89 @@ def test_thin_source_is_rejected_before_calling_any_model():
 def test_synthesize_voiceover_refuses_unsafe_script(tmp_path):
     with pytest.raises(ValueError):
         ee.synthesize_voiceover("आज 5 जण जखमी झाले.", tmp_path / "v.wav")
+
+
+# ----- voiceover model chain ------------------------------------------------------------------
+
+import wave  # noqa: E402
+
+from llm_providers import LLMUnavailableError  # noqa: E402
+
+GOOD_SCRIPT = "पुणे महापालिकेने, उड्डाणपुलाला मंजुरी दिली आहे."
+
+
+def fake_wav(seconds=1.0):
+    import io
+
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(24000)
+        w.writeframes(b"\x00\x01" * int(24000 * seconds))
+    return buf.getvalue()
+
+
+def test_missing_tts_model_falls_back_to_next_model(monkeypatch, tmp_path):
+    monkeypatch.delenv("GEMINI_TTS_MODEL", raising=False)
+    tried = []
+
+    def fake(script, model):
+        tried.append(model)
+        if model == "gemini-3.8-flash-tts":
+            raise RuntimeError("Error code: 404 - Model 'gemini-3.8-flash-tts' not found")
+        return fake_wav()
+
+    monkeypatch.setattr(ee, "_request_tts_audio", fake)
+    out = ee.synthesize_voiceover(GOOD_SCRIPT, tmp_path / "v.wav")
+    assert tried == ["gemini-3.8-flash-tts", "gemini-3.8-flash-lite-tts"]  # no retries on a 404
+    assert out.exists()
+
+
+def test_all_tts_models_failing_requeues_instead_of_erroring(monkeypatch, tmp_path):
+    monkeypatch.delenv("GEMINI_TTS_MODEL", raising=False)
+    monkeypatch.setattr(ee, "_request_tts_audio", lambda s, m: (_ for _ in ()).throw(RuntimeError("404 not found")))
+    with pytest.raises(LLMUnavailableError, match="stays queued"):
+        ee.synthesize_voiceover(GOOD_SCRIPT, tmp_path / "v.wav")
+
+
+def test_transient_tts_error_is_retried_on_same_model(monkeypatch, tmp_path):
+    monkeypatch.delenv("GEMINI_TTS_MODEL", raising=False)
+    monkeypatch.setattr(ee.time, "sleep", lambda _s: None)
+    calls = []
+
+    def fake(script, model):
+        calls.append(model)
+        if len(calls) == 1:
+            raise RuntimeError("503 UNAVAILABLE overloaded")
+        return fake_wav()
+
+    monkeypatch.setattr(ee, "_request_tts_audio", fake)
+    ee.synthesize_voiceover(GOOD_SCRIPT, tmp_path / "v.wav")
+    assert calls == ["gemini-3.8-flash-tts", "gemini-3.8-flash-tts"]
+
+
+def test_quota_or_auth_error_stops_the_chain(monkeypatch, tmp_path):
+    monkeypatch.delenv("GEMINI_TTS_MODEL", raising=False)
+    tried = []
+
+    def fake(script, model):
+        tried.append(model)
+        raise RuntimeError("429 RESOURCE_EXHAUSTED quota")
+
+    monkeypatch.setattr(ee, "_request_tts_audio", fake)
+    with pytest.raises(LLMUnavailableError):
+        ee.synthesize_voiceover(GOOD_SCRIPT, tmp_path / "v.wav")
+    assert len(tried) == 1
+
+
+def test_configured_tts_model_is_tried_first(monkeypatch):
+    monkeypatch.setenv("GEMINI_TTS_MODEL", "my-model, gemini-3.8-flash-lite-tts")
+    chain = ee.tts_model_chain()
+    assert chain[:2] == ["my-model", "gemini-3.8-flash-lite-tts"]
+    assert chain.count("gemini-3.8-flash-lite-tts") == 1 and "gemini-3.8-flash-tts" in chain
+
+
+def test_25_tts_models_use_generate_content():
+    assert ee._uses_generate_content("gemini-2.5-flash-preview-tts")
+    assert not ee._uses_generate_content("gemini-3.8-flash-tts")
