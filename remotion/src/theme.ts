@@ -126,3 +126,14 @@ export const THEME_NAMES = Object.keys(PALETTES) as ThemeName[];
 
 export const getPalette = (theme: string): Palette =>
   (PALETTES as Record<string, Palette>)[theme] ?? PALETTES.PrimeGridStudio;
+
+/** Palette for a scene that sits over footage: translucent dark glass cards, light text. */
+export const overMedia = (palette: Palette): Palette => ({
+  ...palette,
+  isLight: false,
+  textPrimary: '#FFFFFF',
+  textSecondary: '#F1F5F9',
+  cardBackground: 'rgba(5,8,16,0.58)',
+  cardBlur: 18,
+  textShadow: '0 3px 14px rgba(0,0,0,0.7)',
+});

@@ -8,6 +8,7 @@ REMOTION_DIR = ROOT / "remotion"
 PUBLIC_DIR = REMOTION_DIR / "public"
 OUT_DIR = ROOT / "out"
 
+MEDIA_DIR = PUBLIC_DIR / "media"
 STORY_PATH = PUBLIC_DIR / "story.json"
 VOICEOVER_PATH = PUBLIC_DIR / "voiceover.wav"
 REEL_PATH = OUT_DIR / "mahaspark_reel.mp4"

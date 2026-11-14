@@ -19,6 +19,7 @@ import time
 import align_timings
 import editorial_engine
 import fetch_news
+import media_fetch
 import send_telegram
 from config import COMPOSITION_ID, OUT_DIR, REEL_PATH, REMOTION_DIR, STORY_PATH, VOICEOVER_PATH
 from llm_providers import ContentRejected, LLMUnavailableError
@@ -67,7 +68,7 @@ def render_concurrency() -> int:
     return max(1, min(wanted, cores))
 
 
-def render_reel(output=REEL_PATH) -> None:
+def render_reel(output=REEL_PATH, crf: int = 18) -> None:
     """Render the Remotion composition with the studio chosen by story.json's visual_theme."""
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     cmd = [
@@ -79,7 +80,7 @@ def render_reel(output=REEL_PATH) -> None:
         str(output),
         "--props=public/story.json",
         "--codec=h264",
-        "--crf=18",
+        f"--crf={crf}",
         f"--concurrency={render_concurrency()}",
     ]
     print("🎬 Rendering reel with Remotion...")
@@ -99,6 +100,20 @@ def add_voice_and_timings(story: dict) -> dict:
         return align_timings.main_voiceless(STORY_PATH)
 
 
+def add_visuals(story: dict) -> dict:
+    """Per-scene stock footage / public-figure photo. Any failure just leaves the studio backgrounds."""
+    try:
+        return media_fetch.attach_media(story)
+    except Exception as exc:  # noqa: BLE001
+        print(f"ℹ️ Visuals skipped: {type(exc).__name__}: {str(exc)[:120]}")
+        return story
+
+
+def reel_crf(story: dict) -> int:
+    """Footage is busier than the studios; a slightly higher CRF keeps the file under Telegram's 50 MB limit."""
+    return 21 if media_fetch.has_media(story) else 18
+
+
 def produce_reel(title: str, summary: str, article_text: str, source_url: str) -> dict:
     """Script -> voiceover -> alignment -> render. Returns the final story dict."""
     story = editorial_engine.write_story(title, summary, article_text, source_url)
@@ -106,7 +121,8 @@ def produce_reel(title: str, summary: str, article_text: str, source_url: str) -
     print(f"📝 Script ready ({story['visual_theme']}, {story['audio_mood']}): {story['scenes'][0]['headline']}")
 
     story = add_voice_and_timings(story)
-    render_reel()
+    story = add_visuals(story)
+    render_reel(crf=reel_crf(story))
     return story
 
 
@@ -184,10 +200,11 @@ def run_adhoc(text: str, url: str, skip_telegram: bool, skip_render: bool) -> in
     story = editorial_engine.write_story(title, "", rest or title, url)
     editorial_engine.save_story(story)
     story = add_voice_and_timings(story)
+    story = add_visuals(story)
     if skip_render:
         print(f"✅ Script, voiceover and timings are ready in {STORY_PATH.parent}")
         return 0
-    render_reel()
+    render_reel(crf=reel_crf(story))
     if skip_telegram:
         print(f"✅ Reel rendered: {REEL_PATH}")
         return 0

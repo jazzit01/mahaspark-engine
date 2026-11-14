@@ -125,11 +125,34 @@ F. Spell every name of a person, institution, place and scheme in Devanagari exa
 {_THEME_LINES}
 - "audio_mood": choose exactly one:
 {_MOOD_LINES}
-- "social_title": a restrained 60 to 90 character Marathi title for a short video. No clickbait, no emoji.
-- "social_caption": two or three neutral Marathi sentences that summarise the story.
-- "hashtags": five or six relevant hashtags in one line, starting with #MahaSpark.
+- "social_title": a search-optimised Marathi title of 60 to 95 characters for Telegram, YouTube Shorts and
+  Facebook. Put the main keyword (the place, person, institution or event people would search) in the first
+  half. Factual, no clickbait, no emoji, no clickbait numbers.
+- "social_caption": 3 or 4 neutral Marathi sentences (at most 600 characters) written like a news-site
+  description: the first sentence carries the main keyword and the core fact, then who/where/when and the next
+  step. Use the names and place names exactly as they are searched. No questions, no sign-off.
+- "seo_keywords": 8 to 12 search keywords and phrases, a mix of Marathi and English (for example the place
+  name in both scripts, the person or institution, the event type, "Maharashtra news", "मराठी बातम्या").
+  Only terms that the story is genuinely about.
+- "hashtags": 10 to 15 relevant hashtags in one line, starting with #MahaSpark, then the place, the topic, the
+  institution and two or three broad ones (#मराठीबातम्या #MaharashtraNews). No hashtag that the story does not
+  justify.
 
-Before you answer, silently re-check: every fact is in the source; every number in a headline or
+══════════ 7. VISUALS (stock footage and public-figure photo) ══════════
+The video shows footage behind the text. Think like a video editor choosing b-roll:
+- "visual_query" (per scene): 2 to 5 plain English words describing what a viewer should SEE during that scene,
+  concrete and filmable, for example "flyover construction traffic", "court building gavel", "heavy rain flooded
+  street", "farmer field irrigation", "hospital corridor", "police vehicle night", "city council meeting".
+  Pick a different image for each scene (establishing shot, then detail, then people or impact). Use only
+  generic scenes; never name a person, party, brand or place in it. Leave it "" for a scene that has no
+  sensible visual.
+- "public_figure": the English name of ONE well-known public figure (minister, chief minister, MP, MLA, judge,
+  official, sportsperson, celebrity) ONLY when the story is about what that named person said or did in their
+  public role, spelled as on Wikipedia, for example "Devendra Fadnavis". Otherwise "". NEVER fill it for a
+  victim, an accused or arrested person, a suspect, a minor, a private citizen, or any death, accident or
+  crime story.
+
+Before you answer, silently re-check: each scene has a filmable visual_query; public_figure is empty unless the rules above allow it; every fact is in the source; every number in a headline or
 description appears in the source; "tts_text" has no digits, Latin letters or symbols; no forbidden
 phrase appears anywhere; the hook is 8 to 12 words and leads with the strongest fact.
 """.strip()

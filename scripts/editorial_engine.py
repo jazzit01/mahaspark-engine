@@ -60,6 +60,7 @@ class Scene(BaseModel):
     headline: str = ""
     description: str = ""
     tts_text: str = ""
+    visual_query: str = ""
 
 
 class Story(BaseModel):
@@ -73,6 +74,8 @@ class Story(BaseModel):
     social_title: str = ""
     social_caption: str = ""
     hashtags: str = ""
+    seo_keywords: list[str] = Field(default_factory=list)
+    public_figure: str = ""
 
 
 # ----- deterministic editorial rules ----------------------------------------------------------
@@ -155,6 +158,46 @@ def set_avoid_theme(theme: str | None) -> None:
     AVOID_THEME = theme if theme in THEMES else None
 
 
+def clean_visual_query(value) -> str:
+    """English search words for stock footage: Latin letters and spaces only, at most 6 words (else empty)."""
+    words = re.sub(r"[^A-Za-z ]+", " ", str(value or "")).split()
+    return " ".join(words[:6]).lower()
+
+
+def clean_public_figure(value, mood: str) -> str:
+    """English name of the public figure the story is about, for a Wikimedia Commons photo lookup.
+
+    Never used for grave or crime stories (victims, accused and the dead must not get a stock face)."""
+    if mood in ("serious", "crime", "breaking"):
+        return ""
+    name = re.sub(r"\s+", " ", re.sub(r"[^A-Za-z .'-]+", " ", str(value or ""))).strip()
+    return name if 2 <= len(name.split()) <= 5 and len(name) <= 60 else ""
+
+
+def clean_keywords(value) -> list[str]:
+    """6-12 distinct SEO keywords (Marathi and English), trimmed."""
+    items = value if isinstance(value, list) else re.split(r"[,\n]", str(value or ""))
+    seen, out = set(), []
+    for item in items:
+        word = re.sub(r"\s+", " ", str(item)).strip(" #,.")
+        if 2 <= len(word) <= 40 and word.lower() not in seen:
+            seen.add(word.lower())
+            out.append(word)
+    return out[:12]
+
+
+def clean_hashtags(value) -> str:
+    """Up to 15 distinct hashtags, always starting with #MahaSpark."""
+    tags = ["#MahaSpark"]
+    for raw in re.split(r"\s+", str(value or "")):
+        tag = "#" + re.sub(r"[^\w\u0900-\u097F]", "", raw.lstrip("#"))
+        if len(tag) > 2 and tag.lower() not in {t.lower() for t in tags}:
+            tags.append(tag)
+    if len(tags) == 1:
+        tags += ["#मराठीबातम्या", "#महाराष्ट्र"]
+    return " ".join(tags[:15])
+
+
 def pick_theme(model_choice: str | None, mood: str, seed_text: str) -> str:
     """Studio for the reel. Grave moods (or the model asking for the breaking studio) get BreakingNewsStudio.
     Everything else rotates over all four other studios from a hash of the story, skipping the studio the
@@ -217,7 +260,14 @@ def validate_story(data: dict, source_text: str = "") -> dict:
                         f"Scene {idx} shows the number {number}, which is not in the source. Use only numbers from the source."
                     )
 
-        scenes.append({"headline": headline, "description": description, "tts_text": tts_text})
+        scenes.append(
+            {
+                "headline": headline,
+                "description": description,
+                "tts_text": tts_text,
+                "visual_query": clean_visual_query(raw.get("visual_query", "")),
+            }
+        )
 
     category = re.sub(r"\s+", " ", str(data.get("category", ""))).strip()
     if not category:
@@ -227,11 +277,13 @@ def validate_story(data: dict, source_text: str = "") -> dict:
 
     social_title = str(data.get("social_title", "")).strip() or scenes[0]["headline"]
     social_caption = str(data.get("social_caption", "")).strip() or scenes[0]["description"]
-    hashtags = str(data.get("hashtags", "")).strip() or "#MahaSpark #मराठीबातम्या #महाराष्ट्र"
+    hashtags = clean_hashtags(data.get("hashtags", ""))
+    keywords = clean_keywords(data.get("seo_keywords", []))
 
     visible = " ".join(
         [category, social_title, social_caption]
         + [f"{s['headline']} {s['description']} {s['tts_text']}" for s in scenes]
+        + keywords
         + [str(v) for v in five.values()]
     )
     banned = find_forbidden(visible)
@@ -262,6 +314,8 @@ def validate_story(data: dict, source_text: str = "") -> dict:
         "social_title": social_title,
         "social_caption": social_caption,
         "hashtags": hashtags,
+        "seo_keywords": keywords,
+        "public_figure": clean_public_figure(data.get("public_figure", ""), mood),
     }
 
 
