@@ -22,12 +22,9 @@ type Props = {
 /** Space reserved below the card for the karaoke captions (px from the bottom edge). */
 export const CARD_BOTTOM = 650;
 
-const DEVANAGARI_DIGITS = '०१२३४५६७८९';
-const toDevanagari = (n: number) => String(n).replace(/\d/g, (d) => DEVANAGARI_DIGITS[Number(d)]);
-
 /**
  * One news scene. A full-height column fills the area between the logo row and the captions:
- * progress row, headline panel, context card and 5W1H fact chips. Spring entrances (staggered), scale/fade exit.
+ * progress bar, headline panel, context card and 5W1H fact chips. Spring entrances (staggered), scale/fade exit.
  */
 export const SceneCard: React.FC<Props> = ({headline, description, palette, durationInFrames, index, total, facts}) => {
   const frame = useCurrentFrame();
@@ -83,7 +80,7 @@ export const SceneCard: React.FC<Props> = ({headline, description, palette, dura
         fontFamily,
       }}
     >
-      {/* Progress row: one segment per scene plus "१ / ४" */}
+      {/* Progress bar: one segment per scene */}
       <div style={{display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0}}>
         <div style={{display: 'flex', gap: 8, flex: 1}}>
           {Array.from({length: total}).map((_, i) => (
@@ -98,9 +95,6 @@ export const SceneCard: React.FC<Props> = ({headline, description, palette, dura
               }}
             />
           ))}
-        </div>
-        <div style={{color: palette.accent, fontSize: 32, fontWeight: 800, textShadow: palette.textShadow}}>
-          {toDevanagari(index + 1)} / {toDevanagari(total)}
         </div>
       </div>
 

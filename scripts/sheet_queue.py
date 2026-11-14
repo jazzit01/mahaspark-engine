@@ -87,6 +87,13 @@ class SheetQueue:
                 keys.add(row[COL_SOURCE_URL - 1].strip().lower())
         return keys
 
+    def last_theme(self) -> str | None:
+        """Visual_Theme of the most recently finished reel (None when there is none)."""
+        for row in reversed(self._rows()[1:]):
+            if len(row) >= COL_THEME and row[COL_THEME - 1].strip():
+                return row[COL_THEME - 1].strip()
+        return None
+
     def pending_rows(self) -> list[PendingRow]:
         rows = self._rows()
         if len(rows) < 2:
