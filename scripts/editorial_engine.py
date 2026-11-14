@@ -293,11 +293,6 @@ ANCHOR_STYLE = (
 
 API_BASE = "https://generativelanguage.googleapis.com/v1beta"
 
-STYLE_PREFIX = (
-    "Say as a composed, authoritative senior prime-time Marathi news anchor, at a measured pace, "
-    "with a short breath at every comma and a longer pause at every full stop:"
-)
-
 
 def discover_tts_models() -> list[str]:
     """Ask Google which TTS models THIS API key can see (model ids containing "tts")."""
@@ -379,20 +374,31 @@ def _tts_interactions(model: str, script: str, voice: str, api_key: str) -> byte
 
 
 def _tts_generate_content(model: str, script: str, voice: str, api_key: str) -> bytes:
-    """Route 2: classic generateContent TTS over plain REST (the 2.5 and 3.1 flash TTS models)."""
+    """Route 2: classic generateContent TTS over plain REST.
+
+    The ``text`` part is ONLY the script: anything placed there is read aloud by the voice. The anchor
+    style travels in ``systemInstruction`` instead; if a model rejects that field (HTTP 400) the request is
+    repeated without it, so the voice never speaks an instruction."""
     body = {
-        "contents": [{"parts": [{"text": f"{STYLE_PREFIX}\n\n{script}"}]}],
+        "contents": [{"parts": [{"text": script}]}],
         "generationConfig": {
             "responseModalities": ["AUDIO"],
             "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": voice}}},
         },
     }
-    resp = requests.post(
-        f"{API_BASE}/models/{model}:generateContent",
-        headers={"x-goog-api-key": api_key},
-        json=body,
-        timeout=180,
-    )
+
+    def post(payload: dict):
+        return requests.post(
+            f"{API_BASE}/models/{model}:generateContent",
+            headers={"x-goog-api-key": api_key},
+            json=payload,
+            timeout=180,
+        )
+
+    resp = post({**body, "systemInstruction": {"parts": [{"text": ANCHOR_STYLE}]}})
+    if resp.status_code == 400:
+        print(f"ℹ️ {model} does not accept a style instruction; sending the script alone.")
+        resp = post(body)
     if resp.status_code != 200:
         raise RuntimeError(f"HTTP {resp.status_code}: {resp.text[:200]}")
     try:
@@ -414,7 +420,9 @@ def _request_tts_audio(script: str, model: str) -> bytes:
     errors = []
     for name, route in (("interactions", _tts_interactions), ("generateContent", _tts_generate_content)):
         try:
-            return route(model, script, voice, api_key)
+            audio = route(model, script, voice, api_key)
+            print(f"🎙️ {model} voiced via {name}.")
+            return audio
         except Exception as exc:  # noqa: BLE001
             if _is_bad_key(exc) or is_quota_error(exc) or is_transient_error(exc):
                 raise

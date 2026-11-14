@@ -42,6 +42,7 @@ export const buildSampleStory = (theme: ThemeName): Story => {
     visual_theme: theme,
     audio_mood: 'neutral',
     scenes,
+    five_w_one_h: {when: 'पुढील दोन वर्षांत', who: 'महापालिका आयुक्त', where: 'पुणे, नगर रस्ता', why: 'वाहतूक कोंडी कमी करण्यासाठी', how: 'टप्प्याटप्प्याने काम पूर्ण करून'},
     words,
     duration_seconds: Number(cursor.toFixed(3)),
     audio: false,
