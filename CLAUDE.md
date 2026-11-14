@@ -14,7 +14,7 @@ RSS -> Sheet queue -> article text -> 5W1H + phonetic script (Gemini) -> Gemini 
 | Path | Role |
 |---|---|
 | `scripts/pipeline.py` | Orchestrator. `python scripts/pipeline.py` (scheduled), or `--text "<title>\n<article>" --url ... [--skip-render] [--skip-telegram]` for a local one-off that does not touch the Sheet. |
-| `scripts/fetch_news.py` | RSS feeds, Google News link resolution (`googlenewsdecoder`), article text extraction. Items whose publisher article can't be read are skipped at ingestion, never queued. |
+| `scripts/fetch_news.py` | RSS feeds, Google News link resolution (`googlenewsdecoder`), article text extraction. Items whose publisher article can't be read are still queued (written from headline + RSS summary) unless title + summary are under 80 characters. |
 | `scripts/sheet_queue.py` | Google Sheet job queue. Columns A-M legacy, N `Source_URL`, O `Visual_Theme`, P `Summary_5W1H`. |
 | `scripts/editorial_prompts.py` | The editorial system prompt (Marathi voice, 5W1H, phonetic rules). Edit wording here. |
 | `scripts/editorial_engine.py` | Pydantic schema, deterministic validators, `write_story`, `synthesize_voiceover`. |
@@ -33,17 +33,17 @@ Generated, git-ignored: `remotion/public/voiceover.wav`, `remotion/public/story.
 All of these are in `editorial_prompts.py` AND enforced by `validate_story` in `editorial_engine.py`.
 A model slip is caught and the model gets one repair attempt with the exact error.
 
-- **Facts only.** Use only the source text. Rumours, unattributed "sources say" leaks and sources too thin to
-  answer the 5W1H return `approved: false` (the row becomes `REJECTED`). Sources under 200 characters are
-  rejected before any model call. Allegations are attributed to the named person or institution.
-- **5W1H.** `five_w_one_h` must answer what, when, who, where, why, how. If the cause or method is not
-  established, the script says so plainly instead of inventing one.
+- **Facts only.** Use only the source text. Rumours, unattributed "sources say" leaks and opinion pieces return
+  `approved: false` (the row becomes `REJECTED`). A thin source is still written (shorter, 3 scenes) from the headline
+  and context; only sources under 60 characters are rejected before any model call. Allegations are attributed to the named person or institution.
+- **5W1H.** `five_w_one_h` must answer `what`; when/who/where/why/how are filled only if the source states them and
+  are left empty otherwise (never invented, never blocks the story).
 - **Voice.** Prime-time anchor Marathi. No creator/YouTuber slang or clickbait. Scene 1 is a 3-4 second hook
   (at most 14 spoken words). Short active sentences. Name the institution or leader inside the sentence.
 - **Banned phrases** (`FORBIDDEN_PHRASES`): अधिकृत माहितीनुसार, वृत्तानुसार, सूत्रांनी दिलेल्या माहितीनुसार and similar
   agency clichés, plus old filler/clickbait lines. Extend that list rather than adding prompt-only rules.
 - **On-screen numbers** in `headline`/`description` must appear in the source text (no invented figures).
-- **Length.** 3-6 scenes, 60-150 spoken words in total, headline at most 56 characters, description at most 92.
+- **Length.** 3-6 scenes, 40-150 spoken words in total, headline at most 56 characters, description at most 92.
 - **Sampling.** `temperature=0.15`, structured JSON output through the `Story` pydantic schema.
   Models: `GEMINI_MODELS` (default `gemini-2.5-pro,gemini-2.5-flash`).
 
@@ -92,7 +92,7 @@ adds `words[]` (`text,start,end,scene`), per-scene `start/end`, `duration_second
 - 1080x1920, 30 fps. Font: Noto Sans Devanagari through `@remotion/google-fonts` (loaded in `src/fonts.ts`).
 - `story.json` -> props (`--props=public/story.json`). `Root.tsx` sets the video length from
   `duration_seconds + 1s`. Preview compositions `Preview-<theme>` exist for `npm run studio`.
-- `visual_theme` selects one of five full-motion studios in `src/studios/`: `PrimeGridStudio` (navy
+- `visual_theme` (`pick_theme`: grave moods -> Breaking; the model's catch-all PrimeGridStudio is rotated by a hash of the story so reels vary) selects one of five full-motion studios in `src/studios/`: `PrimeGridStudio` (navy
   `#080E1A`, 3D grid, gold/cyan rules), `BreakingNewsStudio` (charcoal, crimson waves, scanlines),
   `EditorialDeskLight` (ivory `#F8FAFC`, geometric lines, red bars), `DataTelemetryStudio` (midnight blue,
   radar rings, telemetry nodes), `GlassNewsroomDepth` (indigo depth, light mesh, frosted-glass cards).
@@ -103,7 +103,7 @@ adds `words[]` (`text,start,end,scene`), per-scene `start/end`, `duration_second
   badges anywhere.**
 - **Safe zones** (`src/constants.ts`): all headlines (74 px bold), 2-line context cards (40 px) and captions stay
   between `top: 290px` and `bottom: 450px`.
-- Scene layout (`SceneCard.tsx`): a full-height column fills the area between the logo row and the captions: progress row (segments + `१ / ४`), headline panel, context card and 5W1H fact chips from `story.five_w_one_h` (per-scene plan in `Reel.tsx`). Keep it filled; do not shrink back to a top-anchored stack.
+- Scene layout (`SceneCard.tsx`): a full-height column fills the area between the logo row and the captions: progress row (segments + `१ / ४`), headline panel, context card and 5W1H fact chips (values only, no labels) from `story.five_w_one_h` (per-scene plan in `Reel.tsx`). Keep it filled; do not shrink back to a top-anchored stack.
 - Motion: spring card entrances, animated vertical accent bar, scale/fade exits, word-by-word karaoke captions
   (`Captions.tsx`), `whoosh.wav` on every scene cut, mood bed (`public/bed/<audio_mood>.mp3`) at -20 dB
   with a 1 s fade-out.

@@ -44,7 +44,7 @@ def now_ist() -> str:
 
 def summary_5w1h_text(five: dict) -> str:
     labels = [("what", "काय"), ("when", "केव्हा"), ("who", "कोण"), ("where", "कुठे"), ("why", "का"), ("how", "कसे")]
-    return "\n".join(f"{marathi}: {five.get(key, '—')}" for key, marathi in labels)
+    return "\n".join(f"{marathi}: {five.get(key) or '—'}" for key, marathi in labels)
 
 
 class SheetQueue:

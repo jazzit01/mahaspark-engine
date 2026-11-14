@@ -4,7 +4,7 @@ import {DESCRIPTION_SIZE, HEADLINE_SIZE, SAFE_SIDE, SAFE_TOP, SCENE_EXIT_FRAMES}
 import {fontFamily} from './fonts';
 import {Palette} from './theme';
 
-export type Fact = {label: string; value: string};
+export type Fact = {value: string};
 
 type Props = {
   headline: string;
@@ -146,15 +146,13 @@ export const SceneCard: React.FC<Props> = ({headline, description, palette, dura
       {showFacts ? (
         <div style={{...staged(factEnter), display: 'grid', gridTemplateColumns: facts.length > 1 ? '1fr 1fr' : '1fr', gap: 18, flexShrink: 0}}>
           {facts.map((fact) => (
-            <div key={fact.label} style={{...panel, borderRadius: 20, padding: '18px 24px 20px', borderLeft: `8px solid ${palette.accent2}`, minWidth: 0}}>
-              <div style={{color: palette.accent2, fontSize: 30, fontWeight: 800, lineHeight: 1.2}}>{fact.label}</div>
+            <div key={fact.value} style={{...panel, borderRadius: 20, padding: '22px 26px', borderLeft: `8px solid ${palette.accent2}`, minWidth: 0, display: 'flex', alignItems: 'center'}}>
               <div
                 style={{
                   color: palette.textPrimary,
                   fontSize: 38,
                   fontWeight: 700,
                   lineHeight: 1.35,
-                  marginTop: 4,
                   display: '-webkit-box',
                   WebkitLineClamp: 2,
                   WebkitBoxOrient: 'vertical',

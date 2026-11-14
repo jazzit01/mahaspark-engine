@@ -15,13 +15,12 @@ import {getStudio} from './studios';
 import {getPalette} from './theme';
 import {Story} from './types';
 
-const FACT_LABELS: Record<string, string> = {when: 'केव्हा', who: 'कोण', where: 'कुठे', why: 'का', how: 'कसे'};
 const FACT_PLAN: string[][] = [['where', 'when'], ['who'], ['why', 'how'], ['where'], ['when'], ['who']];
 
 /** The 5W1H chips shown under a scene's context card (empty answers are skipped). */
 const factsForScene = (index: number, five?: Record<string, string>): Fact[] =>
   (FACT_PLAN[index] ?? [])
-    .map((key) => ({label: FACT_LABELS[key], value: (five?.[key] ?? '').trim()}))
+    .map((key) => ({value: (five?.[key] ?? '').trim()}))
     .filter((fact) => fact.value.length > 0 && fact.value.length <= 90);
 
 export const totalFrames = (story: Story, fps: number): number =>
