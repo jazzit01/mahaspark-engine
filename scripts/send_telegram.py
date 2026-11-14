@@ -56,6 +56,9 @@ def build_summary_message(story: dict, source_url: str) -> str:
     lines = ["<b>📋 5W1H सारांश</b>"]
     for key, label in FIVE_W_LABELS:
         lines.append(f"<b>{label}:</b> {html.escape(str(five.get(key, '—')))}")
+    if story.get("audio") is False:
+        lines.append("")
+        lines.append("<b>🔇 व्हॉइसओव्हर उपलब्ध नव्हता:</b> हा रील आवाजाशिवाय तयार झाला आहे.")
     lines.append("")
     lines.append(f"<b>🌐 मूळ स्रोत:</b> {html.escape(source_url or 'उपलब्ध नाही')}")
     lines.append("")

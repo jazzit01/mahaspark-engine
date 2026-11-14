@@ -45,3 +45,10 @@ def test_chat_id_can_be_overridden(monkeypatch):
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "token")
     monkeypatch.setenv("TELEGRAM_CHAT_ID", "42")
     assert tg._credentials() == ("token", "42")
+
+
+def test_summary_mentions_when_the_reel_is_voiceless():
+    story = valid_story()
+    assert "व्हॉइसओव्हर उपलब्ध नव्हता" not in tg.build_summary_message(story, "u")
+    story["audio"] = False
+    assert "व्हॉइसओव्हर उपलब्ध नव्हता" in tg.build_summary_message(story, "u")
