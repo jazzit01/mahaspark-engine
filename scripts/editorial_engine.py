@@ -20,6 +20,7 @@ import wave
 from pathlib import Path
 from typing import Literal
 
+import requests
 from pydantic import BaseModel, Field
 
 from config import STORY_PATH, VOICEOVER_PATH, get_env_value
@@ -290,15 +291,39 @@ ANCHOR_STYLE = (
 )
 
 
-def tts_model_chain() -> list[str]:
-    """Models to try, in order: ``GEMINI_TTS_MODEL`` (one name or a comma list) first, then the defaults."""
+API_BASE = "https://generativelanguage.googleapis.com/v1beta"
+
+STYLE_PREFIX = (
+    "Say as a composed, authoritative senior prime-time Marathi news anchor, at a measured pace, "
+    "with a short breath at every comma and a longer pause at every full stop:"
+)
+
+
+def discover_tts_models() -> list[str]:
+    """Ask Google which TTS models THIS API key can see (model ids containing "tts")."""
+    api_key = get_env_value("GEMINI_API_KEY")
+    if not api_key:
+        return []
+    try:
+        resp = requests.get(f"{API_BASE}/models", params={"pageSize": 1000}, headers={"x-goog-api-key": api_key}, timeout=20)
+        if resp.status_code != 200:
+            print(f"⚠️ Could not list models (HTTP {resp.status_code}); using the built-in TTS model list.")
+            return []
+        names = [str(m.get("name", "")).removeprefix("models/") for m in resp.json().get("models", [])]
+    except (requests.RequestException, ValueError) as exc:
+        print(f"⚠️ Could not list models ({exc}); using the built-in TTS model list.")
+        return []
+    return [n for n in names if "tts" in n.lower()]
+
+
+def tts_model_chain(discovered: list[str] | None = None) -> list[str]:
+    """Models to try, in order: ``GEMINI_TTS_MODEL`` (one name or a comma list), then the known models this
+    key can see, then any other TTS model it can see, then the remaining built-in names as a last resort."""
     configured = [m.strip() for m in get_env_value("GEMINI_TTS_MODEL").split(",") if m.strip()]
-    return list(dict.fromkeys(configured + TTS_MODELS_DEFAULT))
-
-
-def _uses_generate_content(model: str) -> bool:
-    """The 2.5 TTS models predate the Interactions API and are called through generate_content."""
-    return model.startswith("gemini-2.5")
+    found = list(discovered or [])
+    known_visible = [m for m in TTS_MODELS_DEFAULT if m in found]
+    other_visible = [m for m in found if m not in TTS_MODELS_DEFAULT]
+    return list(dict.fromkeys(configured + known_visible + other_visible + TTS_MODELS_DEFAULT))
 
 
 def _sdk_version() -> str:
@@ -320,36 +345,17 @@ def _wav_from_pcm(pcm: bytes, sample_rate: int = TTS_SAMPLE_RATE) -> bytes:
     return buffer.getvalue()
 
 
-def _request_tts_audio(script: str, model: str) -> bytes:
+def _is_bad_key(exc: Exception) -> bool:
+    """An invalid key stops the whole chain. A 403 for one model does not: other models may still be allowed."""
+    text = str(exc).upper()
+    return any(t in text for t in ("API KEY NOT VALID", "API_KEY_INVALID", "INVALID API KEY", "UNAUTHENTICATED", "HTTP 401"))
+
+
+def _tts_interactions(model: str, script: str, voice: str, api_key: str) -> bytes:
+    """Route 1: Interactions API (documented for the Gemini 3.x TTS models)."""
     from google import genai  # imported lazily so script-only tests need no SDK
 
-    api_key = get_env_value("GEMINI_API_KEY")
-    if not api_key:
-        raise LLMUnavailableError("GEMINI_API_KEY is not set; the Gemini voice cannot be used.")
-
     client = genai.Client(api_key=api_key)
-    voice = get_env_value("GEMINI_TTS_VOICE", TTS_VOICE_DEFAULT)
-
-    if _uses_generate_content(model):
-        from google.genai import types
-
-        response = client.models.generate_content(
-            model=model,
-            contents=(
-                "Read this Marathi news bulletin as a composed, authoritative prime-time news anchor, at a "
-                "measured pace with a short breath at every comma and a longer pause at every full stop. "
-                f"Read only the bulletin text:\n\n{script}"
-            ),
-            config=types.GenerateContentConfig(
-                response_modalities=["AUDIO"],
-                speech_config=types.SpeechConfig(
-                    voice_config=types.VoiceConfig(prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice))
-                ),
-            ),
-        )
-        pcm = response.candidates[0].content.parts[0].inline_data.data  # raw 24 kHz 16-bit mono PCM
-        return _wav_from_pcm(pcm)
-
     interaction = client.interactions.create(
         model=model,
         input=[
@@ -372,21 +378,69 @@ def _request_tts_audio(script: str, model: str) -> bytes:
     return audio if audio[:4] == b"RIFF" else _wav_from_pcm(audio)
 
 
+def _tts_generate_content(model: str, script: str, voice: str, api_key: str) -> bytes:
+    """Route 2: classic generateContent TTS over plain REST (the 2.5 and 3.1 flash TTS models)."""
+    body = {
+        "contents": [{"parts": [{"text": f"{STYLE_PREFIX}\n\n{script}"}]}],
+        "generationConfig": {
+            "responseModalities": ["AUDIO"],
+            "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": voice}}},
+        },
+    }
+    resp = requests.post(
+        f"{API_BASE}/models/{model}:generateContent",
+        headers={"x-goog-api-key": api_key},
+        json=body,
+        timeout=180,
+    )
+    if resp.status_code != 200:
+        raise RuntimeError(f"HTTP {resp.status_code}: {resp.text[:200]}")
+    try:
+        inline = resp.json()["candidates"][0]["content"]["parts"][0]["inlineData"]
+        pcm = base64.b64decode(inline["data"])
+    except (KeyError, IndexError, TypeError, ValueError) as exc:
+        raise RuntimeError(f"unexpected generateContent response: {resp.text[:160]}") from exc
+    rate = re.search(r"rate=(\d+)", str(inline.get("mimeType", "")))
+    return _wav_from_pcm(pcm, int(rate.group(1)) if rate else TTS_SAMPLE_RATE)
+
+
+def _request_tts_audio(script: str, model: str) -> bytes:
+    """Try both call routes for one model. Quota, key and transient errors are left to the caller."""
+    api_key = get_env_value("GEMINI_API_KEY")
+    if not api_key:
+        raise LLMUnavailableError("GEMINI_API_KEY is not set; the Gemini voice cannot be used.")
+    voice = get_env_value("GEMINI_TTS_VOICE", TTS_VOICE_DEFAULT)
+
+    errors = []
+    for name, route in (("interactions", _tts_interactions), ("generateContent", _tts_generate_content)):
+        try:
+            return route(model, script, voice, api_key)
+        except Exception as exc:  # noqa: BLE001
+            if _is_bad_key(exc) or is_quota_error(exc) or is_transient_error(exc):
+                raise
+            errors.append(f"{name}: {type(exc).__name__}: {str(exc)[:120]}")
+    raise RuntimeError(" | ".join(errors))
+
+
 def synthesize_voiceover(script: str, out_path: Path = VOICEOVER_PATH, attempts: int = TTS_ATTEMPTS_PER_MODEL) -> Path:
     """Render ``script`` (the phonetic ``tts_narration_script``) to a WAV file.
 
-    Walks the model chain: a missing/unsupported model or an SDK/request error moves straight to the next
-    model, transient errors are retried on the same model, and an expired key or exhausted quota stops
-    everything. If no model works the story is NOT lost: ``LLMUnavailableError`` puts the row back to PENDING.
+    Walks the model chain. A missing model, a request error or an exhausted per-model quota moves on to
+    the next model; transient errors are retried on the same model; only an invalid API key stops
+    everything. If no model works, ``LLMUnavailableError`` is raised and the pipeline falls back to a
+    voiceless video instead of losing the story.
     """
     problems = tts_problems(script)
     if problems:
         raise ValueError(problems[0])
 
-    print(f"🎙️ Gemini TTS (google-genai {_sdk_version()}), models to try: {', '.join(tts_model_chain())}")
+    discovered = discover_tts_models()
+    chain = tts_model_chain(discovered)
+    print(f"🔎 TTS models visible to this API key: {', '.join(discovered) if discovered else '(none listed)'}")
+    print(f"🎙️ Gemini TTS (google-genai {_sdk_version()}), models to try: {', '.join(chain)}")
     errors: list[str] = []
 
-    for model in tts_model_chain():
+    for model in chain:
         for attempt in range(1, attempts + 1):
             try:
                 wav = _request_tts_audio(script, model)
@@ -399,17 +453,16 @@ def synthesize_voiceover(script: str, out_path: Path = VOICEOVER_PATH, attempts:
             except LLMUnavailableError:
                 raise
             except Exception as exc:  # noqa: BLE001
-                if is_auth_error(exc) or is_quota_error(exc):
-                    raise LLMUnavailableError(f"Gemini TTS unavailable: {exc}") from exc
-                message = f"{type(exc).__name__}: {str(exc)[:160]}"
+                if _is_bad_key(exc):
+                    raise LLMUnavailableError(f"Gemini API key rejected: {exc}") from exc
+                message = f"{type(exc).__name__}: {str(exc)[:200]}"
                 print(f"⚠️ TTS {model} attempt {attempt}/{attempts} failed: {message}")
                 if is_transient_error(exc) and attempt < attempts:
                     time.sleep(3 * attempt)
                     continue
                 errors.append(f"{model}: {message}")
-                break  # missing model or request error: try the next model
+                break  # quota, missing model or request error: try the next model
 
     raise LLMUnavailableError(
-        "No Gemini TTS model worked (the story stays queued and will be retried). "
-        f"google-genai {_sdk_version()}. " + " | ".join(errors)
+        f"No Gemini TTS model worked (google-genai {_sdk_version()}). " + " | ".join(errors)
     )

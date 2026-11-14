@@ -62,10 +62,21 @@ A model slip is caught and the model gets one repair attempt with the exact erro
     ("मेट्रो", "हायकोर्ट").
   - No heavy Sanskritised compounds; a comma wherever the anchor breathes; every scene ends with a full stop.
 
-Voiceover: `gemini-3.8-flash-tts` (needs `google-genai>=2.25.0`) through `client.interactions.create` with an `annotations: speech_metadata`
-style block (`ANCHOR_STYLE` in `editorial_engine.py`: composed senior prime-time anchor). Overrides:
-`GEMINI_TTS_MODEL`, `GEMINI_TTS_VOICE`. Output is 24 kHz mono WAV at `remotion/public/voiceover.wav`.
-If Google changes this API, `_request_tts_audio` is the only function to adjust.
+Voiceover (`editorial_engine.synthesize_voiceover`): the engine asks Google which TTS models the API key can see
+(`discover_tts_models`, logged as "TTS models visible to this API key"), then tries `GEMINI_TTS_MODEL` (optional, one name
+or a comma list), the visible known models and the built-in list (`TTS_MODELS_DEFAULT`: `gemini-3.8-flash-tts`,
+`gemini-3.8-flash-lite-tts`, `gemini-3.1-flash-tts-preview`, `gemini-2.5-pro-preview-tts`,
+`gemini-2.5-flash-preview-tts`). Each model is tried over two routes: the Interactions API
+(`client.interactions.create` with an `annotations: speech_metadata` style block, `ANCHOR_STYLE`; needs
+`google-genai>=2.25.0`) and plain REST `generateContent` (`_tts_generate_content`). A missing model, request error or
+exhausted per-model quota moves to the next model; transient errors retry; only an invalid key stops the chain.
+Override voice with `GEMINI_TTS_VOICE`. Output is 24 kHz mono WAV at `remotion/public/voiceover.wav`.
+
+**Voiceless fallback:** if no TTS model works, `pipeline.add_voice_and_timings` does NOT drop the story. It builds
+estimated word/scene timings from the script (`align_timings.main_voiceless`, about 2.4 words/s plus pauses), sets
+`audio: false` in `story.json`, and renders the full reel (studio, cards, karaoke captions, whoosh SFX, studio bed)
+without the voiceover. The Sheet note reads `SUCCESS (voiceless)` and the Telegram summary says the voiceover was
+unavailable. If Google changes a TTS API, `_tts_interactions` / `_tts_generate_content` are the only functions to adjust.
 
 ## Word timing
 

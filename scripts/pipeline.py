@@ -77,14 +77,24 @@ def render_reel(output=REEL_PATH) -> None:
         raise RuntimeError(f"Remotion render failed with exit code {result.returncode}")
 
 
+def add_voice_and_timings(story: dict) -> dict:
+    """Voiceover + word timings. If no TTS model works, fall back to a voiceless story (never lose the post)."""
+    try:
+        editorial_engine.synthesize_voiceover(story["tts_narration_script"], VOICEOVER_PATH)
+        return align_timings.main(STORY_PATH, VOICEOVER_PATH)
+    except LLMUnavailableError as exc:
+        print(f"🔇 Voiceover unavailable, rendering a voiceless reel instead: {str(exc)[:300]}")
+        VOICEOVER_PATH.unlink(missing_ok=True)
+        return align_timings.main_voiceless(STORY_PATH)
+
+
 def produce_reel(title: str, summary: str, article_text: str, source_url: str) -> dict:
     """Script -> voiceover -> alignment -> render. Returns the final story dict."""
     story = editorial_engine.write_story(title, summary, article_text, source_url)
     editorial_engine.save_story(story)
     print(f"📝 Script ready ({story['visual_theme']}, {story['audio_mood']}): {story['scenes'][0]['headline']}")
 
-    editorial_engine.synthesize_voiceover(story["tts_narration_script"], VOICEOVER_PATH)
-    story = align_timings.main(STORY_PATH, VOICEOVER_PATH)
+    story = add_voice_and_timings(story)
     render_reel()
     return story
 
@@ -92,7 +102,8 @@ def produce_reel(title: str, summary: str, article_text: str, source_url: str) -
 def deliver(story: dict, source_url: str) -> str:
     """Send to Telegram. Returns the status text for the Sheet."""
     telegram_ok = send_telegram.send_reel(REEL_PATH, story, source_url)
-    return f"SUCCESS - Telegram: {'OK' if telegram_ok else 'FAIL'}"
+    voice = " (voiceless)" if story.get("audio") is False else ""
+    return f"SUCCESS{voice} - Telegram: {'OK' if telegram_ok else 'FAIL'}"
 
 
 def run_scheduled() -> int:
@@ -152,8 +163,7 @@ def run_adhoc(text: str, url: str, skip_telegram: bool, skip_render: bool) -> in
     title, _, rest = text.strip().partition("\n")
     story = editorial_engine.write_story(title, "", rest or title, url)
     editorial_engine.save_story(story)
-    editorial_engine.synthesize_voiceover(story["tts_narration_script"], VOICEOVER_PATH)
-    story = align_timings.main(STORY_PATH, VOICEOVER_PATH)
+    story = add_voice_and_timings(story)
     if skip_render:
         print(f"✅ Script, voiceover and timings are ready in {STORY_PATH.parent}")
         return 0

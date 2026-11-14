@@ -64,3 +64,23 @@ def test_mismatched_scene_text_refuses_to_align():
     except ValueError:
         return
     raise AssertionError("expected ValueError")
+
+
+def test_voiceless_story_is_timed_from_the_script_and_marked_silent(tmp_path):
+    import json
+
+    story = story_with_scenes()
+    path = tmp_path / "story.json"
+    path.write_text(json.dumps(story, ensure_ascii=False), encoding="utf-8")
+    result = at.main_voiceless(path)
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    assert result["audio"] is False and saved["audio"] is False
+    assert saved["duration_seconds"] == at.estimate_duration(story["tts_narration_script"])
+    assert len(saved["words"]) == len(story["tts_narration_script"].split())
+    assert saved["scenes"][-1]["end"] == saved["duration_seconds"]
+
+
+def test_estimated_duration_has_a_floor_and_grows_with_length():
+    assert at.estimate_duration("एक.") == at.MIN_VOICELESS_SECONDS
+    long_script = " ".join(["शब्द,"] * 120) + "."
+    assert at.estimate_duration(long_script) > 50

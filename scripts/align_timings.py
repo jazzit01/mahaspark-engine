@@ -189,6 +189,32 @@ def build_story_timings(story: dict, heard: list[TimedWord], duration: float) ->
     return {**story, "scenes": scenes, "words": words, "duration_seconds": round(duration, 3), "alignment_match": round(matched, 3)}
 
 
+# Voiceless fallback: pace of a calm prime-time anchor, used only when no voiceover could be generated.
+WORDS_PER_SECOND = 2.4
+COMMA_PAUSE_SECONDS = 0.18
+STOP_PAUSE_SECONDS = 0.40
+MIN_VOICELESS_SECONDS = 15.0
+
+
+def estimate_duration(script: str) -> float:
+    """Estimated reading time of ``script`` at anchor pace (words plus breaths at commas and full stops)."""
+    seconds = len(script.split()) / WORDS_PER_SECOND + script.count(",") * COMMA_PAUSE_SECONDS + script.count(".") * STOP_PAUSE_SECONDS
+    return max(MIN_VOICELESS_SECONDS, round(seconds + 0.6, 2))
+
+
+def main_voiceless(story_path: Path = STORY_PATH) -> dict:
+    """Time captions and scene cuts from the script alone and mark the story ``audio: false``.
+
+    Every other element of the reel (studio, cards, karaoke captions, SFX, bed) renders exactly as usual."""
+    story = json.loads(story_path.read_text(encoding="utf-8"))
+    duration = estimate_duration(story["tts_narration_script"])
+    updated = build_story_timings(story, [], duration)
+    updated["audio"] = False
+    story_path.write_text(json.dumps(updated, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"🔇 Voiceless story: {len(updated['words'])} words timed over an estimated {duration:.1f}s")
+    return updated
+
+
 def main(story_path: Path = STORY_PATH, audio_path: Path = VOICEOVER_PATH) -> dict:
     story = json.loads(story_path.read_text(encoding="utf-8"))
     duration = audio_duration(audio_path)
@@ -200,6 +226,7 @@ def main(story_path: Path = STORY_PATH, audio_path: Path = VOICEOVER_PATH) -> di
         heard = []
 
     updated = build_story_timings(story, heard, duration)
+    updated["audio"] = True
     story_path.write_text(json.dumps(updated, ensure_ascii=False, indent=2), encoding="utf-8")
     print(
         f"⏱️ Aligned {len(updated['words'])} words over {duration:.2f}s "

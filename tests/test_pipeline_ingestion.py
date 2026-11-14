@@ -52,3 +52,32 @@ def test_instagram_is_fully_removed():
     assert not (root / "scripts" / "publish_instagram.py").exists()
     for path in list((root / "scripts").glob("*.py")) + [root / ".github" / "workflows" / "runner.yml"]:
         assert "instagram" not in path.read_text(encoding="utf-8").lower(), path.name
+
+
+def test_tts_failure_falls_back_to_a_voiceless_story(monkeypatch, tmp_path):
+    import json
+
+    import editorial_engine
+    from helpers import valid_story
+    from llm_providers import LLMUnavailableError
+
+    story = valid_story()
+    story["tts_narration_script"] = " ".join(s["tts_text"] for s in story["scenes"])
+    story_path = tmp_path / "story.json"
+    story_path.write_text(json.dumps(story, ensure_ascii=False), encoding="utf-8")
+    voice_path = tmp_path / "voiceover.wav"
+    voice_path.write_bytes(b"stale")
+
+    monkeypatch.setattr(pipeline, "STORY_PATH", story_path)
+    monkeypatch.setattr(pipeline, "VOICEOVER_PATH", voice_path)
+    monkeypatch.setattr(editorial_engine, "synthesize_voiceover", lambda *a, **k: (_ for _ in ()).throw(LLMUnavailableError("no tts")))
+
+    result = pipeline.add_voice_and_timings(story)
+    assert result["audio"] is False and not voice_path.exists()
+    assert json.loads(story_path.read_text(encoding="utf-8"))["words"]
+
+
+def test_deliver_marks_voiceless_posts(monkeypatch):
+    monkeypatch.setattr(pipeline.send_telegram, "send_reel", lambda *a, **k: True)
+    assert pipeline.deliver({"audio": False}, "u") == "SUCCESS (voiceless) - Telegram: OK"
+    assert pipeline.deliver({"audio": True}, "u") == "SUCCESS - Telegram: OK"
