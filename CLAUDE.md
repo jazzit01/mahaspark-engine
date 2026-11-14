@@ -80,7 +80,8 @@ unavailable. If Google changes a TTS API, `_tts_interactions` / `_tts_generate_c
 
 ## Word timing
 
-Whisper's Marathi spelling differs from the script, so its text is never shown. `align_timings.py` fuzzy-matches
+Whisper is fed a 16 kHz float array loaded with `load_audio_16k` (not a file path), so faster-whisper never calls PyAV's
+`av.open`, which crashed on some installed versions. Whisper's Marathi spelling differs from the script, so its text is never shown. `align_timings.py` fuzzy-matches
 Whisper's words to the script words (order-preserving) and uses Whisper's times for matches; unmatched words
 are interpolated between neighbours. If Whisper fails, captions fall back to proportional timing. The output
 adds `words[]` (`text,start,end,scene`), per-scene `start/end`, `duration_seconds` and `alignment_match` to
@@ -127,6 +128,9 @@ Hourly cron + manual dispatch, 30 min timeout, one run at a time. It caches pip,
 `python scripts/pipeline.py`. Secrets: `GCP_CREDENTIALS`, `GEMINI_API_KEY`, `TELEGRAM_BOT_TOKEN`,
 optional `TELEGRAM_CHAT_ID` (defaults to the project's existing chat), optional `GROQ_/CEREBRAS_/OPENROUTER_API_KEY`.
 Variables: `GEMINI_MODELS`, `GEMINI_TTS_MODEL`, `GEMINI_TTS_VOICE`.
+
+`MAX_STORIES_PER_RUN` (default 1) counts every story attempted, failures included, so one broken story can't burn
+through the queue and the TTS quota. A run where the attempted story failed exits with code 1 (red in Actions).
 
 Sheet status flow: `PENDING -> PROCESSING -> DONE | ERROR | REJECTED`. If no AI provider is usable, the row
 returns to `PENDING` and is retried next run; `ERROR` rows are never retried.

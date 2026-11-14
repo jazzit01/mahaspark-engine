@@ -48,12 +48,36 @@ def normalize_token(word: str) -> str:
     return "".join(kept)
 
 
+WHISPER_RATE = 16000
+
+
+def load_audio_16k(path: Path):
+    """Read a PCM WAV into the 16 kHz mono float32 array Whisper expects.
+
+    Passing an array means faster-whisper never has to decode the file itself, which avoids its PyAV call
+    (``av.open(..., metadata_errors=...)``) that crashes with some installed ``av`` versions."""
+    import numpy as np
+
+    with wave.open(str(path), "rb") as handle:
+        channels, width, rate = handle.getnchannels(), handle.getsampwidth(), handle.getframerate()
+        raw = handle.readframes(handle.getnframes())
+    if width != 2:
+        raise ValueError(f"Expected 16-bit PCM audio, got {width * 8}-bit.")
+    samples = np.frombuffer(raw, dtype="<i2").astype(np.float32) / 32768.0
+    if channels > 1:
+        samples = samples.reshape(-1, channels).mean(axis=1)
+    if rate != WHISPER_RATE and len(samples) > 1:
+        target = int(round(len(samples) * WHISPER_RATE / rate))
+        samples = np.interp(np.linspace(0, len(samples) - 1, target), np.arange(len(samples)), samples).astype(np.float32)
+    return samples
+
+
 def transcribe_words(path: Path) -> list[TimedWord]:
     """Run faster-whisper (small, int8, CPU) and return the heard words with timestamps."""
     from faster_whisper import WhisperModel  # lazy: heavy import, not needed by unit tests
 
     model = WhisperModel("small", device="cpu", compute_type="int8")
-    segments, _info = model.transcribe(str(path), language="mr", word_timestamps=True, beam_size=5)
+    segments, _info = model.transcribe(load_audio_16k(path), language="mr", word_timestamps=True, beam_size=5)
     words = []
     for segment in segments:
         for w in segment.words or []:
