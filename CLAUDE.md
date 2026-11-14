@@ -62,7 +62,7 @@ A model slip is caught and the model gets one repair attempt with the exact erro
     ("मेट्रो", "हायकोर्ट").
   - No heavy Sanskritised compounds; a comma wherever the anchor breathes; every scene ends with a full stop.
 
-Voiceover: `gemini-3.8-flash-tts` through `client.interactions.create` with an `annotations: speech_metadata`
+Voiceover: `gemini-3.8-flash-tts` (needs `google-genai>=2.25.0`) through `client.interactions.create` with an `annotations: speech_metadata`
 style block (`ANCHOR_STYLE` in `editorial_engine.py`: composed senior prime-time anchor). Overrides:
 `GEMINI_TTS_MODEL`, `GEMINI_TTS_VOICE`. Output is 24 kHz mono WAV at `remotion/public/voiceover.wav`.
 If Google changes this API, `_request_tts_audio` is the only function to adjust.
