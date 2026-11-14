@@ -234,6 +234,31 @@ def test_generate_content_route_decodes_pcm_into_wav(monkeypatch):
     assert wav[:4] == b"RIFF" and len(wav) > 40000
     assert posted["url"].endswith("/models/gemini-2.5-flash-preview-tts:generateContent")
     assert posted["body"]["generationConfig"]["responseModalities"] == ["AUDIO"]
+    # Only the script may be in the spoken text part; the style is a separate instruction.
+    assert posted["body"]["contents"][0]["parts"][0]["text"] == GOOD_SCRIPT
+
+
+def test_generate_content_retries_without_style_on_400(monkeypatch):
+    import base64
+
+    pcm = base64.b64encode(b"\x01\x00" * 100).decode()
+    bodies = []
+
+    class Resp:
+        def __init__(self, code):
+            self.status_code, self.text = code, "bad"
+
+        def json(self):
+            return {"candidates": [{"content": {"parts": [{"inlineData": {"mimeType": "audio/L16;rate=24000", "data": pcm}}]}}]}
+
+    def fake_post(url, headers, json, timeout):
+        bodies.append(json)
+        return Resp(400 if "systemInstruction" in json else 200)
+
+    monkeypatch.setattr(ee.requests, "post", fake_post)
+    ee._tts_generate_content("gemini-2.5-flash-preview-tts", GOOD_SCRIPT, "Kore", "k")
+    assert len(bodies) == 2 and "systemInstruction" not in bodies[1]
+    assert all(b["contents"][0]["parts"][0]["text"] == GOOD_SCRIPT for b in bodies)
 
 
 def test_configured_tts_model_is_tried_first(monkeypatch):

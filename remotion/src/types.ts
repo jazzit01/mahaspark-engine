@@ -29,6 +29,8 @@ export type Story = {
   visual_theme: ThemeName;
   audio_mood: AudioMood;
   scenes: StoryScene[];
+  /** what/when/who/where/why/how answers; chips on the scene cards. */
+  five_w_one_h?: Record<string, string>;
   words: StoryWord[];
   duration_seconds: number;
   /** Studio previews set this to false because voiceover.wav does not exist there. */

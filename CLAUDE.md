@@ -70,7 +70,7 @@ or a comma list), the visible known models and the built-in list (`TTS_MODELS_DE
 (`client.interactions.create` with an `annotations: speech_metadata` style block, `ANCHOR_STYLE`; needs
 `google-genai>=2.25.0`) and plain REST `generateContent` (`_tts_generate_content`). A missing model, request error or
 exhausted per-model quota moves to the next model; transient errors retry; only an invalid key stops the chain.
-Override voice with `GEMINI_TTS_VOICE`. Output is 24 kHz mono WAV at `remotion/public/voiceover.wav`.
+The spoken text part is ONLY the script (never an instruction line, or the voice reads it aloud); the anchor style goes in the Interactions `annotations` or, on REST, `systemInstruction` (retried without it on HTTP 400). Override voice with `GEMINI_TTS_VOICE`. Output is 24 kHz mono WAV at `remotion/public/voiceover.wav`.
 
 **Voiceless fallback:** if no TTS model works, `pipeline.add_voice_and_timings` does NOT drop the story. It builds
 estimated word/scene timings from the script (`align_timings.main_voiceless`, about 2.4 words/s plus pauses), sets
@@ -103,6 +103,7 @@ adds `words[]` (`text,start,end,scene`), per-scene `start/end`, `duration_second
   badges anywhere.**
 - **Safe zones** (`src/constants.ts`): all headlines (74 px bold), 2-line context cards (40 px) and captions stay
   between `top: 290px` and `bottom: 450px`.
+- Scene layout (`SceneCard.tsx`): a full-height column fills the area between the logo row and the captions: progress row (segments + `१ / ४`), headline panel, context card and 5W1H fact chips from `story.five_w_one_h` (per-scene plan in `Reel.tsx`). Keep it filled; do not shrink back to a top-anchored stack.
 - Motion: spring card entrances, animated vertical accent bar, scale/fade exits, word-by-word karaoke captions
   (`Captions.tsx`), `whoosh.wav` on every scene cut, mood bed (`public/bed/<audio_mood>.mp3`) at -20 dB
   with a 1 s fade-out.
