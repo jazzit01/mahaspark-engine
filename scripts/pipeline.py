@@ -56,6 +56,16 @@ def queue_new_items(queue: SheetQueue, max_items: int = MAX_NEW_ITEMS_PER_RUN) -
     return added
 
 
+def render_concurrency() -> int:
+    """Remotion refuses a concurrency above the CPU core count (GitHub runners have only 2 cores)."""
+    cores = max(1, os.cpu_count() or 1)
+    try:
+        wanted = int(os.getenv("REMOTION_CONCURRENCY", "") or cores)
+    except ValueError:
+        wanted = cores
+    return max(1, min(wanted, cores))
+
+
 def render_reel(output=REEL_PATH) -> None:
     """Render the Remotion composition with the studio chosen by story.json's visual_theme."""
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -69,7 +79,7 @@ def render_reel(output=REEL_PATH) -> None:
         "--props=public/story.json",
         "--codec=h264",
         "--crf=18",
-        f"--concurrency={os.getenv('REMOTION_CONCURRENCY', '3')}",
+        f"--concurrency={render_concurrency()}",
     ]
     print("🎬 Rendering reel with Remotion...")
     result = subprocess.run(cmd, cwd=REMOTION_DIR)
