@@ -132,7 +132,7 @@ cd remotion && npm run studio   # edit visuals against the sample story
 
 ## CI (`.github/workflows/runner.yml`)
 
-Hourly cron + manual dispatch, 30 min timeout, one run at a time. It caches pip, `~/.npm`, Remotion's browser
+Hourly cron, daytime only (05:00-20:00 IST = cron `30 23` and `30 0-14` in UTC, 16 runs a day) + manual dispatch, 30 min timeout, one run at a time. It caches pip, `~/.npm`, Remotion's browser
 (`remotion/node_modules/.remotion`), the Whisper model (`~/.cache/huggingface`) and `~/.cache/ms-playwright`
 (kept as requested; Playwright is no longer used, so it stays empty). It runs the unit tests, then
 `python scripts/pipeline.py`. Secrets: `GCP_CREDENTIALS`, `GEMINI_API_KEY`, `TELEGRAM_BOT_TOKEN`,
