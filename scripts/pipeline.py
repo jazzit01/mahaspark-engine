@@ -124,7 +124,7 @@ def run_scheduled() -> int:
         print(f"⚠️ Ingestion error: {exc}")
 
     print("\n⚙️ Scanning the sheet for PENDING items...")
-    processed = 0
+    processed = published = 0  # processed counts every story attempted, so failures also respect the limit
     for row in queue.pending_rows():
         if processed >= MAX_STORIES_PER_RUN:
             break
@@ -144,6 +144,7 @@ def run_scheduled() -> int:
             queue.set_status(row.index, DONE, status_note)
             print(f"✅ Row {row.index} completed.")
             processed += 1
+            published += 1
 
         except ContentRejected as exc:
             print(f"🚫 Row {row.index} rejected: {exc}")
@@ -160,11 +161,14 @@ def run_scheduled() -> int:
             message = f"{type(exc).__name__}: {str(exc)[:250]}"
             print(f"❌ Error on row {row.index}: {message}")
             queue.set_status(row.index, ERROR, message)
+            processed += 1
 
         time.sleep(2)
 
-    if processed == 0:
+    if published == 0:
         print("ℹ️ Nothing was published in this run.")
+        if processed > 0:
+            return 1  # a story was attempted and failed: make the workflow run show as failed
     return 0
 
 

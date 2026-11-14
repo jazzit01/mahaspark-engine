@@ -95,3 +95,48 @@ def test_render_concurrency_never_exceeds_cpu_cores(monkeypatch):
     assert pipeline.render_concurrency() == 2
     monkeypatch.setattr(pipeline.os, "cpu_count", lambda: None)
     assert pipeline.render_concurrency() == 1
+
+
+class RunQueue(FakeQueue):
+    def __init__(self, rows):
+        super().__init__()
+        self.rows = rows
+        self.statuses = {}
+
+    def pending_rows(self):
+        return self.rows
+
+    def set_status(self, row, status, note=None):
+        self.statuses[row] = status
+
+
+def _run_with_rows(monkeypatch, produce):
+    from sheet_queue import PendingRow
+
+    queue = RunQueue([PendingRow(i, f"शीर्षक {i} - सारांश", "https://pub.com/x") for i in (1, 2, 3)])
+    monkeypatch.setattr(pipeline.SheetQueue, "connect", classmethod(lambda cls: queue))
+    monkeypatch.setattr(pipeline, "queue_new_items", lambda q: 0)
+    monkeypatch.setattr(pipeline.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(pipeline, "MAX_STORIES_PER_RUN", 1)
+    monkeypatch.setattr(pipeline.fetch_news, "resolve_article_url", lambda u: u)
+    monkeypatch.setattr(pipeline.fetch_news, "fetch_article_text", lambda u: "x" * 400)
+    monkeypatch.setattr(pipeline, "produce_reel", produce)
+    monkeypatch.setattr(pipeline, "deliver", lambda story, url: "SUCCESS - Telegram: OK")
+    monkeypatch.setattr(queue, "write_story", lambda *a, **k: None, raising=False)
+    return pipeline.run_scheduled(), queue
+
+
+def test_a_failing_story_counts_toward_the_run_limit(monkeypatch):
+    def boom(*a):
+        raise RuntimeError("Remotion render failed")
+
+    code, queue = _run_with_rows(monkeypatch, boom)
+    assert queue.statuses.get(1) == "ERROR"
+    assert 2 not in queue.statuses and 3 not in queue.statuses  # the other rows were not touched or spent
+    assert code == 1  # the workflow run shows as failed
+
+
+def test_successful_story_exits_cleanly(monkeypatch):
+    code, queue = _run_with_rows(monkeypatch, lambda *a: {"audio": True})
+    assert queue.statuses.get(1) == "DONE" and 2 not in queue.statuses
+    assert code == 0

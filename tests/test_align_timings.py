@@ -84,3 +84,19 @@ def test_estimated_duration_has_a_floor_and_grows_with_length():
     assert at.estimate_duration("एक.") == at.MIN_VOICELESS_SECONDS
     long_script = " ".join(["शब्द,"] * 120) + "."
     assert at.estimate_duration(long_script) > 50
+
+
+def test_audio_is_loaded_as_16k_mono_float_array_without_av(tmp_path):
+    import wave
+
+    import numpy as np
+
+    path = tmp_path / "v.wav"
+    with wave.open(str(path), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(24000)
+        w.writeframes((np.sin(np.linspace(0, 200, 24000)) * 12000).astype("<i2").tobytes())  # 1 second
+    audio = at.load_audio_16k(path)
+    assert audio.dtype == np.float32 and abs(len(audio) - 16000) <= 1
+    assert 0.2 < float(np.abs(audio).max()) <= 1.0
