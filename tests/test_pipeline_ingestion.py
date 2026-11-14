@@ -81,3 +81,17 @@ def test_deliver_marks_voiceless_posts(monkeypatch):
     monkeypatch.setattr(pipeline.send_telegram, "send_reel", lambda *a, **k: True)
     assert pipeline.deliver({"audio": False}, "u") == "SUCCESS (voiceless) - Telegram: OK"
     assert pipeline.deliver({"audio": True}, "u") == "SUCCESS - Telegram: OK"
+
+
+def test_render_concurrency_never_exceeds_cpu_cores(monkeypatch):
+    monkeypatch.setattr(pipeline.os, "cpu_count", lambda: 2)
+    monkeypatch.delenv("REMOTION_CONCURRENCY", raising=False)
+    assert pipeline.render_concurrency() == 2  # default: all cores
+    monkeypatch.setenv("REMOTION_CONCURRENCY", "3")
+    assert pipeline.render_concurrency() == 2  # the value that crashed the CI run is capped
+    monkeypatch.setenv("REMOTION_CONCURRENCY", "1")
+    assert pipeline.render_concurrency() == 1
+    monkeypatch.setenv("REMOTION_CONCURRENCY", "abc")
+    assert pipeline.render_concurrency() == 2
+    monkeypatch.setattr(pipeline.os, "cpu_count", lambda: None)
+    assert pipeline.render_concurrency() == 1
