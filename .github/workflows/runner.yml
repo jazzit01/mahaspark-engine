@@ -89,6 +89,8 @@ jobs:
       - name: Run Pipeline (RSS, 5W1H script, Gemini TTS, alignment, Remotion render, Telegram)
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Stock footage per scene (free key from pexels.com/api). Unset = studio backgrounds only.
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           # Optional overrides (Settings > Secrets and variables > Actions > Variables tab).
           GEMINI_MODELS: ${{ vars.GEMINI_MODELS }}
           GEMINI_TTS_MODEL: ${{ vars.GEMINI_TTS_MODEL }}

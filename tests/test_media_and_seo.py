@@ -1,0 +1,198 @@
+import json
+
+import pytest
+
+import editorial_engine as ee
+import media_fetch as mf
+import send_telegram as tg
+from helpers import SOURCE_TEXT, valid_story
+
+
+# ----- schema / validator -------------------------------------------------------------------------
+
+
+def test_visual_query_is_cleaned_to_english_words():
+    assert ee.clean_visual_query("Flyover, construction!! पुणे traffic night shot extra words here") == "flyover construction traffic night shot extra"
+    assert ee.clean_visual_query("फक्त मराठी") == ""
+
+
+def test_public_figure_is_dropped_for_grave_or_crime_stories():
+    assert ee.clean_public_figure("Devendra Fadnavis", "neutral") == "Devendra Fadnavis"
+    for mood in ("serious", "crime", "breaking"):
+        assert ee.clean_public_figure("Devendra Fadnavis", mood) == ""
+    assert ee.clean_public_figure("Madonna", "neutral") == ""  # one word: too ambiguous to look up
+    assert ee.clean_public_figure("पंतप्रधान", "neutral") == ""
+
+
+def test_validate_story_carries_visuals_and_seo_fields():
+    story = valid_story()
+    story["public_figure"] = "Ajit Pawar"
+    story["seo_keywords"] = ["Pune flyover", "पुणे उड्डाणपूल", "pune flyover", "Maharashtra news"]
+    story["hashtags"] = "#Pune पुणे #PuneFlyover"
+    story["scenes"][0]["visual_query"] = "flyover construction traffic"
+    result = ee.validate_story(story, SOURCE_TEXT)
+    assert result["public_figure"] == "Ajit Pawar"
+    assert result["seo_keywords"] == ["Pune flyover", "पुणे उड्डाणपूल", "Maharashtra news"]
+    assert result["hashtags"].startswith("#MahaSpark #Pune")
+    assert result["scenes"][0]["visual_query"] == "flyover construction traffic"
+
+
+def test_hashtags_are_capped_and_always_start_with_mahaspark():
+    tags = ee.clean_hashtags(" ".join(f"#tag{i}" for i in range(30)))
+    assert tags.split()[0] == "#MahaSpark" and len(tags.split()) == 15
+    assert ee.clean_hashtags("").startswith("#MahaSpark #")
+
+
+# ----- Pexels -------------------------------------------------------------------------------------
+
+
+def video(id_, dur=10, files=None):
+    return {
+        "id": id_,
+        "duration": dur,
+        "user": {"name": "Asha"},
+        "video_files": files
+        or [
+            {"link": "https://v/low.mp4", "file_type": "video/mp4", "width": 540, "height": 960},
+            {"link": "https://v/hd.mp4", "file_type": "video/mp4", "width": 1080, "height": 1920},
+            {"link": "https://v/uhd.mp4", "file_type": "video/mp4", "width": 2160, "height": 3840},
+        ],
+    }
+
+
+def test_best_file_is_the_smallest_one_tall_enough():
+    assert mf.pick_video_file(video(1))["link"] == "https://v/hd.mp4"
+
+
+class FakeResp:
+    def __init__(self, payload=None, code=200):
+        self.payload, self.status_code, self.text = payload or {}, code, "x"
+
+    def json(self):
+        return self.payload
+
+
+def test_pexels_skips_used_and_too_long_clips(monkeypatch):
+    payload = {"videos": [video(1), video(2, dur=120), video(3)]}
+    monkeypatch.setattr(mf.requests, "get", lambda *a, **k: FakeResp(payload))
+    clip = mf.search_pexels("rain", "key", exclude_ids={1})
+    assert clip["id"] == 3 and clip["credit"] == "Video: Asha / Pexels"
+
+
+# ----- Wikimedia Commons --------------------------------------------------------------------------
+
+
+def commons_page(title, licence, width=1200, index=1):
+    return {
+        "title": title,
+        "index": index,
+        "imageinfo": [
+            {
+                "thumburl": "https://c/x.jpg",
+                "width": width,
+                "extmetadata": {"LicenseShortName": {"value": licence}, "Artist": {"value": "<a href='#'>Some  Author</a>"}},
+            }
+        ],
+    }
+
+
+def test_commons_requires_free_licence_and_surname_in_title(monkeypatch):
+    pages = {
+        "1": commons_page("File:Random crowd.jpg", "CC BY 4.0", index=1),
+        "2": commons_page("File:Ajit Pawar fair.jpg", "Fair use", index=2),
+        "3": commons_page("File:Ajit Pawar 2023.jpg", "CC BY-SA 4.0", index=3),
+    }
+    monkeypatch.setattr(mf.requests, "get", lambda *a, **k: FakeResp({"query": {"pages": pages}}))
+    found = mf.search_commons_photo("Ajit Pawar")
+    assert found["credit"] == "Photo: Some Author, CC BY-SA 4.0, Wikimedia Commons"
+
+
+def test_commons_returns_none_when_nothing_qualifies(monkeypatch):
+    pages = {"1": commons_page("File:Ajit Pawar small.jpg", "CC BY 4.0", width=200)}
+    monkeypatch.setattr(mf.requests, "get", lambda *a, **k: FakeResp({"query": {"pages": pages}}))
+    assert mf.search_commons_photo("Ajit Pawar") is None
+
+
+# ----- attach_media -------------------------------------------------------------------------------
+
+
+def make_story(figure=""):
+    story = valid_story()
+    story["public_figure"] = figure
+    story["visual_theme"] = "EditorialDeskLight"
+    story["scenes"] = [dict(s, visual_query=f"scene {i} words") for i, s in enumerate(story["scenes"])]
+    return story
+
+
+def test_scenes_get_footage_and_the_figure_photo_replaces_hook_and_closer(monkeypatch, tmp_path):
+    monkeypatch.setenv("PEXELS_API_KEY", "key")
+    counter = iter(range(100, 200))
+    monkeypatch.setattr(mf, "search_pexels", lambda q, k, used: {"id": next(counter), "url": "u", "duration": 9.0, "credit": "Video: A / Pexels"})
+    monkeypatch.setattr(mf, "search_commons_photo", lambda n: {"url": "p", "credit": "Photo: B, CC BY 4.0, Wikimedia Commons"})
+    monkeypatch.setattr(mf, "download", lambda url, dest: dest.write_bytes(b"x" * 10) or True)
+    story = make_story("Ajit Pawar")
+    out = mf.attach_media(story, tmp_path / "story.json", tmp_path / "media")
+    kinds = [s["media"]["type"] for s in out["scenes"]]
+    assert kinds[0] == "image" and kinds[-1] == "image" and set(kinds[1:-1]) == {"video"}
+    assert out["visual_theme"] == "GlassNewsroomDepth"  # the light studio is swapped for a dark one under footage
+    assert "Photo: B, CC BY 4.0, Wikimedia Commons" in out["media_credits"]
+    assert json.loads((tmp_path / "story.json").read_text(encoding="utf-8"))["scenes"][1]["media"]["file"] == "media/scene-1.mp4"
+
+
+def test_nothing_is_attached_without_key_or_figure_and_the_story_survives(monkeypatch, tmp_path):
+    monkeypatch.delenv("PEXELS_API_KEY", raising=False)
+    out = mf.attach_media(make_story(), tmp_path / "story.json", tmp_path / "media")
+    assert not mf.has_media(out) and out["visual_theme"] == "EditorialDeskLight"
+
+
+def test_lookup_errors_never_break_the_run(monkeypatch, tmp_path):
+    monkeypatch.setenv("PEXELS_API_KEY", "key")
+
+    def boom(*a, **k):
+        raise RuntimeError("network down")
+
+    monkeypatch.setattr(mf, "search_pexels", boom)
+    monkeypatch.setattr(mf, "search_commons_photo", boom)
+    out = mf.attach_media(make_story("Ajit Pawar"), tmp_path / "story.json", tmp_path / "media")
+    assert not mf.has_media(out)
+
+
+def test_failed_download_leaves_that_scene_on_the_studio(monkeypatch, tmp_path):
+    monkeypatch.setenv("PEXELS_API_KEY", "key")
+    monkeypatch.setattr(mf, "search_pexels", lambda q, k, used: {"id": 1, "url": "u", "duration": 9.0, "credit": "c"})
+    monkeypatch.setattr(mf, "download", lambda url, dest: False)
+    assert not mf.has_media(mf.attach_media(make_story(), tmp_path / "story.json", tmp_path / "media"))
+
+
+# ----- Telegram SEO output ------------------------------------------------------------------------
+
+
+def test_telegram_shows_seo_title_keywords_tags_and_visual_credits():
+    story = valid_story()
+    story.update(
+        social_title="पुणे उड्डाणपूल मंजुरी: नगर रस्त्यावरील प्रकल्प दोन वर्षांत खुला होणार",
+        seo_keywords=["Pune flyover", "पुणे उड्डाणपूल"],
+        hashtags="#MahaSpark #Pune #PuneFlyover",
+        media_credits=["Video: Asha / Pexels", "Photo: B, CC BY 4.0, Wikimedia Commons"],
+    )
+    text = tg.build_summary_message(story, "https://example.com")
+    assert "Pune flyover, पुणे उड्डाणपूल" in text and "Video: Asha / Pexels" in text and "not footage of the event" in text
+    caption = tg.build_caption(story)
+    assert caption.startswith("🔴 <b>पुणे उड्डाणपूल मंजुरी") and "#PuneFlyover" in caption and len(caption) <= 1000
+
+
+def test_long_caption_stays_within_the_limit_without_cutting_html():
+    story = valid_story()
+    story["social_caption"] = "वाक्य " * 400
+    caption = tg.build_caption(story)
+    assert len(caption) <= tg.CAPTION_LIMIT and caption.count("<b>") == caption.count("</b>")
+
+
+def test_pipeline_visuals_hook_is_failure_proof_and_picks_crf(monkeypatch):
+    import pipeline
+
+    monkeypatch.setattr(pipeline.media_fetch, "attach_media", lambda story: (_ for _ in ()).throw(RuntimeError("x")))
+    story = {"scenes": [{}]}
+    assert pipeline.add_visuals(story) is story
+    assert pipeline.reel_crf(story) == 18
+    assert pipeline.reel_crf({"scenes": [{"media": {"type": "video"}}]}) == 21

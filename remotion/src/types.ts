@@ -7,10 +7,21 @@ export type ThemeName =
 
 export type AudioMood = 'serious' | 'crime' | 'breaking' | 'upbeat' | 'neutral';
 
+/** Footage or photo for one scene, downloaded into public/media by scripts/media_fetch.py. */
+export type SceneMedia = {
+  type: 'video' | 'image';
+  /** Path under public/, for staticFile(). */
+  file: string;
+  /** Clip length in seconds (videos). */
+  duration?: number;
+  credit?: string;
+};
+
 export type StoryScene = {
   headline: string;
   description: string;
   tts_text?: string;
+  media?: SceneMedia;
   /** Seconds. Written by scripts/align_timings.py. */
   start: number;
   end: number;
@@ -35,4 +46,5 @@ export type Story = {
   duration_seconds: number;
   /** Studio previews set this to false because voiceover.wav does not exist there. */
   audio?: boolean;
+  media_credits?: string[];
 };

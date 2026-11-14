@@ -1,5 +1,6 @@
 import React from 'react';
 import {AbsoluteFill, Audio, Sequence, interpolate, staticFile, useVideoConfig} from 'remotion';
+import {Backdrop} from './Backdrop';
 import {Captions} from './Captions';
 import {
   BED_VOLUME,
@@ -12,9 +13,10 @@ import {
 import {SceneCard, Fact} from './SceneCard';
 import {SharedOverlay} from './SharedOverlay';
 import {getStudio} from './studios';
-import {getPalette} from './theme';
+import {getPalette, overMedia} from './theme';
 import {Story} from './types';
 
+const BACKDROP_FADE_FRAMES = 9;
 const FACT_PLAN: string[][] = [['where', 'when'], ['who'], ['why', 'how'], ['where'], ['when'], ['who']];
 
 /** The 5W1H chips shown under a scene's context card (empty answers are skipped). */
@@ -29,9 +31,10 @@ export const totalFrames = (story: Story, fps: number): number =>
 /**
  * Layer order (bottom to top):
  *   1. studio motion background, chosen by story.visual_theme
- *   2. scene cards (spring in, scale/fade out), one Sequence per scene
- *   3. karaoke captions synced to story.words
- *   4. SharedOverlay: the logo only, a single steady top-level layer
+ *   2. per-scene footage / photo (Backdrop), cross-fading from scene to scene
+ *   3. scene cards (spring in, scale/fade out), one Sequence per scene
+ *   4. karaoke captions synced to story.words
+ *   5. SharedOverlay: the logo only, a single steady top-level layer
  * Audio: anchor voiceover, studio bed at -20 dB, and a whoosh on every scene cut.
  */
 export const Reel: React.FC<Story> = (story) => {
@@ -58,12 +61,32 @@ export const Reel: React.FC<Story> = (story) => {
         <Studio />
       </AbsoluteFill>
 
+      {scenes.map((scene, i) => {
+        if (!scene.media) return null;
+        const sceneFrames = Math.max(1, ends[i] - starts[i]);
+        const last = i === scenes.length - 1;
+        const nextHasMedia = !last && Boolean(scenes[i + 1].media);
+        const mountedFrames = sceneFrames + (last ? 0 : BACKDROP_FADE_FRAMES);
+        return (
+          <Sequence key={`bg-${i}`} from={starts[i]} durationInFrames={mountedFrames} layout="none">
+            <Backdrop
+              media={scene.media}
+              index={i}
+              durationInFrames={sceneFrames}
+              mountedFrames={mountedFrames}
+              fadeOutFrames={last || nextHasMedia ? 0 : BACKDROP_FADE_FRAMES}
+              fadeInFrames={i === 0 ? 1 : BACKDROP_FADE_FRAMES}
+            />
+          </Sequence>
+        );
+      })}
+
       {scenes.map((scene, i) => (
         <Sequence key={i} from={starts[i]} durationInFrames={Math.max(1, ends[i] - starts[i])} layout="none">
           <SceneCard
             headline={scene.headline}
             description={scene.description}
-            palette={palette}
+            palette={scene.media ? overMedia(palette) : palette}
             durationInFrames={Math.max(SCENE_EXIT_FRAMES + 1, ends[i] - starts[i])}
             index={i}
             total={scenes.length}
