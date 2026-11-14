@@ -25,6 +25,7 @@ from llm_providers import ContentRejected, LLMUnavailableError
 from sheet_queue import DONE, ERROR, PENDING, PROCESSING, REJECTED, SheetQueue
 
 MAX_NEW_ITEMS_PER_RUN = 2
+MIN_CONTEXT_CHARS = 80  # title + RSS summary needed when the article page cannot be read
 MAX_CANDIDATES_TO_CHECK = 15  # feed items inspected per run while looking for readable articles
 MAX_STORIES_PER_RUN = int(os.getenv("MAX_STORIES_PER_RUN", "1") or "1")
 
@@ -43,10 +44,10 @@ def queue_new_items(queue: SheetQueue, max_items: int = MAX_NEW_ITEMS_PER_RUN) -
         url = fetch_news.resolve_article_url(candidate.link)
         if url and url.lower() in known:
             continue
-        # A 5W1H script needs the real article, not just a headline. Items whose publisher page cannot be
-        # read are skipped (and NOT queued), so they never end up as permanent REJECTED rows.
-        if not fetch_news.fetch_article_text(url):
-            print(f"⏭️ Skipped, publisher article could not be read: {candidate.title[:70]}")
+        # A story can be written from the headline and RSS summary alone, so an unreadable publisher page is
+        # no longer a reason to skip it. Only items with almost no text at all are left out.
+        if not fetch_news.fetch_article_text(url) and len(candidate.title) + len(candidate.summary) < MIN_CONTEXT_CHARS:
+            print(f"⏭️ Skipped, too little text to write from: {candidate.title[:70]}")
             continue
         queue.append_pending(raw, url)
         known.update({raw.lower(), candidate.title.lower(), url.lower()})

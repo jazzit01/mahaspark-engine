@@ -15,6 +15,7 @@ import base64
 import io
 import json
 import re
+import zlib
 import time
 import wave
 from pathlib import Path
@@ -97,12 +98,12 @@ FORBIDDEN_PHRASES = [
     "तुम्हाला माहिती आहे का",
 ]
 
-MIN_SOURCE_CHARS = 200
+MIN_SOURCE_CHARS = 60  # headline + whatever context exists; a fuller article is better but not required
 MAX_HEADLINE_CHARS = 56
 MAX_DESCRIPTION_CHARS = 92
 MAX_CATEGORY_CHARS = 24
 MIN_SCENES, MAX_SCENES = 3, 6
-MIN_TOTAL_WORDS, MAX_TOTAL_WORDS = 60, 150
+MIN_TOTAL_WORDS, MAX_TOTAL_WORDS = 40, 150
 MAX_HOOK_WORDS = 14
 
 # Anything outside Devanagari letters/signs, whitespace, comma and full stop is unsafe for the voice.
@@ -144,6 +145,22 @@ def find_forbidden(text: str) -> str | None:
     return None
 
 
+def pick_theme(model_choice: str | None, mood: str, seed_text: str) -> str:
+    """Studio for the reel. Grave moods always get the breaking studio and any specific choice by the model is
+    kept. The model's catch-all PrimeGridStudio (or an unknown name) is rotated over fitting studios, picked
+    from a hash of the story, so consecutive reels do not all look the same."""
+    if mood in ("serious", "breaking"):
+        return "BreakingNewsStudio"
+    if model_choice in THEMES and model_choice != "PrimeGridStudio":
+        return model_choice
+    pools = {
+        "crime": ["PrimeGridStudio", "DataTelemetryStudio", "BreakingNewsStudio"],
+        "upbeat": ["GlassNewsroomDepth", "PrimeGridStudio", "EditorialDeskLight"],
+    }
+    pool = pools.get(mood, ["PrimeGridStudio", "EditorialDeskLight", "DataTelemetryStudio", "GlassNewsroomDepth"])
+    return pool[zlib.crc32(seed_text.encode("utf-8")) % len(pool)]
+
+
 def validate_story(data: dict, source_text: str = "") -> dict:
     """Validate and normalise a generated story. Raises ValueError (repairable) or ContentRejected."""
     if not isinstance(data, dict):
@@ -153,9 +170,10 @@ def validate_story(data: dict, source_text: str = "") -> dict:
         raise ContentRejected(str(data.get("rejection_reason") or "Rejected by the editorial model.").strip())
 
     five = data.get("five_w_one_h") or {}
-    for key in ("what", "when", "who", "where", "why", "how"):
-        if len(str(five.get(key, "")).strip()) < 3:
-            raise ValueError(f"five_w_one_h.{key} is missing; every script must answer What, When, Who, Where, Why and How.")
+    # Only "what" must be answered. When the source does not give when/who/where/why/how, those stay empty:
+    # the script is still written from the headline and context, and nothing is invented to fill them.
+    if len(str(five.get("what", "")).strip()) < 3:
+        raise ValueError("five_w_one_h.what is missing; state in one sentence what happened.")
 
     scenes_in = data.get("scenes") or []
     if not (MIN_SCENES <= len(scenes_in) <= MAX_SCENES):
@@ -229,7 +247,7 @@ def validate_story(data: dict, source_text: str = "") -> dict:
     return {
         "approved": True,
         "category": category,
-        "visual_theme": theme if theme in THEMES else "PrimeGridStudio",
+        "visual_theme": pick_theme(theme, mood, source_text or narration),
         "audio_mood": mood if mood in AUDIO_MOODS else "neutral",
         "five_w_one_h": {k: str(five.get(k, "")).strip() for k in ("what", "when", "who", "where", "why", "how")},
         "tts_narration_script": narration,
@@ -245,7 +263,7 @@ def write_story(title: str, summary: str, article_text: str, source_url: str) ->
     title, summary, article_text = (title or "").strip(), (summary or "").strip(), (article_text or "").strip()
     if len(summary) + len(article_text) < MIN_SOURCE_CHARS:
         raise ContentRejected(
-            "Source is too thin to answer What, When, Who, Where, Why and How from verified facts."
+            "Source has almost no text (under 60 characters of headline and context); nothing can be written from it."
         )
 
     source_text = f"{title}\n{summary}\n{article_text}"

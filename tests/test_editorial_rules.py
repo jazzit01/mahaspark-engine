@@ -48,11 +48,27 @@ def test_headline_number_must_exist_in_source():
         validate(story)
 
 
-def test_missing_five_w_one_h_field_is_rejected():
+def test_missing_what_is_rejected():
     story = valid_story()
-    story["five_w_one_h"]["why"] = ""
-    with pytest.raises(ValueError, match="why"):
+    story["five_w_one_h"]["what"] = ""
+    with pytest.raises(ValueError, match="what"):
         validate(story)
+
+
+def test_story_is_still_written_when_why_how_when_are_unknown():
+    story = valid_story()
+    for key in ("when", "who", "where", "why", "how"):
+        story["five_w_one_h"][key] = ""
+    result = validate(story)
+    assert result["five_w_one_h"]["why"] == "" and result["scenes"]
+
+
+def test_catch_all_theme_rotates_and_grave_news_gets_breaking_studio():
+    seen = {ee.pick_theme("PrimeGridStudio", "neutral", f"story {i}") for i in range(40)}
+    assert len(seen) >= 3 and seen <= set(ee.THEMES)
+    assert ee.pick_theme("PrimeGridStudio", "serious", "x") == "BreakingNewsStudio"
+    assert ee.pick_theme("DataTelemetryStudio", "neutral", "x") == "DataTelemetryStudio"
+    assert ee.pick_theme("PrimeGridStudio", "neutral", "same") == ee.pick_theme("PrimeGridStudio", "neutral", "same")
 
 
 def test_overlong_hook_is_rejected():
@@ -66,7 +82,7 @@ def test_unknown_theme_and_mood_fall_back_to_defaults():
     story = copy.deepcopy(valid_story())
     story["visual_theme"], story["audio_mood"] = "Nope", "weird"
     result = validate(story)
-    assert (result["visual_theme"], result["audio_mood"]) == ("PrimeGridStudio", "neutral")
+    assert (result["visual_theme"] in ee.THEMES, result["audio_mood"]) == (True, "neutral")
 
 
 def test_clean_tts_text_fixes_spacing_and_end_stop():
@@ -76,7 +92,7 @@ def test_clean_tts_text_fixes_spacing_and_end_stop():
 
 def test_thin_source_is_rejected_before_calling_any_model():
     with pytest.raises(ContentRejected):
-        ee.write_story("शीर्षक", "थोडे", "", "")
+        ee.write_story("शीर्षक", "थोडे", "", "")  # under 60 characters in total
 
 
 def test_synthesize_voiceover_refuses_unsafe_script(tmp_path):

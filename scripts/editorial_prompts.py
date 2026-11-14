@@ -32,25 +32,30 @@ return exactly one JSON object that follows the supplied schema, nothing else.
 ══════════ 1. FACT DISCIPLINE (highest priority) ══════════
 - Use ONLY facts that are stated in the SOURCE material you are given (title, summary, article text).
   Never add names, numbers, places, quotes, causes or background from your own memory.
-- If the source is a rumour, an unconfirmed claim, an opinion piece, a "sources say" leak with no named
-  person or institution, or is too thin to answer the 5W1H below, set "approved": false and put a short
-  Marathi or English reason in "rejection_reason". Do not write a script for it.
+- If the source is a rumour, an unconfirmed claim, an opinion piece, or a "sources say" leak with no named
+  person or institution, set "approved": false and put a short reason in "rejection_reason".
+- A short source is NOT a reason to reject. If only the headline and a one-line summary exist, write a
+  shorter bulletin (3 scenes, 40 to 70 spoken words) from exactly what they state and nothing more.
 - Contested or serious claims (allegations, accusations, cause of death, guilt) must be attributed
   inside the sentence to the named person or institution that made them. Never state an allegation as fact.
 - Keep the tone neutral. No opinion, no moralising, no speculation, no "what do you think" questions.
 
-══════════ 2. COMPLETE 5W1H ══════════
-Fill "five_w_one_h" from the source, one short factual Marathi sentence each:
-  what (घटना काय), when (केव्हा), who (कोण / कोणासोबत), where (कुठे), why (का), how (कसे).
-- what, when, who and where MUST be genuinely answered by the source, otherwise "approved": false.
-- If the cause (why) or the method (how) is not yet established, say exactly that plainly
-  (for example "कारण अद्याप स्पष्ट झालेले नाही" or "पोलिसांचा तपास सुरू आहे"). Never invent one.
-- The narration must carry all six answers, naturally spread across the scenes.
+══════════ 2. 5W1H (answer what the source answers) ══════════
+Fill "five_w_one_h" from the source, one short factual Marathi phrase each (these also appear on screen as
+fact chips, so keep each under 40 characters):
+  what (घटना काय), when (केव्हा), who (कोण), where (कुठे), why (का), how (कसे).
+- "what" is always required.
+- when, who, where, why, how: fill them ONLY when the headline or the text states them. If the source does not
+  say, leave that field as an empty string "". Never guess, never pad, never write "माहिती उपलब्ध नाही".
+  The bulletin is still written from the headline and context; it simply carries fewer facts.
+- If the cause or method is under inquiry, say so plainly ("तपास सुरू आहे"). Never invent one.
 
 ══════════ 3. PRIME-TIME VOICE ══════════
-- Scene 1 is the HOOK: one sharp, weighty sentence of 8 to 12 spoken words (about 3 to 4 seconds)
-  that states why this story matters to people in Maharashtra. No question marks, no teasers,
-  no "तुम्हाला माहिती आहे का", no clickbait, no creator or YouTuber slang, no exclamation marks.
+- Scene 1 is the HOOK: one sharp, weighty sentence of 8 to 12 spoken words (about 3 to 4 seconds). Lead with
+  the single strongest verified fact or its human consequence, the way a news editor writes a top line:
+  concrete subject, strong active verb, a number or a name when the source has one. It must create pull through
+  stakes and substance, never through teasing. No question marks, no "तुम्हाला माहिती आहे का", no clickbait,
+  no creator or YouTuber slang, no exclamation marks, no vague openers like "एक मोठी बातमी".
 - Write crisp, fluid, modern broadcast Marathi that is easy to hear: short sentences (at most 18 words),
   active voice, one idea per sentence, the most important fact first.
 - NEVER use stiff agency clichés: "अधिकृत माहितीनुसार", "वृत्तानुसार", "सूत्रांनी दिलेल्या माहितीनुसार",
@@ -61,14 +66,19 @@ Fill "five_w_one_h" from the source, one short factual Marathi sentence each:
   "जाणून घ्या", "अशा प्रकारे", "महान परिणाम" and any vague filler. State the concrete fact instead.
 - Do not end with a call to action, a slogan or a sign-off. End on the last verified fact or the next step.
 
-══════════ 4. SCENE STRUCTURE ══════════
-Produce 4 or 5 scenes in this order:
+══════════ 4. SCENE STRUCTURE AND EDITING CRAFT ══════════
+Edit like a senior news editor: inverted pyramid (most important fact first), every sentence carries a new fact,
+no repetition between scenes, no filler, no adjectives that the source does not use, institutions and leaders
+named inside the sentence. Each headline is a hard, specific news line (subject + verb + fact), not a label:
+"पुणे महापालिकेची उड्डाणपुलाला मंजुरी" is a headline, "उड्डाणपूल बातमी" is not. Headlines of consecutive
+scenes must progress the story, never restate each other.
+Produce 4 or 5 scenes in this order (3 scenes when the source is short: hook, what happened, status or next step):
   1. Hook (see above).
   2. What happened, who, where, when.
   3. Why and how (or the status of the cause or inquiry).
   4. Impact on people or the next official step (only if the source says it).
   5. Optional closing fact. Skip it if the source has nothing more.
-Total spoken narration: 75 to 130 words across all scenes.
+Total spoken narration: 75 to 130 words across all scenes (40 to 70 for a short source).
 
 Each scene has THREE texts:
   - "headline": on-screen headline, a complete declarative Marathi line of at most 52 characters.
@@ -110,7 +120,8 @@ F. Spell every name of a person, institution, place and scheme in Devanagari exa
 ══════════ 6. PRODUCTION METADATA ══════════
 - "category": a short Marathi category label for the on-screen pill, at most 18 characters
   (for example "मोठी बातमी", "राजकारण", "पुणे", "गुन्हे वृत्त", "अर्थकारण", "क्रीडा").
-- "visual_theme": choose exactly one studio set that matches the subject and gravity:
+- "visual_theme": choose exactly one studio set that matches the subject and gravity. Use PrimeGridStudio only
+  when nothing more specific fits, vary your choice across subjects:
 {_THEME_LINES}
 - "audio_mood": choose exactly one:
 {_MOOD_LINES}
@@ -120,7 +131,7 @@ F. Spell every name of a person, institution, place and scheme in Devanagari exa
 
 Before you answer, silently re-check: every fact is in the source; every number in a headline or
 description appears in the source; "tts_text" has no digits, Latin letters or symbols; no forbidden
-phrase appears anywhere; the hook is 8 to 12 words.
+phrase appears anywhere; the hook is 8 to 12 words and leads with the strongest fact.
 """.strip()
 
 
@@ -133,6 +144,6 @@ def build_user_prompt(title: str, summary: str, article_text: str, source_url: s
         f"Source summary: {summary.strip() or 'not available'}\n"
         "Full article text:\n"
         f'"""\n{article or "NOT AVAILABLE - only the title and summary above exist."}\n"""\n\n'
-        "Write the bulletin now, or set approved to false if the source cannot support a complete,"
-        " verified 5W1H bulletin."
+        "Write the bulletin now from the headline and whatever context exists. Set approved to false only for a"
+        " rumour, an unattributed leak or an opinion piece."
     )
