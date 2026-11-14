@@ -31,7 +31,7 @@ export const totalFrames = (story: Story, fps: number): number =>
  *   1. studio motion background, chosen by story.visual_theme
  *   2. scene cards (spring in, scale/fade out), one Sequence per scene
  *   3. karaoke captions synced to story.words
- *   4. SharedOverlay: logo + category pill, a single steady top-level layer
+ *   4. SharedOverlay: the logo only, a single steady top-level layer
  * Audio: anchor voiceover, studio bed at -20 dB, and a whoosh on every scene cut.
  */
 export const Reel: React.FC<Story> = (story) => {
@@ -74,7 +74,7 @@ export const Reel: React.FC<Story> = (story) => {
 
       <Captions words={story.words} palette={palette} />
 
-      <SharedOverlay category={story.category} palette={palette} />
+      <SharedOverlay palette={palette} />
 
       {story.audio === false ? null : <Audio src={staticFile('voiceover.wav')} />}
       <Audio src={staticFile(`bed/${story.audio_mood}.mp3`)} loop volume={bedVolume} />

@@ -124,6 +124,11 @@ def run_scheduled() -> int:
     except Exception as exc:  # noqa: BLE001
         print(f"⚠️ Ingestion error: {exc}")
 
+    try:
+        editorial_engine.set_avoid_theme(queue.last_theme())
+    except Exception as exc:  # noqa: BLE001 - variety is a nicety, never a blocker
+        print(f"ℹ️ Could not read the previous studio: {exc}")
+
     print("\n⚙️ Scanning the sheet for PENDING items...")
     processed = published = 0  # processed counts every story attempted, so failures also respect the limit
     for row in queue.pending_rows():

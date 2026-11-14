@@ -92,18 +92,18 @@ adds `words[]` (`text,start,end,scene`), per-scene `start/end`, `duration_second
 - 1080x1920, 30 fps. Font: Noto Sans Devanagari through `@remotion/google-fonts` (loaded in `src/fonts.ts`).
 - `story.json` -> props (`--props=public/story.json`). `Root.tsx` sets the video length from
   `duration_seconds + 1s`. Preview compositions `Preview-<theme>` exist for `npm run studio`.
-- `visual_theme` (`pick_theme`: grave moods -> Breaking; the model's catch-all PrimeGridStudio is rotated by a hash of the story so reels vary) selects one of five full-motion studios in `src/studios/`: `PrimeGridStudio` (navy
+- `visual_theme` (`pick_theme`: grave moods -> Breaking; otherwise rotated over the other four by a hash of the story, skipping the previous reel's studio read from Sheet column O; the model's own pick is ignored for variety) selects one of five full-motion studios in `src/studios/`: `PrimeGridStudio` (navy
   `#080E1A`, 3D grid, gold/cyan rules), `BreakingNewsStudio` (charcoal, crimson waves, scanlines),
   `EditorialDeskLight` (ivory `#F8FAFC`, geometric lines, red bars), `DataTelemetryStudio` (midnight blue,
   radar rings, telemetry nodes), `GlassNewsroomDepth` (indigo depth, light mesh, frosted-glass cards).
   Colours for text and cards per theme live in `src/theme.ts`. No static backgrounds.
 - **Branding rules (`SharedOverlay.tsx`, never break these):** only the MahaSpark logo file
-  (`public/logo.png`) at top-left with NO extra brand text; the category pill; both on one top-level
-  `<AbsoluteFill>` above all scenes so they never move across cuts. **No date, time or timestamp
+  (`public/logo.png`) at top-left with NO extra brand text and NO category pill (removed on request); on one top-level
+  `<AbsoluteFill>` above all scenes so it never moves across cuts. **No date, time or timestamp
   badges anywhere.**
 - **Safe zones** (`src/constants.ts`): all headlines (74 px bold), 2-line context cards (40 px) and captions stay
   between `top: 290px` and `bottom: 450px`.
-- Scene layout (`SceneCard.tsx`): a full-height column fills the area between the logo row and the captions: progress row (segments + `१ / ४`), headline panel, context card and 5W1H fact chips (values only, no labels) from `story.five_w_one_h` (per-scene plan in `Reel.tsx`). Keep it filled; do not shrink back to a top-anchored stack.
+- Scene layout (`SceneCard.tsx`): a full-height column fills the area between the logo row and the captions: progress bar (one segment per scene, no number), headline panel, context card and 5W1H fact chips (values only, no labels) from `story.five_w_one_h` (per-scene plan in `Reel.tsx`). Keep it filled; do not shrink back to a top-anchored stack.
 - Motion: spring card entrances, animated vertical accent bar, scale/fade exits, word-by-word karaoke captions
   (`Captions.tsx`), `whoosh.wav` on every scene cut, mood bed (`public/bed/<audio_mood>.mp3`) at -20 dB
   with a 1 s fade-out.

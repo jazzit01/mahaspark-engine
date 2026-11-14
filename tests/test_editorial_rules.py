@@ -63,11 +63,15 @@ def test_story_is_still_written_when_why_how_when_are_unknown():
     assert result["five_w_one_h"]["why"] == "" and result["scenes"]
 
 
-def test_catch_all_theme_rotates_and_grave_news_gets_breaking_studio():
-    seen = {ee.pick_theme("PrimeGridStudio", "neutral", f"story {i}") for i in range(40)}
-    assert len(seen) >= 3 and seen <= set(ee.THEMES)
+def test_themes_rotate_skip_the_previous_one_and_grave_news_gets_breaking(monkeypatch):
+    monkeypatch.setattr(ee, "AVOID_THEME", None)
+    seen = {ee.pick_theme("DataTelemetryStudio", "neutral", f"story {i}") for i in range(60)}
+    assert seen == set(ee.CALM_THEMES)
+    ee.set_avoid_theme("EditorialDeskLight")
+    assert all(ee.pick_theme("PrimeGridStudio", "neutral", f"s{i}") != "EditorialDeskLight" for i in range(60))
+    ee.set_avoid_theme(None)
     assert ee.pick_theme("PrimeGridStudio", "serious", "x") == "BreakingNewsStudio"
-    assert ee.pick_theme("DataTelemetryStudio", "neutral", "x") == "DataTelemetryStudio"
+    assert ee.pick_theme("BreakingNewsStudio", "neutral", "x") == "BreakingNewsStudio"
     assert ee.pick_theme("PrimeGridStudio", "neutral", "same") == ee.pick_theme("PrimeGridStudio", "neutral", "same")
 
 

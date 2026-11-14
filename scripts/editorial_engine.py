@@ -145,19 +145,26 @@ def find_forbidden(text: str) -> str | None:
     return None
 
 
+AVOID_THEME: str | None = None  # studio of the previous reel; set by the pipeline so two reels in a row differ
+
+CALM_THEMES = ["PrimeGridStudio", "EditorialDeskLight", "DataTelemetryStudio", "GlassNewsroomDepth"]
+
+
+def set_avoid_theme(theme: str | None) -> None:
+    global AVOID_THEME
+    AVOID_THEME = theme if theme in THEMES else None
+
+
 def pick_theme(model_choice: str | None, mood: str, seed_text: str) -> str:
-    """Studio for the reel. Grave moods always get the breaking studio and any specific choice by the model is
-    kept. The model's catch-all PrimeGridStudio (or an unknown name) is rotated over fitting studios, picked
-    from a hash of the story, so consecutive reels do not all look the same."""
-    if mood in ("serious", "breaking"):
+    """Studio for the reel. Grave moods (or the model asking for the breaking studio) get BreakingNewsStudio.
+    Everything else rotates over all four other studios from a hash of the story, skipping the studio the
+    previous reel used, so videos do not all share one background. The model's own pick is not trusted for
+    variety: it kept choosing the same studio."""
+    if mood in ("serious", "breaking") or model_choice == "BreakingNewsStudio":
         return "BreakingNewsStudio"
-    if model_choice in THEMES and model_choice != "PrimeGridStudio":
-        return model_choice
-    pools = {
-        "crime": ["PrimeGridStudio", "DataTelemetryStudio", "BreakingNewsStudio"],
-        "upbeat": ["GlassNewsroomDepth", "PrimeGridStudio", "EditorialDeskLight"],
-    }
-    pool = pools.get(mood, ["PrimeGridStudio", "EditorialDeskLight", "DataTelemetryStudio", "GlassNewsroomDepth"])
+    pool = [t for t in CALM_THEMES if t != AVOID_THEME] or CALM_THEMES
+    if mood == "crime":
+        pool = [t for t in pool if t != "GlassNewsroomDepth"] or pool
     return pool[zlib.crc32(seed_text.encode("utf-8")) % len(pool)]
 
 
