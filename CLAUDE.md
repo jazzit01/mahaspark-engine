@@ -23,7 +23,10 @@ RSS -> Sheet queue -> article text -> 5W1H + phonetic script (Gemini) -> Gemini 
 | `scripts/send_telegram.py` | Video + 5W1H summary + source URL. Credentials from environment only. |
 | `scripts/media_fetch.py` | Per-scene visuals: a freely licensed Wikimedia Commons photo of `public_figure` (hook + closing scene), optional Pexels portrait stock video (`PEXELS_API_KEY`, not required) and, with no key, a Commons photo of the scene topic (`visual_query` + `visual_place`). Writes `scenes[i].media` + `media_credits` into `story.json`; every failure just leaves the studio background. |
 | `scripts/make_whoosh.py` | Regenerates `remotion/public/whoosh.wav` (the committed file is its output). |
-| `remotion/` | Remotion v4 TypeScript project (see Broadcast design). |
+| `scripts/bulletin.py` | The long 16:9 **news bulletin** orchestrator (see News bulletin). `python scripts/bulletin.py [--skip-render] [--skip-upload] [--skip-telegram]`. |
+| `scripts/bulletin_editorial.py` | One bulletin item (headline + ONE context line + spoken sentences). Reuses the reel prompt's fact and phonetic sections verbatim. |
+| `scripts/youtube_upload.py` | YouTube Data API resumable upload with an OAuth refresh token (env only). |
+| `remotion/` | Remotion v4 TypeScript project (see Broadcast design). `src/bulletin/` is the 16:9 bulletin. |
 | `assets/archive/` | Retired static backgrounds (`bg1-6`). Not used by the pipeline. |
 | `tests/` | `python -m pytest -q`. No network or API keys needed. |
 
@@ -132,6 +135,29 @@ cp .env.example .env   # fill in keys; the Sheet also needs credentials.json (se
 python scripts/pipeline.py --text "$(cat article.txt)" --url https://source --skip-telegram
 cd remotion && npm run studio   # edit visuals against the sample story
 ```
+
+## News bulletin (16:9, YouTube)
+
+Separate from the reels (the reel pipeline is untouched). Twice a day, 07:00 and 17:00 IST (`bulletin.yml`, cron `30 1` and `30 11` UTC), one job:
+
+```
+RSS (round-robin over feeds, de-duplicated) -> 10 items (bulletin_editorial) -> one Gemini TTS clip per item
+ -> Commons photo per item (figure, else topic) -> remotion/public/bulletin.json -> ONE Remotion render (MahaSparkBulletin, 1920x1080)
+ -> YouTube upload (title, chapters, tags) -> Telegram link -> Sheet worksheet "Bulletins"
+```
+
+- Each item shows a big headline (<= 56 chars) and ONE context line (<= 100 chars) beside a photo (layout: text left, photo right behind a gold cut line,
+  animated rings when there is no photo), a bottom ticker with the next headlines and a bulletin progress line. No intro; one fixed outro (`Outro.tsx`,
+  8 s) is reused by every bulletin. The logo sits on one steady layer above all items. No date/time badges, no slide numbers, no category pill.
+- Items use the same fact discipline, banned phrases and phonetic TTS rules as reels (`FACT_RULES`/`PHONETIC_RULES` are sliced from `SYSTEM_INSTRUCTION`,
+  so they cannot drift). `validate_item` enforces lengths, `tts_problems`, forbidden phrases and numbers-in-source.
+- Item length is max(10 s, 0.5 s + voice + 0.9 s) so every YouTube chapter is >= 10 s. Fewer than `MIN_ITEMS` (5) usable stories = no bulletin (exit 1).
+  If the voice quota runs out the bulletin keeps the items voiced so far.
+- Sheet worksheet `Bulletins` (created on first run) stores used headlines/URLs so the next bulletin only has new stories.
+- YouTube: `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `YOUTUBE_REFRESH_TOKEN` (scope `youtube.upload`), `YOUTUBE_PRIVACY` (default `private`; unaudited API
+  projects can only upload private videos). Without credentials the video is only kept as the `bulletin` workflow artifact (2 days) and Telegram says so.
+- GitHub minutes: one render job per bulletin (about 15-25 min on the 2-core runner), twice a day, in addition to the 16 hourly reel runs.
+- Not verified here (no network): live Commons photos, the YouTube upload, the real Remotion render. Check the first run's logs.
 
 ## CI (`.github/workflows/runner.yml`)
 

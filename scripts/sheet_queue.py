@@ -28,6 +28,9 @@ COL_SOURCE_URL, COL_THEME, COL_SUMMARY = 14, 15, 16
 TOTAL_COLUMNS = 16
 EXTRA_HEADERS = {COL_SOURCE_URL: "Source_URL", COL_THEME: "Visual_Theme", COL_SUMMARY: "Summary_5W1H"}
 
+BULLETIN_SHEET = "Bulletins"
+BULLETIN_HEADERS = ["Bulletin_ID", "Slot", "Published_At", "Position", "Headline", "Source_URL", "YouTube_URL"]
+
 PENDING, PROCESSING, DONE, ERROR, REJECTED = "PENDING", "PROCESSING", "DONE", "ERROR", "REJECTED"
 
 
@@ -71,6 +74,37 @@ class SheetQueue:
         for col, name in EXTRA_HEADERS.items():
             if len(header) < col or not str(header[col - 1]).strip():
                 self.sheet.update_cell(1, col, name)
+
+    # ----- bulletin log (separate worksheet, the reel queue is never touched) ------------------
+
+    def _bulletin_sheet(self):
+        book = self.sheet.spreadsheet
+        try:
+            return book.worksheet(BULLETIN_SHEET)
+        except Exception:  # noqa: BLE001 - gspread.WorksheetNotFound; create it on first use
+            ws = book.add_worksheet(title=BULLETIN_SHEET, rows=500, cols=len(BULLETIN_HEADERS))
+            ws.append_row(BULLETIN_HEADERS)
+            return ws
+
+    def bulletin_known_keys(self) -> set[str]:
+        """Source URLs and headlines already used in an earlier bulletin (lower-cased)."""
+        keys: set[str] = set()
+        for row in self._bulletin_sheet().get_all_values()[1:]:
+            for idx in (4, 5):  # Headline, Source_URL
+                if len(row) > idx and row[idx].strip():
+                    keys.add(row[idx].strip().lower())
+        return keys
+
+    def record_bulletin(self, slot: str, items: list[dict], video_url: str) -> None:
+        ws = self._bulletin_sheet()
+        stamp = now_ist()
+        bulletin_id = stamp.replace(" ", "_").replace(":", "")
+        ws.append_rows(
+            [
+                [bulletin_id, slot, stamp, str(i + 1), it["headline"], (it.get("source") or {}).get("url", ""), video_url]
+                for i, it in enumerate(items)
+            ]
+        )
 
     # ----- reading ----------------------------------------------------------------------------
 

@@ -13,7 +13,12 @@ STORY_PATH = PUBLIC_DIR / "story.json"
 VOICEOVER_PATH = PUBLIC_DIR / "voiceover.wav"
 REEL_PATH = OUT_DIR / "mahaspark_reel.mp4"
 
+BULLETIN_DIR = PUBLIC_DIR / "bulletin"  # per-item voiceovers and photos (git-ignored)
+BULLETIN_JSON = PUBLIC_DIR / "bulletin.json"
+BULLETIN_PATH = OUT_DIR / "mahaspark_bulletin.mp4"
+
 COMPOSITION_ID = "MahaSparkReel"
+BULLETIN_COMPOSITION_ID = "MahaSparkBulletin"
 
 
 def load_env_file(env_path: str | os.PathLike[str] | None = None) -> None:
