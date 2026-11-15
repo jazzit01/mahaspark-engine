@@ -15,6 +15,7 @@ export type BulletinItem = {
   start: number;
   lead_seconds: number;
   photo?: BulletinPhoto | null;
+  highlight?: string; // key figure for the no-photo panel
 };
 
 export type BulletinProps = {

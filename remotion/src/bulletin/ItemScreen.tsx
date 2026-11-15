@@ -48,8 +48,30 @@ const Panel: React.FC<{item: BulletinItem; total: number}> = ({item, total}) => 
               const r = 140 + i * 130 + Math.sin(frame / 40 + i) * 14;
               return <circle key={i} cx={560} cy={PANEL_HEIGHT / 2} r={r} fill="none" stroke={i % 2 ? COLORS.gold : '#3b6cff'} strokeOpacity={0.35 - i * 0.05} strokeWidth={4} />;
             })}
-            <circle cx={560} cy={PANEL_HEIGHT / 2} r={46} fill={COLORS.red} />
           </svg>
+        )}
+        {!item.photo && (
+          <div
+            style={{
+              position: 'absolute',
+              left: PHOTO_CUT + 40,
+              right: 40,
+              top: 0,
+              bottom: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+              fontFamily,
+              fontWeight: 800,
+              fontSize: item.highlight ? 170 : 120,
+              color: item.highlight ? COLORS.gold : 'rgba(255,255,255,0.16)',
+              transform: `scale(${0.9 + 0.1 * slide})`,
+              textShadow: '0 6px 40px rgba(0,0,0,0.5)',
+            }}
+          >
+            {item.highlight || item.category}
+          </div>
         )}
       </div>
       <svg style={{position: 'absolute', inset: 0}} width={PHOTO_WIDTH} height={PANEL_HEIGHT}>
