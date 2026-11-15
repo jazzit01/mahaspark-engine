@@ -317,3 +317,11 @@ def test_reel_visuals_are_off_by_default(monkeypatch):
     monkeypatch.setattr(pipeline.media_fetch, "attach_media", lambda story: (_ for _ in ()).throw(AssertionError("called")))
     story = {"scenes": []}
     assert pipeline.add_visuals(story) is story
+
+
+def test_social_title_is_polished_with_channel_suffix():
+    t = ee.polish_title('  “पुणे मेट्रो:  स्वारगाव ते कात्रज मार्गाला मंजुरी.” 🚇 #MahaSpark ')
+    assert t == "पुणे मेट्रो: स्वारगाव ते कात्रज मार्गाला मंजुरी | MahaSpark मराठी बातम्या"
+    assert ee.polish_title("क" * 85).endswith("| MahaSpark") and len(ee.polish_title("क" * 85)) <= 100
+    assert len(ee.polish_title("क" * 98)) <= 100 and "MahaSpark" not in ee.polish_title("क" * 98)
+    assert ee.polish_title("शीर्षक | MahaSpark").count("MahaSpark") == 1
