@@ -156,15 +156,15 @@ def is_transient_error(exc: Exception) -> bool:
 # ----- provider calls -------------------------------------------------------------------------
 
 
-def _gemini_client():
-    api_key = get_env_value("GEMINI_API_KEY")
-    if not (api_key and genai):
-        return None
-    return genai.Client(api_key=api_key)
+def gemini_keys() -> list[str]:
+    """Every configured Gemini key, in order: ``GEMINI_API_KEY`` first, then ``GEMINI_API_KEYS`` (comma, space or
+    newline separated). Quota is per Google Cloud project, so keys from different projects add up."""
+    raw = [get_env_value("GEMINI_API_KEY")] + re.split(r"[,\s]+", get_env_value("GEMINI_API_KEYS") or "")
+    return list(dict.fromkeys(k.strip() for k in raw if k and k.strip()))
 
 
-def _call_gemini(model_name: str, system_instruction: str, prompt: str, response_model) -> str:
-    client = _gemini_client()
+def _call_gemini(model_name: str, system_instruction: str, prompt: str, response_model, api_key: str) -> str:
+    client = genai.Client(api_key=api_key)
     config = types.GenerateContentConfig(
         system_instruction=system_instruction,
         response_mime_type="application/json",
@@ -202,13 +202,16 @@ def build_attempts(system_instruction: str, response_model) -> list:
     """Ordered (provider, model, callable(prompt)) for every provider that has a key configured."""
     attempts = []
 
-    if get_env_value("GEMINI_API_KEY") and genai is not None:
-        for model_name in candidate_gemini_models():
+    keys = gemini_keys() if genai is not None else []
+    for model_name in candidate_gemini_models():
+        for number, key in enumerate(keys, start=1):
+            # One provider name per key, so a rejected or spent key is skipped without touching the others.
+            provider = "gemini" if number == 1 else f"gemini-key{number}"
             attempts.append(
                 (
-                    "gemini",
+                    provider,
                     model_name,
-                    lambda prompt, m=model_name: _call_gemini(m, system_instruction, prompt, response_model),
+                    lambda prompt, m=model_name, k=key: _call_gemini(m, system_instruction, prompt, response_model, k),
                 )
             )
 
@@ -255,7 +258,7 @@ def generate_json(
     attempts = attempts if attempts is not None else build_attempts(system_instruction, response_model)
     if not attempts:
         raise LLMUnavailableError(
-            "No LLM API key configured. Set GEMINI_API_KEY and/or one of GROQ_API_KEY,"
+            "No LLM API key configured. Set GEMINI_API_KEY (and optionally GEMINI_API_KEYS) and/or one of GROQ_API_KEY,"
             " CEREBRAS_API_KEY, OPENROUTER_API_KEY."
         )
 
@@ -299,7 +302,7 @@ def generate_json(
                 last_error = f"[{slot}] {type(e).__name__}: {e}"
 
                 if is_quota_error(e):
-                    _EXHAUSTED.add(slot if provider == "gemini" else provider)
+                    _EXHAUSTED.add(slot if provider.startswith("gemini") else provider)
                     print(f"⛔ {slot} is out of free quota. Switching provider.")
                     break
 

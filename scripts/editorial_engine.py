@@ -29,6 +29,7 @@ from editorial_prompts import AUDIO_MOODS, SYSTEM_INSTRUCTION, THEMES, build_use
 from llm_providers import (
     ContentRejected,
     LLMUnavailableError,
+    gemini_keys,
     generate_json,
     is_auth_error,
     is_quota_error,
@@ -425,10 +426,11 @@ API_BASE = "https://generativelanguage.googleapis.com/v1beta"
 
 
 def discover_tts_models() -> list[str]:
-    """Ask Google which TTS models THIS API key can see (model ids containing "tts")."""
-    api_key = get_env_value("GEMINI_API_KEY")
-    if not api_key:
+    """Ask Google which TTS models the first API key can see (model ids containing "tts")."""
+    keys = gemini_keys()
+    if not keys:
         return []
+    api_key = keys[0]
     try:
         resp = requests.get(f"{API_BASE}/models", params={"pageSize": 1000}, headers={"x-goog-api-key": api_key}, timeout=20)
         if resp.status_code != 200:
@@ -540,9 +542,20 @@ def _tts_generate_content(model: str, script: str, voice: str, api_key: str) -> 
     return _wav_from_pcm(pcm, int(rate.group(1)) if rate else TTS_SAMPLE_RATE)
 
 
-def _request_tts_audio(script: str, model: str) -> bytes:
-    """Try both call routes for one model. Quota, key and transient errors are left to the caller."""
-    api_key = get_env_value("GEMINI_API_KEY")
+# (model, key) pairs whose quota is spent and keys Google rejected: skipped for the rest of the run, so a
+# bulletin that voices ten items does not re-hit an exhausted quota on every item.
+_TTS_SPENT: set = set()
+_TTS_BAD_KEYS: set = set()
+
+
+def reset_tts_state() -> None:
+    _TTS_SPENT.clear()
+    _TTS_BAD_KEYS.clear()
+
+
+def _request_tts_audio(script: str, model: str, api_key: str | None = None) -> bytes:
+    """Try both call routes for one model with one key. Quota, key and transient errors are left to the caller."""
+    api_key = api_key or (gemini_keys() or [""])[0]
     if not api_key:
         raise LLMUnavailableError("GEMINI_API_KEY is not set; the Gemini voice cannot be used.")
     voice = get_env_value("GEMINI_TTS_VOICE", TTS_VOICE_DEFAULT)
@@ -578,29 +591,45 @@ def synthesize_voiceover(script: str, out_path: Path = VOICEOVER_PATH, attempts:
     print(f"🎙️ Gemini TTS (google-genai {_sdk_version()}), models to try: {', '.join(chain)}")
     errors: list[str] = []
 
-    for model in chain:
-        for attempt in range(1, attempts + 1):
-            try:
-                wav = _request_tts_audio(script, model)
-                if len(wav) < 4000:
-                    raise RuntimeError("TTS returned an empty or truncated audio file.")
-                out_path.parent.mkdir(parents=True, exist_ok=True)
-                out_path.write_bytes(wav)
-                print(f"✅ Voiceover written by {model}: {out_path} ({len(wav) // 1024} KB)")
-                return out_path
-            except LLMUnavailableError:
-                raise
-            except Exception as exc:  # noqa: BLE001
-                if _is_bad_key(exc):
-                    raise LLMUnavailableError(f"Gemini API key rejected: {exc}") from exc
-                message = f"{type(exc).__name__}: {str(exc)[:200]}"
-                print(f"⚠️ TTS {model} attempt {attempt}/{attempts} failed: {message}")
-                if is_transient_error(exc) and attempt < attempts:
-                    time.sleep(3 * attempt)
-                    continue
-                errors.append(f"{model}: {message}")
-                break  # quota, missing model or request error: try the next model
+    keys = gemini_keys()
+    if not keys:
+        raise LLMUnavailableError("GEMINI_API_KEY is not set; the Gemini voice cannot be used.")
 
+    # Model-major: the preferred model is tried with every key before falling back to the next model.
+    for model in chain:
+        for number, key in enumerate(keys, start=1):
+            if key in _TTS_BAD_KEYS or (model, key) in _TTS_SPENT:
+                continue
+            label = f"{model} (key {number})" if len(keys) > 1 else model
+            for attempt in range(1, attempts + 1):
+                try:
+                    wav = _request_tts_audio(script, model, key)
+                    if len(wav) < 4000:
+                        raise RuntimeError("TTS returned an empty or truncated audio file.")
+                    out_path.parent.mkdir(parents=True, exist_ok=True)
+                    out_path.write_bytes(wav)
+                    print(f"✅ Voiceover written by {label}: {out_path} ({len(wav) // 1024} KB)")
+                    return out_path
+                except LLMUnavailableError:
+                    raise
+                except Exception as exc:  # noqa: BLE001
+                    if _is_bad_key(exc):
+                        _TTS_BAD_KEYS.add(key)
+                        errors.append(f"key {number}: rejected")
+                        print(f"🔑 Gemini key {number} was rejected; using the other keys.")
+                        break
+                    message = f"{type(exc).__name__}: {str(exc)[:200]}"
+                    print(f"⚠️ TTS {label} attempt {attempt}/{attempts} failed: {message}")
+                    if is_transient_error(exc) and attempt < attempts:
+                        time.sleep(3 * attempt)
+                        continue
+                    if is_quota_error(exc):
+                        _TTS_SPENT.add((model, key))
+                    errors.append(f"{label}: {message}")
+                    break  # quota, missing model or request error: next key, then next model
+
+    if keys and all(k in _TTS_BAD_KEYS for k in keys):
+        raise LLMUnavailableError("Gemini API key rejected: every configured key was refused.")
     raise LLMUnavailableError(
         f"No Gemini TTS model worked (google-genai {_sdk_version()}). " + " | ".join(errors)
     )
