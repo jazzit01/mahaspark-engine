@@ -288,14 +288,9 @@ def build_description(items: list[dict], props: dict, slot_label: str) -> str:
     lines += ["", "📰 बातमीतील मुख्य मुद्दे"]
     for it in items:
         lines.append(f"• {it['headline']}: {it['context']}")
-    lines += ["", "🔗 स्रोत (Sources)"]
-    for it in items:
-        url = (it.get("source") or {}).get("url")
-        if url:
-            lines.append(f"• {url}")
     if props.get("credits"):
         lines += ["", "🖼️ चित्रे: प्रातिनिधिक छायाचित्रे; घटनेचे थेट चित्र असेलच असे नाही.", *sorted(set(props["credits"]))]
-    lines += ["", "MahaSpark ला सबस्क्राईब करा आणि रोज ताज्या बातम्या मिळवा.", "", CHANNEL_HASHTAGS]
+    lines += ["", "🔔 MahaSpark ला फॉलो आणि सबस्क्राईब करा, रोज ताज्या बातम्या मिळवा.", "▶️ @MahaSparkOfficial", "", CHANNEL_HASHTAGS]
     return "\n".join(lines)
 
 

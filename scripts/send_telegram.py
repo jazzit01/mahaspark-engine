@@ -40,6 +40,10 @@ def _credentials() -> tuple[str, str]:
     return token, chat_id
 
 
+CTA_LINES = ("🔔 ताज्या बातम्यांसाठी MahaSpark ला फॉलो आणि सबस्क्राईब करा", "▶️ @MahaSparkOfficial")
+CTA_TEXT = "\n".join(CTA_LINES)
+
+
 def _hashtag_line(story: dict, limit: int = 8) -> str:
     return " ".join(str(story.get("hashtags", "")).split()[:limit])
 
@@ -52,7 +56,7 @@ def build_caption(story: dict) -> str:
         f"🏷️ <i>{html.escape(story.get('category', ''))}</i>",
         html.escape(story.get("social_caption", "")),
         html.escape(_hashtag_line(story)),
-        "🔗 @MAHASPARKOFFICIAL",
+        html.escape(CTA_TEXT),
     ]
     text = "\n\n".join(p for p in parts if p.strip())
     if len(text) > CAPTION_LIMIT:  # drop the caption body before cutting an HTML tag in half
@@ -73,7 +77,8 @@ def build_summary_message(story: dict, source_url: str) -> str:
     lines.append(f"<b>🌐 मूळ स्रोत:</b> {html.escape(source_url or 'उपलब्ध नाही')}")
     lines.append("")
     lines.append(f"<b>▶️ Title (SEO):</b>\n<code>{html.escape(story.get('social_title', ''))}</code>")
-    lines.append(f"<b>Description:</b>\n<code>{html.escape(story.get('social_caption', ''))}</code>")
+    description = f"{story.get('social_caption', '')}\n\n{CTA_TEXT}".strip()
+    lines.append(f"<b>Description:</b>\n<code>{html.escape(description)}</code>")
     keywords = ", ".join(story.get("seo_keywords") or [])
     if keywords:
         lines.append(f"<b>Keywords:</b>\n<code>{html.escape(keywords)}</code>")

@@ -15,7 +15,7 @@ export const COLORS = {
   context: '#cfd9f0',
   ticker: '#0b1327',
 };
-export const CHANNEL_HANDLE = '@MAHASPARKOFFICIAL';
+export const CHANNEL_HANDLE = '@MahaSparkOfficial';
 export const TRANSITION_FRAMES = 16;
 export const WHOOSH_FRAMES_EARLY = 4;
 
