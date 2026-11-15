@@ -140,3 +140,23 @@ def upload_video(video_path: Path, title: str, description: str, tags: list[str]
             if resp.status_code < 500 or failures > max_retries:
                 raise RuntimeError(f"YouTube upload failed: HTTP {resp.status_code} {resp.text[:300]}")
             time.sleep(2 * failures)
+
+
+def set_thumbnail(video_url: str, image_path: Path) -> bool:
+    """Best effort: attach a custom thumbnail (needs a verified channel). Returns True when YouTube accepted it."""
+    image_path = Path(image_path)
+    video_id = video_url.rsplit("v=", 1)[-1]
+    if not image_path.exists() or image_path.stat().st_size > 2 * 1024 * 1024 or not video_id:
+        return False
+    client_id, client_secret, refresh = credentials()
+    token = access_token(client_id, client_secret, refresh)
+    resp = requests.post(
+        "https://www.googleapis.com/upload/youtube/v3/thumbnails/set",
+        params={"videoId": video_id, "uploadType": "media"},
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "image/jpeg"},
+        data=image_path.read_bytes(),
+        timeout=60,
+    )
+    if resp.status_code != 200:
+        print(f"⚠️ Thumbnail not set: HTTP {resp.status_code} {resp.text[:160]}")
+    return resp.status_code == 200

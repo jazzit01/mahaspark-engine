@@ -16,6 +16,8 @@ REEL_PATH = OUT_DIR / "mahaspark_reel.mp4"
 BULLETIN_DIR = PUBLIC_DIR / "bulletin"  # per-item voiceovers and photos (git-ignored)
 BULLETIN_JSON = PUBLIC_DIR / "bulletin.json"
 BULLETIN_PATH = OUT_DIR / "mahaspark_bulletin.mp4"
+THUMB_JSON = PUBLIC_DIR / "bulletin_thumb.json"
+THUMB_PATH = OUT_DIR / "bulletin_thumbnail.jpg"
 
 COMPOSITION_ID = "MahaSparkReel"
 BULLETIN_COMPOSITION_ID = "MahaSparkBulletin"

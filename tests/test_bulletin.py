@@ -273,3 +273,36 @@ def test_main_aborts_when_too_few(monkeypatch):
     monkeypatch.setattr(bulletin.SheetQueue, "connect", classmethod(lambda cls: (_ for _ in ()).throw(RuntimeError("no sheet"))))
     monkeypatch.setattr(bulletin, "gather_candidates", lambda: [])
     assert bulletin.main(["--skip-render"]) == 1
+
+
+def test_same_event_is_detected_from_event_keys():
+    a = {"event_key": "pune koyta gang guard attack"}
+    assert be.same_event(a, {"event_key": "pune guard koyta attack"})
+    assert not be.same_event(a, {"event_key": "amravati teacher constituency result"})
+    assert not be.same_event({"event_key": ""}, {"event_key": ""})
+    assert be.validate_item({**GOOD, "event_key": "Pune, Water Supply!"}, SOURCE)["event_key"] == "pune water supply"
+
+
+def test_collect_skips_a_second_report_of_the_same_event(monkeypatch):
+    keys = iter(["pune guard attack koyta", "pune koyta guard attack gang", "teacher poll result amravati"])
+
+    def writer(title, summary, article, url):
+        return {"headline": title, "context": "c", "category": "x", "event_key": next(keys), "source": {"url": url}}
+
+    patch_news(monkeypatch, writer)
+    cands = [cand(f"पूर्णपणे वेगळी बातमी {chr(65 + i) * 7}", f"https://x/{i}") for i in range(3)]
+    items = bulletin.collect_items(set(), cands, want=5)
+    assert [i["headline"] for i in items] == [cands[0].title, cands[2].title]
+
+
+def test_thumbnail_props_prefer_an_item_with_a_photo():
+    props = {"items": [{"headline": "पहिली", "photo": None}, {"headline": "दुसरी", "photo": {"src": "bulletin/photo-1.jpg"}}]}
+    out = bulletin.thumbnail_props(props)
+    assert out == {"headline": "पहिली", "count": 2, "photo": {"src": "bulletin/photo-1.jpg"}}
+
+
+def test_thumbnail_is_skipped_for_missing_or_huge_files(tmp_path):
+    assert yt.set_thumbnail("https://www.youtube.com/watch?v=abc", tmp_path / "none.jpg") is False
+    big = tmp_path / "big.jpg"
+    big.write_bytes(b"0" * (3 * 1024 * 1024))
+    assert yt.set_thumbnail("https://www.youtube.com/watch?v=abc", big) is False

@@ -34,6 +34,8 @@ from config import (
     BULLETIN_PATH,
     OUT_DIR,
     REMOTION_DIR,
+    THUMB_JSON,
+    THUMB_PATH,
 )
 from llm_providers import ContentRejected, LLMUnavailableError
 from sheet_queue import IST, SheetQueue
@@ -112,6 +114,11 @@ def collect_items(known: set[str], candidates: list, want: int = TARGET_ITEMS, d
             continue
         except ValueError as exc:  # repair attempt also failed: skip this story, keep the bulletin going
             print(f"⏭️ Could not write a valid item ({str(exc)[:80]}): {cand.title[:60]}")
+            continue
+        twin = next((i for i in items if bulletin_editorial.same_event(item, i)), None)
+        if twin:
+            print(f"⏭️ Same event as '{twin['headline'][:40]}', skipped: {item['headline'][:50]}")
+            seen_titles.append(cand.title)
             continue
         seen_titles.append(cand.title)
         known.update({cand.title.lower(), item["headline"].lower(), (url or "").lower()} - {""})
@@ -303,6 +310,27 @@ def render(output: Path = BULLETIN_PATH, crf: int = 22) -> None:
         raise RuntimeError(f"Remotion bulletin render failed with exit code {result.returncode}")
 
 
+def thumbnail_props(props: dict) -> dict:
+    """The top story, preferring the first item that has a photo (a face or place sells the click)."""
+    items = props["items"]
+    pick = next((it for it in items if it.get("photo")), items[0])
+    return {"headline": items[0]["headline"], "count": len(items), "photo": pick.get("photo")}
+
+
+def render_thumbnail(props: dict) -> bool:
+    """Render the 1280x720 YouTube thumbnail. Failure never stops the bulletin."""
+    try:
+        write_props(thumbnail_props(props), THUMB_JSON)
+        cmd = [
+            "npx", "remotion", "still", "src/index.ts", "BulletinThumbnail", str(THUMB_PATH),
+            "--props=public/bulletin_thumb.json", "--image-format=jpeg", "--jpeg-quality=88",
+        ]
+        return subprocess.run(cmd, cwd=REMOTION_DIR).returncode == 0 and THUMB_PATH.exists()
+    except Exception as exc:  # noqa: BLE001
+        print(f"⚠️ Thumbnail render failed: {exc}")
+        return False
+
+
 # ----- main ------------------------------------------------------------------------------------
 
 
@@ -358,6 +386,11 @@ def main(argv: list[str] | None = None) -> int:
             )
             uploaded = True
             print(f"▶️ Uploaded: {video_url}")
+            if render_thumbnail(props):
+                try:
+                    youtube_upload.set_thumbnail(video_url, THUMB_PATH)
+                except Exception as exc:  # noqa: BLE001
+                    print(f"⚠️ Thumbnail upload failed: {exc}")
         except youtube_upload.YouTubeUnavailable as exc:
             print(f"⏭️ YouTube upload skipped: {exc}")
         except Exception as exc:  # noqa: BLE001
