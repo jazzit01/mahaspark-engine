@@ -279,3 +279,20 @@ def test_scenes_without_stock_video_get_commons_photos_with_their_size(monkeypat
     out = mf.attach_media(make_story(), tmp_path / "story.json", tmp_path / "media")
     media = [s["media"] for s in out["scenes"]]
     assert all(m["type"] == "image" and m["width"] == 1600 and m["file"].endswith(".jpg") for m in media)
+
+
+def _has_key(node, key):
+    if isinstance(node, dict):
+        return key in node or any(_has_key(v, key) for v in node.values())
+    if isinstance(node, list):
+        return any(_has_key(v, key) for v in node)
+    return False
+
+
+def test_story_schema_has_no_additional_properties():
+    """Gemini's Developer API rejects 'additionalProperties' (this broke every reel after PR #15)."""
+    assert not _has_key(ee.Story.model_json_schema(), "additionalProperties")
+
+
+def test_empty_typed_motion_is_dropped():
+    assert ee.clean_motion(ee.Motion().model_dump(), MOTION_SOURCE) == {}
