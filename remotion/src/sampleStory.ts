@@ -9,16 +9,19 @@ const SCENES = [
     headline: 'पुणे महापालिकेची मोठी घोषणा',
     description: 'शहरातील नव्या उड्डाणपुलाच्या कामाला अंतिम मंजुरी मिळाली आहे.',
     tts_text: 'पुणे महापालिकेने, शहरातील नव्या उड्डाणपुलाला अंतिम मंजुरी दिली आहे.',
+    motion: {type: 'place' as const, value: 'पुणे'},
   },
   {
     headline: 'काम पुढील महिन्यात सुरू होणार',
     description: 'प्रकल्पासाठी 120 कोटी रुपयांची तरतूद करण्यात आली आहे.',
     tts_text: 'प्रकल्पासाठी, एकशे वीस कोटी रुपयांची तरतूद करण्यात आली आहे.',
+    motion: {type: 'stat' as const, value: '₹120 कोटी', label: 'मंजूर निधी'},
   },
   {
     headline: 'वाहतूक कोंडीतून नागरिकांना दिलासा',
     description: 'दोन वर्षांत उड्डाणपूल वाहतुकीसाठी खुला होईल, असे आयुक्तांनी सांगितले.',
     tts_text: 'दोन वर्षांत, उड्डाणपूल वाहतुकीसाठी खुला होईल, असे आयुक्तांनी सांगितले.',
+    motion: {type: 'quote' as const, value: 'दोन वर्षांत उड्डाणपूल खुला होईल.', label: 'महापालिका आयुक्त'},
   },
 ];
 
@@ -42,7 +45,6 @@ export const buildSampleStory = (theme: ThemeName): Story => {
     visual_theme: theme,
     audio_mood: 'neutral',
     scenes,
-    five_w_one_h: {when: 'पुढील दोन वर्षांत', who: 'महापालिका आयुक्त', where: 'पुणे, नगर रस्ता', why: 'वाहतूक कोंडी कमी करण्यासाठी', how: 'टप्प्याटप्प्याने काम पूर्ण करून'},
     words,
     duration_seconds: Number(cursor.toFixed(3)),
     audio: false,

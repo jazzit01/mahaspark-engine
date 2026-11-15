@@ -22,6 +22,7 @@ export const WHOOSH_VOLUME = 0.5;
 /** The generated whoosh peaks about 0.2 s in; start it this many frames before the card lands. */
 export const WHOOSH_LEAD_FRAMES = 6;
 
-export const HEADLINE_SIZE = 74; // spec: 72-76px bold
-export const DESCRIPTION_SIZE = 40; // spec: 38-40px
+/** Main headline: as large as it can be for its length (a headline is at most 56 characters). */
+export const headlineSize = (chars: number): number => (chars <= 22 ? 108 : chars <= 34 ? 100 : chars <= 46 ? 92 : 84);
+export const DESCRIPTION_SIZE = 46; // sub-heading under the headline
 export const CAPTION_SIZE = 52;

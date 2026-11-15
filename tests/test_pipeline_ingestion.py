@@ -140,3 +140,31 @@ def test_successful_story_exits_cleanly(monkeypatch):
     code, queue = _run_with_rows(monkeypatch, lambda *a: {"audio": True})
     assert queue.statuses.get(1) == "DONE" and 2 not in queue.statuses
     assert code == 0
+
+
+def test_every_queued_story_is_processed_until_the_limit_and_the_time_budget(monkeypatch):
+    done = []
+
+    def ok(*a):
+        done.append(a[0])
+        return {"audio": True}
+
+    monkeypatch.setattr(pipeline, "MAX_STORIES_PER_RUN", 3)
+    from sheet_queue import PendingRow
+
+    queue = RunQueue([PendingRow(i, f"शीर्षक {i} - सारांश", "https://pub.com/x") for i in (1, 2, 3, 4)])
+    monkeypatch.setattr(pipeline.SheetQueue, "connect", classmethod(lambda cls: queue))
+    monkeypatch.setattr(pipeline, "queue_new_items", lambda q: 0)
+    monkeypatch.setattr(pipeline.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(pipeline.fetch_news, "resolve_article_url", lambda u: u)
+    monkeypatch.setattr(pipeline.fetch_news, "fetch_article_text", lambda u: "x" * 400)
+    monkeypatch.setattr(pipeline, "produce_reel", ok)
+    monkeypatch.setattr(pipeline, "deliver", lambda story, url: "SUCCESS - Telegram: OK")
+    monkeypatch.setattr(queue, "write_story", lambda *a, **k: None, raising=False)
+    assert pipeline.run_scheduled() == 0
+    assert len(done) == 3  # the limit stops the fourth
+
+    done.clear()
+    monkeypatch.setattr(pipeline, "RUN_BUDGET_SECONDS", -1)  # budget already used after the first story
+    pipeline.run_scheduled()
+    assert len(done) == 1

@@ -38,22 +38,46 @@ export const Backdrop: React.FC<Props> = ({media, durationInFrames, mountedFrame
 
   const fill: React.CSSProperties = {width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 30%'};
   const clipFrames = Math.max(1, Math.round((media.duration ?? 8) * fps));
+  // Landscape stills are shown framed: a blurred, darkened copy fills the screen and the sharp photo sits in the
+  // middle (a near-square crop, so nothing is upscaled). Portrait stills and videos fill the screen.
+  const framed = media.type === 'image' && (media.width ?? 0) > 0 && (media.height ?? 0) > 0 && (media.width as number) / (media.height as number) > 1.15;
 
   return (
     <AbsoluteFill style={{opacity, overflow: 'hidden', background: '#05070d'}}>
-      <AbsoluteFill style={{transform: `translateX(${panX}px) scale(${scale})`, transformOrigin: '50% 40%'}}>
-        {media.type === 'video' ? (
-          <Loop durationInFrames={clipFrames}>
-            <OffthreadVideo src={staticFile(media.file)} muted style={fill} />
-          </Loop>
-        ) : (
-          <Img src={staticFile(media.file)} style={fill} />
-        )}
-      </AbsoluteFill>
+      {framed ? (
+        <>
+          <AbsoluteFill style={{transform: 'scale(1.3)'}}>
+            <Img src={staticFile(media.file)} style={{...fill, filter: 'blur(36px) brightness(0.55) saturate(1.25)'}} />
+          </AbsoluteFill>
+          <AbsoluteFill
+            style={{
+              top: 360,
+              bottom: 380,
+              overflow: 'hidden',
+              transform: `translateX(${panX}px) scale(${scale})`,
+              WebkitMaskImage: 'linear-gradient(180deg, transparent 0%, #000 14%, #000 86%, transparent 100%)',
+              maskImage: 'linear-gradient(180deg, transparent 0%, #000 14%, #000 86%, transparent 100%)',
+            }}
+          >
+            <Img src={staticFile(media.file)} style={{...fill, objectPosition: '50% 40%'}} />
+          </AbsoluteFill>
+        </>
+      ) : (
+        <AbsoluteFill style={{transform: `translateX(${panX}px) scale(${scale})`, transformOrigin: '50% 40%'}}>
+          {media.type === 'video' ? (
+            <Loop durationInFrames={clipFrames}>
+              <OffthreadVideo src={staticFile(media.file)} muted style={fill} />
+            </Loop>
+          ) : (
+            <Img src={staticFile(media.file)} style={fill} />
+          )}
+        </AbsoluteFill>
+      )}
       <AbsoluteFill
         style={{
-          background:
-            'linear-gradient(180deg, rgba(3,5,10,0.72) 0%, rgba(3,5,10,0.38) 22%, rgba(3,5,10,0.34) 55%, rgba(3,5,10,0.5) 75%, rgba(3,5,10,0.8) 100%)',
+          background: framed
+            ? 'linear-gradient(180deg, rgba(3,5,10,0.7) 0%, rgba(3,5,10,0.5) 25%, rgba(3,5,10,0.5) 58%, rgba(3,5,10,0.55) 76%, rgba(3,5,10,0.8) 100%)'
+            : 'linear-gradient(180deg, rgba(3,5,10,0.72) 0%, rgba(3,5,10,0.4) 22%, rgba(3,5,10,0.42) 55%, rgba(3,5,10,0.5) 75%, rgba(3,5,10,0.8) 100%)',
         }}
       />
     </AbsoluteFill>

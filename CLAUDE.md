@@ -21,7 +21,7 @@ RSS -> Sheet queue -> article text -> 5W1H + phonetic script (Gemini) -> Gemini 
 | `scripts/llm_providers.py` | Gemini first, then Groq, Cerebras, OpenRouter. Quota/auth/404 handling, one repair attempt. |
 | `scripts/align_timings.py` | `faster-whisper` (`small`, `int8`, CPU) timestamps aligned to the known script words. |
 | `scripts/send_telegram.py` | Video + 5W1H summary + source URL. Credentials from environment only. |
-| `scripts/media_fetch.py` | Per-scene visuals: Pexels portrait stock footage from each scene's `visual_query` (`PEXELS_API_KEY`) and a freely licensed Wikimedia Commons photo of `public_figure`. Writes `scenes[i].media` + `media_credits` into `story.json`; every failure just leaves the studio background. |
+| `scripts/media_fetch.py` | Per-scene visuals: a freely licensed Wikimedia Commons photo of `public_figure` (hook + closing scene), optional Pexels portrait stock video (`PEXELS_API_KEY`, not required) and, with no key, a Commons photo of the scene topic (`visual_query` + `visual_place`). Writes `scenes[i].media` + `media_credits` into `story.json`; every failure just leaves the studio background. |
 | `scripts/make_whoosh.py` | Regenerates `remotion/public/whoosh.wav` (the committed file is its output). |
 | `remotion/` | Remotion v4 TypeScript project (see Broadcast design). |
 | `assets/archive/` | Retired static backgrounds (`bg1-6`). Not used by the pipeline. |
@@ -44,12 +44,15 @@ A model slip is caught and the model gets one repair attempt with the exact erro
 - **Banned phrases** (`FORBIDDEN_PHRASES`): अधिकृत माहितीनुसार, वृत्तानुसार, सूत्रांनी दिलेल्या माहितीनुसार and similar
   agency clichés, plus old filler/clickbait lines. Extend that list rather than adding prompt-only rules.
 - **On-screen numbers** in `headline`/`description` must appear in the source text (no invented figures).
-- **Length.** 3-6 scenes, 40-150 spoken words in total, headline at most 56 characters, description at most 92.
+- **Length.** 2-6 scenes, 25-150 spoken words in total (a 10-second reel is valid; the voiceless minimum is 10 s), headline at most 56 characters, description at most 92.
 - **Visuals.** The model writes a generic English `visual_query` per scene and, only for a named public figure acting in
   their public role, `public_figure`. `clean_public_figure` drops it for serious/crime/breaking stories (never a
   face for victims or accused). Stock footage is representative, never presented as the event; the Telegram summary
   says so and lists credits. Footage reels render at CRF 21 (Telegram's 50 MB limit); the light studio is swapped
   for `GlassNewsroomDepth` when footage is attached.
+- **Motion graphics.** Per scene the model may add one `motion` graphic: `stat` (a figure that is in the source),
+  `place` (a place name that is in the source) or `quote` (words verbatim from the source plus the named speaker).
+  `clean_motion` drops anything the source does not back, silently (no repair churn). Rendered by `MotionGraphic.tsx`.
 - **SEO output** (Telegram only): `social_title` (60-95 chars, keyword first), `social_caption` (3-4 sentences),
   `seo_keywords` (8-12, Marathi + English), `hashtags` (10-15, always starting `#MahaSpark`).
 - **Sampling.** `temperature=0.15`, structured JSON output through the `Story` pydantic schema.
@@ -109,10 +112,10 @@ adds `words[]` (`text,start,end,scene`), per-scene `start/end`, `duration_second
   (`public/logo.png`) at top-left with NO extra brand text and NO category pill (removed on request); on one top-level
   `<AbsoluteFill>` above all scenes so it never moves across cuts. **No date, time or timestamp
   badges anywhere.**
-- **Safe zones** (`src/constants.ts`): all headlines (74 px bold), 2-line context cards (40 px) and captions stay
+- **Safe zones** (`src/constants.ts`): headlines (84-108 px bold, `headlineSize` by length; was 74 px until the owner asked for a bigger headline), the 46 px sub-heading and captions stay
   between `top: 290px` and `bottom: 450px`.
-- Scene layout (`SceneCard.tsx`): a full-height column fills the area between the logo row and the captions: progress bar (one segment per scene, no number), headline panel, context card and 5W1H fact chips (values only, no labels) from `story.five_w_one_h` (per-scene plan in `Reel.tsx`). Keep it filled; do not shrink back to a top-anchored stack.
-- Footage (`Backdrop.tsx`): per-scene video/photo full-bleed under the cards with a slow zoom, 9-frame cross-fade and a dark scrim; cards switch to translucent dark glass (`overMedia` in `theme.ts`). Videos are muted and looped.
+- Scene layout (`SceneCard.tsx`): progress bar (one segment per scene, no number), then a vertically centred stack: big main headline with an animated accent bar, the context line as a 46 px sub-heading, and the optional motion graphic. No boxes, no 5W1H chips on screen (the 5W1H stays in the Telegram summary). Captions unchanged.
+- Footage (`Backdrop.tsx`): per-scene video/photo behind the text with a slow zoom, 9-frame cross-fade and a dark scrim (`overMedia` in `theme.ts` gives light text). Portrait video fills the screen; landscape photos are framed (sharp near-square crop over a blurred, darkened copy). Videos are muted and looped.
 - Motion: spring card entrances, animated vertical accent bar, scale/fade exits, word-by-word karaoke captions
   (`Captions.tsx`), `whoosh.wav` on every scene cut, mood bed (`public/bed/<audio_mood>.mp3`) at -20 dB
   with a 1 s fade-out.
@@ -132,15 +135,15 @@ cd remotion && npm run studio   # edit visuals against the sample story
 
 ## CI (`.github/workflows/runner.yml`)
 
-Hourly cron, daytime only (05:00-20:00 IST = cron `30 23` and `30 0-14` in UTC, 16 runs a day) + manual dispatch, 30 min timeout, one run at a time. It caches pip, `~/.npm`, Remotion's browser
+Hourly cron, daytime only (05:00-20:00 IST = cron `30 23` and `30 0-14` in UTC, 16 runs a day) + manual dispatch, 60 min timeout, one run at a time. It caches pip, `~/.npm`, Remotion's browser
 (`remotion/node_modules/.remotion`), the Whisper model (`~/.cache/huggingface`) and `~/.cache/ms-playwright`
 (kept as requested; Playwright is no longer used, so it stays empty). It runs the unit tests, then
 `python scripts/pipeline.py`. Secrets: `GCP_CREDENTIALS`, `GEMINI_API_KEY`, `TELEGRAM_BOT_TOKEN`,
 optional `TELEGRAM_CHAT_ID` (defaults to the project's existing chat), optional `PEXELS_API_KEY` (stock footage; without it reels keep the studio backgrounds), optional `GROQ_/CEREBRAS_/OPENROUTER_API_KEY`.
 Variables: `GEMINI_MODELS`, `GEMINI_TTS_MODEL`, `GEMINI_TTS_VOICE`.
 
-`MAX_STORIES_PER_RUN` (default 1) counts every story attempted, failures included, so one broken story can't burn
-through the queue and the TTS quota. A run where the attempted story failed exits with code 1 (red in Actions).
+`MAX_STORIES_PER_RUN` (default 2, the number queued per run) counts every story attempted, failures included, so one broken story can't burn
+through the queue and the TTS quota. No new story is started once `RUN_BUDGET_SECONDS` (default 1800) is used; the rest stay PENDING. A run where the attempted story failed exits with code 1 (red in Actions).
 
 Sheet status flow: `PENDING -> PROCESSING -> DONE | ERROR | REJECTED`. If no AI provider is usable, the row
 returns to `PENDING` and is retried next run; `ERROR` rows are never retried.

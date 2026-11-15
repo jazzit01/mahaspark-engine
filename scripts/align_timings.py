@@ -217,7 +217,7 @@ def build_story_timings(story: dict, heard: list[TimedWord], duration: float) ->
 WORDS_PER_SECOND = 2.4
 COMMA_PAUSE_SECONDS = 0.18
 STOP_PAUSE_SECONDS = 0.40
-MIN_VOICELESS_SECONDS = 15.0
+MIN_VOICELESS_SECONDS = 10.0
 
 
 def estimate_duration(script: str) -> float:

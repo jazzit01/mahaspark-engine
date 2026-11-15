@@ -61,6 +61,7 @@ class Scene(BaseModel):
     description: str = ""
     tts_text: str = ""
     visual_query: str = ""
+    motion: dict[str, str] = Field(default_factory=dict)
 
 
 class Story(BaseModel):
@@ -76,6 +77,7 @@ class Story(BaseModel):
     hashtags: str = ""
     seo_keywords: list[str] = Field(default_factory=list)
     public_figure: str = ""
+    visual_place: str = ""
 
 
 # ----- deterministic editorial rules ----------------------------------------------------------
@@ -105,8 +107,8 @@ MIN_SOURCE_CHARS = 60  # headline + whatever context exists; a fuller article is
 MAX_HEADLINE_CHARS = 56
 MAX_DESCRIPTION_CHARS = 92
 MAX_CATEGORY_CHARS = 24
-MIN_SCENES, MAX_SCENES = 3, 6
-MIN_TOTAL_WORDS, MAX_TOTAL_WORDS = 40, 150
+MIN_SCENES, MAX_SCENES = 2, 6
+MIN_TOTAL_WORDS, MAX_TOTAL_WORDS = 25, 150  # 25 words is about a 10-second reel
 MAX_HOOK_WORDS = 14
 
 # Anything outside Devanagari letters/signs, whitespace, comma and full stop is unsafe for the voice.
@@ -162,6 +164,45 @@ def clean_visual_query(value) -> str:
     """English search words for stock footage: Latin letters and spaces only, at most 6 words (else empty)."""
     words = re.sub(r"[^A-Za-z ]+", " ", str(value or "")).split()
     return " ".join(words[:6]).lower()
+
+
+def clean_visual_place(value) -> str:
+    """English place name (city or district, at most 3 words) that helps find a photo of the real location."""
+    words = re.sub(r"[^A-Za-z ]+", " ", str(value or "")).split()
+    return " ".join(words[:3])
+
+
+def _squash(text: str) -> str:
+    return re.sub(r"[\s\"'“”‘’]+", "", str(text or ""))
+
+
+def clean_motion(raw, source_text: str) -> dict:
+    """One animated graphic for a scene, or {} when it is not fully backed by the source.
+
+    stat:  a figure that appears in the source (count-up / bar)      value="₹1,200 कोटी", label="मंजूर निधी"
+    place: a place name that appears in the source (pulsing pin)     value="पुणे"
+    quote: a sentence quoted word for word from the source + speaker  value="...", label="speaker"
+    Anything that does not check out is dropped silently, so the scene simply has no graphic."""
+    if not isinstance(raw, dict):
+        return {}
+    kind = str(raw.get("type", "")).strip().lower()
+    value = re.sub(r"\s+", " ", str(raw.get("value", ""))).strip()
+    label = re.sub(r"\s+", " ", str(raw.get("label", ""))).strip()[:40]
+    source = str(source_text or "")
+    if kind == "stat":
+        numbers = source_numbers(value)
+        if not numbers or len(value) > 24 or not numbers <= source_numbers(source):
+            return {}
+    elif kind == "place":
+        if not (2 <= len(value) <= 24) or value not in source:
+            return {}
+        label = ""
+    elif kind == "quote":
+        if not (10 <= len(value) <= 90) or _squash(value) not in _squash(source) or not label or label not in source:
+            return {}
+    else:
+        return {}
+    return {"type": kind, "value": value, "label": label}
 
 
 def clean_public_figure(value, mood: str) -> str:
@@ -266,6 +307,7 @@ def validate_story(data: dict, source_text: str = "") -> dict:
                 "description": description,
                 "tts_text": tts_text,
                 "visual_query": clean_visual_query(raw.get("visual_query", "")),
+                "motion": clean_motion(raw.get("motion"), source_text),
             }
         )
 
@@ -316,6 +358,7 @@ def validate_story(data: dict, source_text: str = "") -> dict:
         "hashtags": hashtags,
         "seo_keywords": keywords,
         "public_figure": clean_public_figure(data.get("public_figure", ""), mood),
+        "visual_place": clean_visual_place(data.get("visual_place", "")),
     }
 
 
