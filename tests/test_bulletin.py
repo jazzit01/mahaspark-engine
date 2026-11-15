@@ -180,6 +180,7 @@ def test_telegram_text():
 
 
 def test_photos_figure_then_topic(monkeypatch, tmp_path):
+    monkeypatch.setattr(bulletin.time, "sleep", lambda s: None)
     mf = bulletin.media_fetch
     monkeypatch.setattr(mf, "search_commons_photo", lambda n: {"url": "u1", "credit": "c1", "width": 1, "height": 1} if n == "Fig" else None)
     monkeypatch.setattr(mf, "search_commons_topic", lambda q, p, used: {"title": q, "url": "u2", "credit": "c2", "width": 2, "height": 2} if q != "none" else None)
@@ -192,7 +193,22 @@ def test_photos_figure_then_topic(monkeypatch, tmp_path):
     assert credits == ["c1", "c2"] and items[0]["photo"]["is_figure"] and "photo" not in items[2]
 
 
+def test_commons_429_is_retried(monkeypatch):
+    waits, calls = [], []
+
+    def flaky(x):
+        calls.append(x)
+        if len(calls) < 3:
+            raise RuntimeError("Commons HTTP 429")
+        return "ok"
+
+    assert bulletin._with_backoff(flaky, "q", sleep=waits.append) == "ok" and waits == [8, 20]
+    with pytest.raises(RuntimeError):
+        bulletin._with_backoff(lambda: (_ for _ in ()).throw(RuntimeError("Commons HTTP 500")), sleep=waits.append)
+
+
 def test_photo_errors_are_silent(monkeypatch, tmp_path):
+    monkeypatch.setattr(bulletin.time, "sleep", lambda s: None)
     def boom(*a):
         raise RuntimeError("net")
 

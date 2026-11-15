@@ -155,6 +155,21 @@ def add_voices(items: list[dict], tts=editorial_engine.synthesize_voiceover, out
 # ----- 3. photos -------------------------------------------------------------------------------
 
 
+PHOTO_PAUSE_SECONDS = 1.5  # Wikimedia rate-limits fast bursts from CI IPs (HTTP 429)
+PHOTO_RETRY_WAITS = (8, 20)
+
+
+def _with_backoff(lookup, *args, sleep=time.sleep):
+    """Run a Commons lookup; on HTTP 429 wait and retry (two retries), then give up with the original error."""
+    for wait in (*PHOTO_RETRY_WAITS, None):
+        try:
+            return lookup(*args)
+        except Exception as exc:  # noqa: BLE001
+            if wait is None or "429" not in str(exc):
+                raise
+            sleep(wait)
+
+
 def add_photos(items: list[dict], out_dir: Path = BULLETIN_DIR) -> list[str]:
     """A free Commons photo per item where one exists (never a face for victims/accused; see clean_public_figure).
     Items without a photo keep the animated panel. Returns the credit lines."""
@@ -163,11 +178,13 @@ def add_photos(items: list[dict], out_dir: Path = BULLETIN_DIR) -> list[str]:
     credits: list[str] = []
     for i, item in enumerate(items):
         found = None
+        if i:
+            time.sleep(PHOTO_PAUSE_SECONDS)
         try:
             if item.get("public_figure"):
-                found = media_fetch.search_commons_photo(item["public_figure"])
+                found = _with_backoff(media_fetch.search_commons_photo, item["public_figure"])
             if not found and item.get("visual_query"):
-                found = media_fetch.search_commons_topic(item["visual_query"], item.get("visual_place", ""), used)
+                found = _with_backoff(media_fetch.search_commons_topic, item["visual_query"], item.get("visual_place", ""), used)
         except Exception as exc:  # noqa: BLE001 - network/API failures just mean no photo
             print(f"⚠️ Photo lookup failed for item {i + 1}: {exc}")
             continue
