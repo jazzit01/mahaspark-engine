@@ -134,7 +134,7 @@ def test_missing_tts_model_falls_back_to_next_model(monkeypatch, tmp_path):
     monkeypatch.delenv("GEMINI_TTS_MODEL", raising=False)
     tried = []
 
-    def fake(script, model):
+    def fake(script, model, key=None):
         tried.append(model)
         if model == "gemini-3.8-flash-tts":
             raise RuntimeError("Error code: 404 - Model 'gemini-3.8-flash-tts' not found")
@@ -148,7 +148,7 @@ def test_missing_tts_model_falls_back_to_next_model(monkeypatch, tmp_path):
 
 def test_all_tts_models_failing_requeues_instead_of_erroring(monkeypatch, tmp_path):
     monkeypatch.delenv("GEMINI_TTS_MODEL", raising=False)
-    monkeypatch.setattr(ee, "_request_tts_audio", lambda s, m: (_ for _ in ()).throw(RuntimeError("404 not found")))
+    monkeypatch.setattr(ee, "_request_tts_audio", lambda s, m, k=None: (_ for _ in ()).throw(RuntimeError("404 not found")))
     with pytest.raises(LLMUnavailableError, match="No Gemini TTS model worked"):
         ee.synthesize_voiceover(GOOD_SCRIPT, tmp_path / "v.wav")
 
@@ -158,7 +158,7 @@ def test_transient_tts_error_is_retried_on_same_model(monkeypatch, tmp_path):
     monkeypatch.setattr(ee.time, "sleep", lambda _s: None)
     calls = []
 
-    def fake(script, model):
+    def fake(script, model, key=None):
         calls.append(model)
         if len(calls) == 1:
             raise RuntimeError("503 UNAVAILABLE overloaded")
@@ -173,7 +173,7 @@ def test_quota_on_one_model_moves_to_the_next_model(monkeypatch, tmp_path):
     monkeypatch.delenv("GEMINI_TTS_MODEL", raising=False)
     tried = []
 
-    def fake(script, model):
+    def fake(script, model, key=None):
         tried.append(model)
         if model != "gemini-2.5-flash-preview-tts":
             raise RuntimeError("HTTP 429 RESOURCE_EXHAUSTED quota")
@@ -188,7 +188,7 @@ def test_invalid_api_key_stops_the_chain(monkeypatch, tmp_path):
     monkeypatch.delenv("GEMINI_TTS_MODEL", raising=False)
     tried = []
 
-    def fake(script, model):
+    def fake(script, model, key=None):
         tried.append(model)
         raise RuntimeError("400 API key not valid. Please pass a valid API key.")
 
@@ -286,3 +286,34 @@ def test_configured_tts_model_is_tried_first(monkeypatch):
     chain = ee.tts_model_chain()
     assert chain[:2] == ["my-model", "gemini-3.8-flash-lite-tts"]
     assert chain.count("gemini-3.8-flash-lite-tts") == 1 and "gemini-3.8-flash-tts" in chain
+
+
+def test_tts_rotates_to_the_next_key_when_quota_is_spent(monkeypatch, tmp_path):
+    monkeypatch.setenv("GEMINI_API_KEY", "k1")
+    monkeypatch.setenv("GEMINI_API_KEYS", "k2")
+    monkeypatch.setenv("GEMINI_TTS_MODEL", "only-tts")
+    monkeypatch.setattr(ee, "discover_tts_models", lambda: [])
+    monkeypatch.setattr(ee, "tts_model_chain", lambda d=None: ["only-tts"])
+    ee.reset_tts_state()
+    used = []
+
+    def fake(script, model, key=None):
+        used.append(key)
+        if key == "k1":
+            raise RuntimeError("HTTP 429: You exceeded your current quota")
+        return b"\0" * 5000
+
+    monkeypatch.setattr(ee, "_request_tts_audio", fake)
+    ee.synthesize_voiceover(GOOD_SCRIPT, tmp_path / "v.wav")
+    ee.synthesize_voiceover(GOOD_SCRIPT, tmp_path / "v2.wav")
+    assert used == ["k1", "k2", "k2"]  # the spent key is not retried for the second item
+    ee.reset_tts_state()
+
+
+def test_reel_visuals_are_off_by_default(monkeypatch):
+    import pipeline
+
+    monkeypatch.delenv("REEL_VISUALS", raising=False)
+    monkeypatch.setattr(pipeline.media_fetch, "attach_media", lambda story: (_ for _ in ()).throw(AssertionError("called")))
+    story = {"scenes": []}
+    assert pipeline.add_visuals(story) is story

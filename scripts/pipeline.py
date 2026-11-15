@@ -101,8 +101,16 @@ def add_voice_and_timings(story: dict) -> dict:
         return align_timings.main_voiceless(STORY_PATH)
 
 
+def reel_visuals_enabled() -> bool:
+    """Reels use the animated studios only (photos did not match the news well). ``REEL_VISUALS=1`` turns the
+    per-scene Commons/Pexels visuals back on; the news bulletin has its own photo step and is not affected."""
+    return os.getenv("REEL_VISUALS", "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def add_visuals(story: dict) -> dict:
     """Per-scene stock footage / public-figure photo. Any failure just leaves the studio backgrounds."""
+    if not reel_visuals_enabled():
+        return story
     try:
         return media_fetch.attach_media(story)
     except Exception as exc:  # noqa: BLE001

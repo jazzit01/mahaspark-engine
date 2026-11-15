@@ -48,7 +48,7 @@ A model slip is caught and the model gets one repair attempt with the exact erro
   agency clichés, plus old filler/clickbait lines. Extend that list rather than adding prompt-only rules.
 - **On-screen numbers** in `headline`/`description` must appear in the source text (no invented figures).
 - **Length.** 2-6 scenes, 25-150 spoken words in total (a 10-second reel is valid; the voiceless minimum is 10 s), headline at most 56 characters, description at most 92.
-- **Visuals.** The model writes a generic English `visual_query` per scene and, only for a named public figure acting in
+- **Visuals (reels: OFF by default).** `pipeline.add_visuals` does nothing unless `REEL_VISUALS=1`: reels use the animated studios only because photos did not match the news. The rest of this bullet and `media_fetch.py` still describe the optional/bulletin path. The model writes a generic English `visual_query` per scene and, only for a named public figure acting in
   their public role, `public_figure`. `clean_public_figure` drops it for serious/crime/breaking stories (never a
   face for victims or accused). Stock footage is representative, never presented as the event; the Telegram summary
   says so and lists credits. Footage reels render at CRF 21 (Telegram's 50 MB limit); the light studio is swapped
@@ -58,6 +58,7 @@ A model slip is caught and the model gets one repair attempt with the exact erro
   `clean_motion` drops anything the source does not back, silently (no repair churn). Rendered by `MotionGraphic.tsx`.
 - **SEO output** (Telegram only): `social_title` (60-95 chars, keyword first), `social_caption` (3-4 sentences),
   `seo_keywords` (8-12, Marathi + English), `hashtags` (10-15, always starting `#MahaSpark`).
+- **Gemini keys.** `GEMINI_API_KEY` plus optional `GEMINI_API_KEYS` (comma separated, keys from different Google Cloud projects). Text: every model is tried with every key (`gemini`, `gemini-key2`, ...); a spent or rejected key is skipped alone. Voice: model-major over keys, spent (model, key) pairs are remembered for the run (`_TTS_SPENT`).
 - **Sampling.** `temperature=0.15`, structured JSON output through the `Story` pydantic schema.
   Models: `GEMINI_MODELS` (default `gemini-2.5-pro,gemini-2.5-flash`).
 
@@ -138,7 +139,7 @@ cd remotion && npm run studio   # edit visuals against the sample story
 
 ## News bulletin (16:9, YouTube)
 
-Separate from the reels (the reel pipeline is untouched). Twice a day, 07:00 and 17:00 IST (`bulletin.yml`, cron `30 1` and `30 11` UTC), one job:
+Separate from the reels (the reel pipeline is untouched). Twice a day, 05:00 and 17:00 IST (`bulletin.yml`, cron `30 23` and `30 11` UTC), one job:
 
 ```
 RSS (round-robin over feeds, de-duplicated) -> 10 items (bulletin_editorial) -> one Gemini TTS clip per item

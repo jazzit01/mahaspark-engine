@@ -86,3 +86,22 @@ def test_missing_model_is_skipped_not_fatal():
 def test_normalize_gemini_model_names():
     assert llm.normalize_gemini_model("Gemini 2.5 Flash") == "gemini-2.5-flash"
     assert llm.normalize_gemini_model("models/gemini-2.5-pro") == "gemini-2.5-pro"
+
+
+def test_gemini_keys_are_merged_and_deduplicated(monkeypatch):
+    import llm_providers as lp
+
+    monkeypatch.setenv("GEMINI_API_KEY", "a")
+    monkeypatch.setenv("GEMINI_API_KEYS", "b, c\nb a")
+    assert lp.gemini_keys() == ["a", "b", "c"]
+
+
+def test_each_key_gets_its_own_attempt(monkeypatch):
+    import llm_providers as lp
+
+    monkeypatch.setenv("GEMINI_API_KEY", "a")
+    monkeypatch.setenv("GEMINI_API_KEYS", "b")
+    monkeypatch.setenv("GEMINI_MODELS", "m1")
+    monkeypatch.setattr(lp, "genai", object())
+    gem = [(p, m) for p, m, _ in lp.build_attempts("s", None) if p.startswith("gemini")]
+    assert gem == [("gemini", "m1"), ("gemini-key2", "m1")]
