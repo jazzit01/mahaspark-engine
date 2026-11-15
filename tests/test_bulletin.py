@@ -187,10 +187,11 @@ def test_photos_figure_then_topic(monkeypatch, tmp_path):
     monkeypatch.setattr(mf, "download", lambda url, dest: True)
     items = make_items(3)
     items[0].update(public_figure="Fig", visual_query="x")
-    items[1].update(visual_query="road")
-    items[2].update(visual_query="none")
+    items[1].update(visual_place="Pune City")
+    items[2].update(visual_place="Nowhere")
+    monkeypatch.setattr(mf, "search_commons_topic", lambda q, p, used: {"title": "File:Pune skyline.jpg" if q == "Pune City" else "File:Random men.jpg", "url": "u2", "credit": "c2", "width": 2, "height": 2})
     credits = bulletin.add_photos(items, tmp_path)
-    assert credits == ["c1", "c2"] and items[0]["photo"]["is_figure"] and "photo" not in items[2]
+    assert credits == ["c1", "c2"] and items[0]["photo"]["is_figure"] and "photo" not in items[2]  # unrelated file name is refused
 
 
 def test_commons_429_is_retried(monkeypatch):
@@ -214,7 +215,7 @@ def test_photo_errors_are_silent(monkeypatch, tmp_path):
 
     monkeypatch.setattr(bulletin.media_fetch, "search_commons_topic", boom)
     items = make_items(1)
-    items[0]["visual_query"] = "x"
+    items[0]["visual_place"] = "Pune"
     assert bulletin.add_photos(items, tmp_path) == [] and "photo" not in items[0]
 
 
@@ -306,3 +307,11 @@ def test_thumbnail_is_skipped_for_missing_or_huge_files(tmp_path):
     big = tmp_path / "big.jpg"
     big.write_bytes(b"0" * (3 * 1024 * 1024))
     assert yt.set_thumbnail("https://www.youtube.com/watch?v=abc", big) is False
+
+
+def test_highlight_and_place_matching():
+    assert bulletin.highlight_for({"headline": "पुणे मॅरेथॉनसाठी ५० लाखांच्या निधीवरून वाद", "context": "x"}).startswith("५०")
+    assert bulletin.highlight_for({"headline": "विजय", "context": "मतदार संघात विजय"}) == ""
+    assert bulletin.title_matches_place("File:Shaniwar Wada Pune.jpg", "Pune")
+    assert not bulletin.title_matches_place("File:Two men at a press conference.jpg", "Pune")
+    assert not bulletin.title_matches_place("File:Anything.jpg", "")

@@ -154,6 +154,7 @@ RSS (round-robin over feeds, de-duplicated) -> 10 items (bulletin_editorial) -> 
   so they cannot drift). `validate_item` enforces lengths, `tts_problems`, forbidden phrases and numbers-in-source.
 - Item length is max(10 s, 0.5 s + voice + 0.9 s) so every YouTube chapter is >= 10 s. Fewer than `MIN_ITEMS` (5) usable stories = no bulletin (exit 1).
   If the voice quota runs out the bulletin keeps the items voiced so far.
+- Bulletin photos are strict: a Commons photo of the `public_figure` (file name contains the surname), or a photo whose file name contains the story's `visual_place`. Loosely related "topic" photos are NOT used (about 80% were wrong). Items without a photo get a designed panel: the key figure of the story (`highlight_for`, e.g. ५० लाख) in large gold type over animated rings, else the category word.
 - Duplicate events are dropped: each item carries an English `event_key` and `same_event` skips a second report of the same event. After a successful upload a 1280x720 thumbnail (`BulletinThumbnail`, top story + photo + "आजच्या N मोठ्या बातम्या") is rendered with `remotion still` and set via `thumbnails.set` (best effort; needs a verified channel).
 - Sheet worksheet `Bulletins` (created on first run) stores used headlines/URLs so the next bulletin only has new stories.
 - YouTube: `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `YOUTUBE_REFRESH_TOKEN` (scope `youtube.upload`), `YOUTUBE_PRIVACY` (default `private`; unaudited API

@@ -155,6 +155,25 @@ def add_voices(items: list[dict], tts=editorial_engine.synthesize_voiceover, out
 # ----- 3. photos -------------------------------------------------------------------------------
 
 
+def title_matches_place(title: str, place: str) -> bool:
+    """A Commons file is used for a place only when its file name contains the place (so it shows that place)."""
+    words = re.findall(r"[a-z]{4,}", place.lower())
+    low = title.lower()
+    return bool(words) and any(w in low for w in words)
+
+
+_NUMBER = re.compile(r"[₹$]?\s?[\d०-९][\d०-९,\.]*\s?(?:%|टक्के|कोटी|लाख|हजार|हेक्टर|एकर|किलोमीटर|किमी|मतांनी|जागा|जागां|वर्षे|वर्ष)?")
+
+
+def highlight_for(item: dict) -> str:
+    """The key figure of the item for the no-photo panel (for example '५० लाख' or '85%'), or ''."""
+    for text in (item["headline"], item["context"]):
+        match = _NUMBER.search(text)
+        if match and len(match.group(0).strip()) >= 2:
+            return match.group(0).strip()[:14]
+    return ""
+
+
 PHOTO_PAUSE_SECONDS = 1.5  # Wikimedia rate-limits fast bursts from CI IPs (HTTP 429)
 PHOTO_RETRY_WAITS = (8, 20)
 
@@ -183,8 +202,12 @@ def add_photos(items: list[dict], out_dir: Path = BULLETIN_DIR) -> list[str]:
         try:
             if item.get("public_figure"):
                 found = _with_backoff(media_fetch.search_commons_photo, item["public_figure"])
-            if not found and item.get("visual_query"):
-                found = _with_backoff(media_fetch.search_commons_topic, item["visual_query"], item.get("visual_place", ""), used)
+            if not found and item.get("visual_place"):
+                # Only a photo whose file name names the place. A loosely matching "topic" photo was wrong far too
+                # often, so everything else gets the designed panel instead.
+                cand = _with_backoff(media_fetch.search_commons_topic, item["visual_place"], "", used)
+                if cand and title_matches_place(cand.get("title", ""), item["visual_place"]):
+                    found = cand
         except Exception as exc:  # noqa: BLE001 - network/API failures just mean no photo
             print(f"⚠️ Photo lookup failed for item {i + 1}: {exc}")
             continue
@@ -222,6 +245,7 @@ def assemble(items: list[dict], credits: list[str]) -> dict:
                 "start": round(cursor, 2),
                 "lead_seconds": LEAD_SECONDS,
                 "photo": item.get("photo"),
+                "highlight": highlight_for(item),
             }
         )
         cursor += item["seconds"]
