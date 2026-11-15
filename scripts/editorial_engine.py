@@ -56,12 +56,20 @@ class FiveWOneH(BaseModel):
     how: str = ""
 
 
+class Motion(BaseModel):
+    """Typed (not a free dict): Gemini's Developer API rejects the ``additionalProperties`` a dict[str, str] produces."""
+
+    type: str = ""
+    value: str = ""
+    label: str = ""
+
+
 class Scene(BaseModel):
     headline: str = ""
     description: str = ""
     tts_text: str = ""
     visual_query: str = ""
-    motion: dict[str, str] = Field(default_factory=dict)
+    motion: Motion = Field(default_factory=Motion)
 
 
 class Story(BaseModel):
