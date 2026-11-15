@@ -157,7 +157,8 @@ def test_seo_title_description_tags(tmp_path):
     desc = bulletin.build_description(items, props, "सकाळच्या")
     assert desc.splitlines()[3].startswith("0:00 ")  # chapters start at 0:00
     assert "0:10" in desc and "0:40 MahaSpark फॉलो करा" in desc
-    assert "Wikimedia Commons" in desc and "https://s/0" in desc and len(desc) < 5000
+    assert "Wikimedia Commons" in desc and len(desc) < 5000
+    assert "https://" not in desc and "@MahaSparkOfficial" in desc and "सबस्क्राईब" in desc  # no source links, has the CTA
     tags = bulletin.build_tags(items)
     assert "MahaSpark" in tags and sum(len(t) + 1 for t in tags) < 500
 

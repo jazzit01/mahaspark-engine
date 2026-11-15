@@ -52,3 +52,11 @@ def test_summary_mentions_when_the_reel_is_voiceless():
     assert "व्हॉइसओव्हर उपलब्ध नव्हता" not in tg.build_summary_message(story, "u")
     story["audio"] = False
     assert "व्हॉइसओव्हर उपलब्ध नव्हता" in tg.build_summary_message(story, "u")
+
+
+def test_reel_caption_and_description_carry_the_follow_cta():
+    import send_telegram as st
+
+    story = {"social_title": "शीर्षक", "social_caption": "वर्णन", "category": "पुणे", "hashtags": "#MahaSpark", "five_w_one_h": {}, "scenes": []}
+    assert "@MahaSparkOfficial" in st.build_caption(story) and "सबस्क्राईब" in st.build_caption(story)
+    assert "@MahaSparkOfficial" in st.build_summary_message(story, "https://src")

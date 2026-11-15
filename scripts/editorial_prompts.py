@@ -125,9 +125,11 @@ F. Spell every name of a person, institution, place and scheme in Devanagari exa
 {_THEME_LINES}
 - "audio_mood": choose exactly one:
 {_MOOD_LINES}
-- "social_title": a search-optimised Marathi title of 60 to 95 characters for Telegram, YouTube Shorts and
-  Facebook. Put the main keyword (the place, person, institution or event people would search) in the first
-  half. Factual, no clickbait, no emoji, no clickbait numbers.
+- "social_title": a polished, search-optimised Marathi headline of 45 to 70 characters for Telegram, YouTube
+  Shorts and Facebook (the channel name is added automatically, do not write it). Pattern: the main keyword
+  (place, person, institution or event people would search) first, a colon or comma, then the strongest fact,
+  for example "पुणे मेट्रो: स्वारगाव ते कात्रज मार्गाला मंजुरी". Put a number or a decision in it when the
+  source has one. Factual, active, no clickbait, no emoji, no hashtags, no quotation marks, no full stop.
 - "social_caption": 3 or 4 neutral Marathi sentences (at most 600 characters) written like a news-site
   description: the first sentence carries the main keyword and the core fact, then who/where/when and the next
   step. Use the names and place names exactly as they are searched. No questions, no sign-off.

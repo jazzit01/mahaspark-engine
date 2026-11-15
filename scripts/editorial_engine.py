@@ -261,6 +261,22 @@ def pick_theme(model_choice: str | None, mood: str, seed_text: str) -> str:
     return pool[zlib.crc32(seed_text.encode("utf-8")) % len(pool)]
 
 
+TITLE_SUFFIXES = (" | MahaSpark मराठी बातम्या", " | MahaSpark")
+MAX_TITLE_CHARS = 100  # YouTube Shorts limit
+
+
+def polish_title(title: str) -> str:
+    """Tidy the model's social title and add the channel suffix when it still fits in 100 characters."""
+    title = re.sub(r"[#\"“”‘’]|[\U0001F300-\U0001FAFF\u2600-\u27BF]", "", str(title or ""))
+    title = re.sub(r"\s+", " ", title).strip(" .|-–—")
+    title = re.sub(r"\s*\|\s*MahaSpark.*$", "", title)  # a suffix the model added itself
+    title = re.sub(r"\s+MahaSpark$", "", title).strip(" .|-–—")
+    for suffix in TITLE_SUFFIXES:
+        if title and len(title) + len(suffix) <= MAX_TITLE_CHARS:
+            return title + suffix
+    return title[:MAX_TITLE_CHARS].rstrip()
+
+
 def validate_story(data: dict, source_text: str = "") -> dict:
     """Validate and normalise a generated story. Raises ValueError (repairable) or ContentRejected."""
     if not isinstance(data, dict):
@@ -326,7 +342,7 @@ def validate_story(data: dict, source_text: str = "") -> dict:
     if len(category) > MAX_CATEGORY_CHARS:
         raise ValueError(f"category is longer than {MAX_CATEGORY_CHARS} characters.")
 
-    social_title = str(data.get("social_title", "")).strip() or scenes[0]["headline"]
+    social_title = polish_title(str(data.get("social_title", "")).strip() or scenes[0]["headline"])
     social_caption = str(data.get("social_caption", "")).strip() or scenes[0]["description"]
     hashtags = clean_hashtags(data.get("hashtags", ""))
     keywords = clean_keywords(data.get("seo_keywords", []))
