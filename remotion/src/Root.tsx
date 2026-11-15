@@ -10,6 +10,7 @@ import {BulletinReel, bulletinFrames} from './bulletin/BulletinReel';
 import {BULLETIN_HEIGHT, BULLETIN_WIDTH} from './bulletin/constants';
 import {sampleBulletin} from './bulletin/sampleBulletin';
 import {BulletinProps} from './bulletin/types';
+import {BulletinThumbnail, THUMB_HEIGHT, THUMB_WIDTH} from './bulletin/Thumbnail';
 
 /** Bulletin length is the sum of its item voiceovers plus the fixed outro (all derived in bulletin.json). */
 const calculateBulletinMetadata: CalculateMetadataFunction<BulletinProps> = ({props}) => ({
@@ -52,6 +53,17 @@ export const RemotionRoot: React.FC = () => {
         durationInFrames={FPS * 38}
         defaultProps={sampleBulletin}
         calculateMetadata={calculateBulletinMetadata}
+      />
+
+      {/* YouTube thumbnail still for the bulletin: rendered with --props=public/bulletin_thumb.json. */}
+      <Composition
+        id="BulletinThumbnail"
+        component={BulletinThumbnail}
+        width={THUMB_WIDTH}
+        height={THUMB_HEIGHT}
+        fps={FPS}
+        durationInFrames={1}
+        defaultProps={{headline: sampleBulletin.items[0].headline, count: 10, photo: null}}
       />
 
       {/* One preview composition per studio, for design work in Remotion Studio. */}

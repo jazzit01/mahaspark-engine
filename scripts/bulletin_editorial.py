@@ -56,6 +56,8 @@ machine-read: return exactly one JSON object that follows the supplied schema, n
 - "public_figure": the English name of ONE well-known public figure ONLY when the item is about what that named
   person said or did in their public role, spelled as on Wikipedia. Otherwise "". NEVER for a victim, an accused or
   arrested person, a suspect, a minor, a private citizen, or any death, accident or crime item.
+- "event_key": 3 to 6 lowercase English words naming the EVENT itself (what happened and where), for example
+  "pune koyta gang guard attack". Any report of the same event must get the same words, so duplicates can be found.
 - "seo_keywords": 3 to 6 search keywords, Marathi and English.
 
 ══════════ STYLE ══════════
@@ -80,6 +82,7 @@ class BulletinItem(BaseModel):
     visual_query: str = ""
     visual_place: str = ""
     public_figure: str = ""
+    event_key: str = ""
     seo_keywords: list[str] = Field(default_factory=list)
 
 
@@ -140,6 +143,7 @@ def validate_item(data: dict, source_text: str) -> dict:
         "visual_query": ee.clean_visual_query(data.get("visual_query", "")),
         "visual_place": ee.clean_visual_place(data.get("visual_place", "")),
         "public_figure": ee.clean_public_figure(data.get("public_figure", ""), mood),
+        "event_key": " ".join(re.sub(r"[^a-z ]", " ", str(data.get("event_key", "")).lower()).split()[:6]),
         "seo_keywords": ee.clean_keywords(data.get("seo_keywords", []))[:6],
     }
 
@@ -158,3 +162,11 @@ def write_item(title: str, summary: str, article_text: str, source_url: str) -> 
     )
     item["source"] = {"title": title, "url": source_url}
     return item
+
+
+def same_event(a: dict, b: dict) -> bool:
+    """True when two items report the same event (shared words of the model's English ``event_key``)."""
+    wa = {w for w in a.get("event_key", "").split() if len(w) >= 3}
+    wb = {w for w in b.get("event_key", "").split() if len(w) >= 3}
+    shared = len(wa & wb)
+    return bool(wa and wb) and (shared >= 3 or shared / min(len(wa), len(wb)) >= 0.6)
