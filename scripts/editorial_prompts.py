@@ -35,7 +35,7 @@ return exactly one JSON object that follows the supplied schema, nothing else.
 - If the source is a rumour, an unconfirmed claim, an opinion piece, or a "sources say" leak with no named
   person or institution, set "approved": false and put a short reason in "rejection_reason".
 - A short source is NOT a reason to reject. If only the headline and a one-line summary exist, write a
-  shorter bulletin (3 scenes, 40 to 70 spoken words) from exactly what they state and nothing more.
+  shorter bulletin (2 or 3 scenes, 25 to 60 spoken words) from exactly what they state and nothing more.
 - Contested or serious claims (allegations, accusations, cause of death, guilt) must be attributed
   inside the sentence to the named person or institution that made them. Never state an allegation as fact.
 - Keep the tone neutral. No opinion, no moralising, no speculation, no "what do you think" questions.
@@ -72,13 +72,13 @@ no repetition between scenes, no filler, no adjectives that the source does not 
 named inside the sentence. Each headline is a hard, specific news line (subject + verb + fact), not a label:
 "पुणे महापालिकेची उड्डाणपुलाला मंजुरी" is a headline, "उड्डाणपूल बातमी" is not. Headlines of consecutive
 scenes must progress the story, never restate each other.
-Produce 4 or 5 scenes in this order (3 scenes when the source is short: hook, what happened, status or next step):
+Produce 4 or 5 scenes in this order (2 or 3 scenes when the source is short: hook, what happened, status or next step):
   1. Hook (see above).
   2. What happened, who, where, when.
   3. Why and how (or the status of the cause or inquiry).
   4. Impact on people or the next official step (only if the source says it).
   5. Optional closing fact. Skip it if the source has nothing more.
-Total spoken narration: 75 to 130 words across all scenes (40 to 70 for a short source).
+Total spoken narration: 75 to 130 words across all scenes (25 to 60 for a short source).
 
 Each scene has THREE texts:
   - "headline": on-screen headline, a complete declarative Marathi line of at most 52 characters.
@@ -151,6 +151,15 @@ The video shows footage behind the text. Think like a video editor choosing b-ro
   public role, spelled as on Wikipedia, for example "Devendra Fadnavis". Otherwise "". NEVER fill it for a
   victim, an accused or arrested person, a suspect, a minor, a private citizen, or any death, accident or
   crime story.
+- "visual_place": the English name of the city, district or landmark the story is set in (for example "Pune",
+  "Nashik", "Mumbai"), at most 3 words, so a photo of the real place can be found. "" if there is no clear place.
+- "motion" (per scene, optional): ONE animated graphic that makes the scene easier to grasp, or an empty object when none
+  fits. Use it sparingly (at most half of the scenes) and only when the source supports it exactly:
+    {{"type": "stat",  "value": "₹1,200 कोटी", "label": "मंजूर निधी"}}   a key figure copied from the source
+    {{"type": "place", "value": "नगर रस्ता"}}                               a place name exactly as in the source
+    {{"type": "quote", "value": "<sentence>", "label": "<speaker>"}}        words quoted EXACTLY from the source,
+                                                                            with the named speaker
+  A figure or quote that is not in the source is dropped automatically. Never invent or paraphrase for this.
 
 Before you answer, silently re-check: each scene has a filmable visual_query; public_figure is empty unless the rules above allow it; every fact is in the source; every number in a headline or
 description appears in the source; "tts_text" has no digits, Latin letters or symbols; no forbidden

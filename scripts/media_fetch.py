@@ -1,11 +1,12 @@
 """Per-scene visuals for the reel.
 
-Two sources, both with licences that allow reuse:
+Sources, all with licences that allow reuse (tried in this order for each scene):
 
-* **Pexels videos** (needs ``PEXELS_API_KEY``): portrait stock footage matched to each scene's
-  ``visual_query`` (a few English keywords the editorial model wrote for what the scene is about).
-* **Wikimedia Commons photos**: a freely licensed (CC / public domain) portrait of the public figure the
-  story is about (``story["public_figure"]``). Only used for non-grave stories, see ``editorial_engine``.
+* **Wikimedia Commons, public figure**: a freely licensed (CC / public domain) photo of the public figure the
+  story is about (``story["public_figure"]``) on the hook and closing scene. Never for grave stories.
+* **Pexels videos** (optional ``PEXELS_API_KEY``): portrait stock footage matched to the scene's ``visual_query``.
+* **Wikimedia Commons, topic photo** (no key): a freely licensed photo matching ``visual_query`` (plus the
+  story's ``visual_place`` when there is one), shown as a framed still with a slow zoom.
 
 Stock footage is *representative*, not footage of the actual event, so the Telegram summary says so. Anything
 that cannot be found or downloaded is simply skipped: a scene without media keeps the animated studio
@@ -33,6 +34,8 @@ USER_AGENT = "MahaSparkEngine/1.0 (Marathi news reel pipeline; contact via the p
 MAX_DOWNLOAD_BYTES = 30 * 1024 * 1024
 MAX_CLIP_SECONDS = 45
 MIN_PHOTO_WIDTH = 600
+MIN_TOPIC_PHOTO_WIDTH = 1000
+NOT_A_PHOTO = ("map", "diagram", "logo", "flag", "chart", "icon", "symbol", "coat of arms", "seal", "signature", "banner", "poster", "screenshot", "graph")
 FREE_LICENCE = re.compile(r"^(cc[ -]|cc0|public domain|pd[ -]|attribution)", re.IGNORECASE)
 
 
@@ -121,7 +124,60 @@ def search_commons_photo(name: str) -> dict | None:
         if not FREE_LICENCE.match(licence) or int(info.get("width") or 0) < MIN_PHOTO_WIDTH:
             continue
         artist = _plain((meta.get("Artist") or {}).get("value", "")) or "Unknown author"
-        return {"url": thumb, "credit": f"Photo: {artist[:60]}, {licence}, Wikimedia Commons"}
+        return {
+            "url": thumb,
+            "credit": f"Photo: {artist[:60]}, {licence}, Wikimedia Commons",
+            "width": int(info.get("thumbwidth") or 0),
+            "height": int(info.get("thumbheight") or 0),
+        }
+    return None
+
+
+def search_commons_topic(query: str, place: str, used_titles: set[str]) -> dict | None:
+    """A freely licensed JPEG photo for a scene topic (``query``), preferring the story's place. Skips maps,
+    logos, diagrams and anything already used in this reel. The picture is representative, not the event."""
+    attempts = ([f"{query} {place}".strip()] if place else []) + [query]
+    for text in dict.fromkeys(attempts):
+        resp = requests.get(
+            COMMONS_API,
+            headers={"User-Agent": USER_AGENT},
+            params={
+                "action": "query",
+                "format": "json",
+                "generator": "search",
+                "gsrsearch": f"{text} filetype:bitmap",
+                "gsrnamespace": 6,
+                "gsrlimit": 15,
+                "prop": "imageinfo",
+                "iiprop": "url|size|extmetadata",
+                "iiurlwidth": 1600,
+            },
+            timeout=20,
+        )
+        if resp.status_code != 200:
+            raise RuntimeError(f"Commons HTTP {resp.status_code}")
+        pages = sorted((resp.json().get("query") or {}).get("pages", {}).values(), key=lambda p: p.get("index", 99))
+        for page in pages:
+            title = str(page.get("title", ""))
+            info = (page.get("imageinfo") or [{}])[0]
+            meta = info.get("extmetadata") or {}
+            licence = _plain((meta.get("LicenseShortName") or {}).get("value", ""))
+            thumb = info.get("thumburl") or info.get("url")
+            lowered = title.lower()
+            if title in used_titles or not thumb or not lowered.endswith((".jpg", ".jpeg")):
+                continue
+            if any(word in lowered for word in NOT_A_PHOTO):
+                continue
+            if not FREE_LICENCE.match(licence) or int(info.get("width") or 0) < MIN_TOPIC_PHOTO_WIDTH:
+                continue
+            artist = _plain((meta.get("Artist") or {}).get("value", "")) or "Unknown author"
+            return {
+                "title": title,
+                "url": thumb,
+                "credit": f"Photo: {artist[:60]}, {licence}, Wikimedia Commons",
+                "width": int(info.get("thumbwidth") or 0),
+                "height": int(info.get("thumbheight") or 0),
+            }
     return None
 
 
@@ -167,6 +223,8 @@ def attach_media(story: dict, story_path: Path = STORY_PATH, media_dir: Path = M
     api_key = get_env_value("PEXELS_API_KEY")
     figure = str(story.get("public_figure", "")).strip()
     used_ids: set[int] = set()
+    used_titles: set[str] = set()
+    place = str(story.get("visual_place", "")).strip()
     credits: list[str] = []
     attached = 0
 
@@ -175,7 +233,7 @@ def attach_media(story: dict, story_path: Path = STORY_PATH, media_dir: Path = M
         try:
             found = search_commons_photo(figure)
             if found and download(found["url"], media_dir / "figure.jpg"):
-                photo_file = {"file": "media/figure.jpg", "credit": found["credit"]}
+                photo_file = {"file": "media/figure.jpg", "credit": found["credit"], "width": found.get("width", 0), "height": found.get("height", 0)}
                 print(f"🧑‍💼 Public-figure photo found for {figure}: {found['credit']}")
             else:
                 print(f"ℹ️ No freely licensed photo found for {figure}; using footage only.")
@@ -184,36 +242,58 @@ def attach_media(story: dict, story_path: Path = STORY_PATH, media_dir: Path = M
 
     photo_scenes = set(figure_scene_indexes(len(scenes))) if photo_file else set()
 
-    if not api_key and not photo_file:
-        print("ℹ️ PEXELS_API_KEY is not set and no photo was found: the reel keeps its studio backgrounds.")
-
     for idx, scene in enumerate(scenes):
         scene.pop("media", None)
         if idx in photo_scenes:
-            scene["media"] = {"type": "image", "file": photo_file["file"], "credit": photo_file["credit"], "source": "commons"}
+            scene["media"] = {
+                "type": "image",
+                "file": photo_file["file"],
+                "credit": photo_file["credit"],
+                "source": "commons",
+                "width": photo_file["width"],
+                "height": photo_file["height"],
+            }
             credits.append(photo_file["credit"])
             attached += 1
             continue
         query = str(scene.get("visual_query", "")).strip()
-        if not (api_key and query):
+        if not query:
             continue
-        try:
-            clip = search_pexels(query, api_key, used_ids)
-            if clip and download(clip["url"], media_dir / f"scene-{idx}.mp4"):
-                used_ids.add(clip["id"])
+        if api_key:  # optional stock video first
+            try:
+                clip = search_pexels(query, api_key, used_ids)
+                if clip and download(clip["url"], media_dir / f"scene-{idx}.mp4"):
+                    used_ids.add(clip["id"])
+                    scene["media"] = {
+                        "type": "video",
+                        "file": f"media/scene-{idx}.mp4",
+                        "duration": clip["duration"],
+                        "credit": clip["credit"],
+                        "source": "pexels",
+                    }
+                    credits.append(clip["credit"])
+                    attached += 1
+                    continue
+            except Exception as exc:  # noqa: BLE001
+                print(f"ℹ️ Scene {idx + 1}: footage lookup failed ({str(exc)[:100]}).")
+        try:  # no key needed: a freely licensed photo of the topic or place
+            topic = search_commons_topic(query, place, used_titles)
+            if topic and download(topic["url"], media_dir / f"scene-{idx}.jpg"):
+                used_titles.add(topic["title"])
                 scene["media"] = {
-                    "type": "video",
-                    "file": f"media/scene-{idx}.mp4",
-                    "duration": clip["duration"],
-                    "credit": clip["credit"],
-                    "source": "pexels",
+                    "type": "image",
+                    "file": f"media/scene-{idx}.jpg",
+                    "credit": topic["credit"],
+                    "source": "commons",
+                    "width": topic["width"],
+                    "height": topic["height"],
                 }
-                credits.append(clip["credit"])
+                credits.append(topic["credit"])
                 attached += 1
             else:
-                print(f"ℹ️ Scene {idx + 1}: no usable footage for '{query}'.")
+                print(f"ℹ️ Scene {idx + 1}: no usable visual for '{query}'.")
         except Exception as exc:  # noqa: BLE001
-            print(f"ℹ️ Scene {idx + 1}: footage lookup failed ({str(exc)[:100]}).")
+            print(f"ℹ️ Scene {idx + 1}: photo lookup failed ({str(exc)[:100]}).")
 
     # Footage needs light text on dark glass, so the one light studio is swapped for a dark one.
     if attached and story.get("visual_theme") == "EditorialDeskLight":

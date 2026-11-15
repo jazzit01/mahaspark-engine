@@ -15,6 +15,16 @@ export type SceneMedia = {
   /** Clip length in seconds (videos). */
   duration?: number;
   credit?: string;
+  /** Pixel size of a still (used to pick the framed layout for landscape photos). */
+  width?: number;
+  height?: number;
+};
+
+/** An animated graphic for one scene, written by the editorial model and checked against the source. */
+export type SceneMotion = {
+  type: 'stat' | 'place' | 'quote';
+  value: string;
+  label?: string;
 };
 
 export type StoryScene = {
@@ -22,6 +32,7 @@ export type StoryScene = {
   description: string;
   tts_text?: string;
   media?: SceneMedia;
+  motion?: SceneMotion;
   /** Seconds. Written by scripts/align_timings.py. */
   start: number;
   end: number;

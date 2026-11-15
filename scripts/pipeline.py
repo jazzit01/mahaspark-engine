@@ -28,7 +28,8 @@ from sheet_queue import DONE, ERROR, PENDING, PROCESSING, REJECTED, SheetQueue
 MAX_NEW_ITEMS_PER_RUN = 2
 MIN_CONTEXT_CHARS = 80  # title + RSS summary needed when the article page cannot be read
 MAX_CANDIDATES_TO_CHECK = 15  # feed items inspected per run while looking for readable articles
-MAX_STORIES_PER_RUN = int(os.getenv("MAX_STORIES_PER_RUN", "1") or "1")
+MAX_STORIES_PER_RUN = int(os.getenv("MAX_STORIES_PER_RUN", "2") or "2")  # matches the 2 items queued per run
+RUN_BUDGET_SECONDS = int(os.getenv("RUN_BUDGET_SECONDS", "1800") or "1800")  # no new story is started after this
 
 
 def queue_new_items(queue: SheetQueue, max_items: int = MAX_NEW_ITEMS_PER_RUN) -> int:
@@ -147,8 +148,12 @@ def run_scheduled() -> int:
 
     print("\n⚙️ Scanning the sheet for PENDING items...")
     processed = published = 0  # processed counts every story attempted, so failures also respect the limit
+    started = time.monotonic()
     for row in queue.pending_rows():
         if processed >= MAX_STORIES_PER_RUN:
+            break
+        if processed and time.monotonic() - started > RUN_BUDGET_SECONDS:
+            print("⏱️ Run time budget used; the remaining stories stay PENDING for the next run.")
             break
         print(f"\n⚡ Processing row {row.index}: {row.raw_input[:70]}...")
         queue.set_status(row.index, PROCESSING)

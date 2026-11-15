@@ -8,6 +8,11 @@ import send_telegram as tg
 from helpers import SOURCE_TEXT, valid_story
 
 
+@pytest.fixture(autouse=True)
+def no_network_topic_photos(monkeypatch):
+    monkeypatch.setattr(mf, "search_commons_topic", lambda q, place, used: None)
+
+
 # ----- schema / validator -------------------------------------------------------------------------
 
 
@@ -196,3 +201,81 @@ def test_pipeline_visuals_hook_is_failure_proof_and_picks_crf(monkeypatch):
     assert pipeline.add_visuals(story) is story
     assert pipeline.reel_crf(story) == 18
     assert pipeline.reel_crf({"scenes": [{"media": {"type": "video"}}]}) == 21
+
+
+# ----- motion graphics ----------------------------------------------------------------------------
+
+MOTION_SOURCE = "पुणे महापालिकेने 1,200 कोटी रुपयांची तरतूद केली. आयुक्त राजेश पाटील म्हणाले, \"काम दोन वर्षांत पूर्ण होईल.\""
+
+
+def test_stat_motion_needs_a_figure_that_is_in_the_source():
+    ok = ee.clean_motion({"type": "stat", "value": "₹1,200 कोटी", "label": "तरतूद"}, MOTION_SOURCE)
+    assert ok == {"type": "stat", "value": "₹1,200 कोटी", "label": "तरतूद"}
+    assert ee.clean_motion({"type": "stat", "value": "₹900 कोटी"}, MOTION_SOURCE) == {}
+    assert ee.clean_motion({"type": "stat", "value": "मोठा निधी"}, MOTION_SOURCE) == {}
+
+
+def test_place_and_quote_motion_must_be_verbatim_from_the_source():
+    assert ee.clean_motion({"type": "place", "value": "पुणे"}, MOTION_SOURCE)["type"] == "place"
+    assert ee.clean_motion({"type": "place", "value": "नाशिक"}, MOTION_SOURCE) == {}
+    quote = {"type": "quote", "value": "काम दोन वर्षांत पूर्ण होईल.", "label": "राजेश पाटील"}
+    assert ee.clean_motion(quote, MOTION_SOURCE) == quote
+    assert ee.clean_motion({**quote, "value": "काम लवकरच पूर्ण होईल असे सांगितले."}, MOTION_SOURCE) == {}
+    assert ee.clean_motion({**quote, "label": "अनोळखी व्यक्ती"}, MOTION_SOURCE) == {}
+
+
+def test_bad_or_unknown_motion_is_dropped_not_an_error():
+    for raw in (None, "stat", {}, {"type": "confetti", "value": "x"}, {"type": "quote", "value": "लहान", "label": "x"}):
+        assert ee.clean_motion(raw, MOTION_SOURCE) == {}
+
+
+def test_validate_story_keeps_only_checked_motion():
+    story = valid_story()
+    story["scenes"][1]["motion"] = {"type": "stat", "value": "120 कोटी", "label": "तरतूद"}
+    story["scenes"][0]["motion"] = {"type": "stat", "value": "999 कोटी"}
+    result = ee.validate_story(story, SOURCE_TEXT)
+    assert result["scenes"][1]["motion"]["value"] == "120 कोटी" and result["scenes"][0]["motion"] == {}
+
+
+def test_a_ten_second_story_is_accepted():
+    story = valid_story()
+    story["scenes"] = story["scenes"][:2]
+    story["scenes"][0]["tts_text"] = "पुणे महापालिकेने, नव्या उड्डाणपुलाला मंजुरी दिली आहे."
+    story["scenes"][1]["tts_text"] = "प्रकल्पासाठी, कोट्यवधी रुपयांची तरतूद करण्यात आली आहे. दोन वर्षांत, उड्डाणपूल वाहतुकीसाठी खुला होईल, असे आयुक्तांनी सांगितले. काम पुढील महिन्यात सुरू होणार आहे."
+    result = ee.validate_story(story, SOURCE_TEXT)
+    assert 2 == len(result["scenes"]) and 25 <= len(result["tts_narration_script"].split()) < 40
+
+
+def test_visual_place_is_plain_english():
+    assert ee.clean_visual_place("Pune, Maharashtra India extra") == "Pune Maharashtra India"
+    assert ee.clean_visual_place("पुणे") == ""
+
+
+# ----- Wikimedia Commons topic photos -------------------------------------------------------------
+
+
+def test_topic_photo_skips_maps_used_titles_and_non_free_files(monkeypatch):
+    monkeypatch.undo()  # use the real search function with a fake HTTP layer
+    pages = {
+        "1": commons_page("File:Pune map.jpg", "CC BY 4.0", width=2000, index=1),
+        "2": commons_page("File:Pune used.jpg", "CC BY 4.0", width=2000, index=2),
+        "3": commons_page("File:Pune closed.jpg", "All rights reserved", width=2000, index=3),
+        "4": commons_page("File:Pune flyover.jpg", "CC BY-SA 4.0", width=2000, index=4),
+    }
+    monkeypatch.setattr(mf.requests, "get", lambda *a, **k: FakeResp({"query": {"pages": pages}}))
+    found = mf.search_commons_topic("flyover", "Pune", {"File:Pune used.jpg"})
+    assert found["title"] == "File:Pune flyover.jpg" and found["credit"].endswith("Wikimedia Commons")
+
+
+def test_scenes_without_stock_video_get_commons_photos_with_their_size(monkeypatch, tmp_path):
+    monkeypatch.delenv("PEXELS_API_KEY", raising=False)
+    titles = iter(f"File:p{i}.jpg" for i in range(10))
+    monkeypatch.setattr(
+        mf,
+        "search_commons_topic",
+        lambda q, place, used: {"title": next(titles), "url": "u", "credit": "Photo: A, CC BY 4.0, Wikimedia Commons", "width": 1600, "height": 1067},
+    )
+    monkeypatch.setattr(mf, "download", lambda url, dest: dest.write_bytes(b"x" * 10) or True)
+    out = mf.attach_media(make_story(), tmp_path / "story.json", tmp_path / "media")
+    media = [s["media"] for s in out["scenes"]]
+    assert all(m["type"] == "image" and m["width"] == 1600 and m["file"].endswith(".jpg") for m in media)

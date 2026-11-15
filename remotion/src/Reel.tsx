@@ -10,20 +10,14 @@ import {
   WHOOSH_LEAD_FRAMES,
   WHOOSH_VOLUME,
 } from './constants';
-import {SceneCard, Fact} from './SceneCard';
+import {SceneCard} from './SceneCard';
 import {SharedOverlay} from './SharedOverlay';
 import {getStudio} from './studios';
 import {getPalette, overMedia} from './theme';
 import {Story} from './types';
 
 const BACKDROP_FADE_FRAMES = 9;
-const FACT_PLAN: string[][] = [['where', 'when'], ['who'], ['why', 'how'], ['where'], ['when'], ['who']];
 
-/** The 5W1H chips shown under a scene's context card (empty answers are skipped). */
-const factsForScene = (index: number, five?: Record<string, string>): Fact[] =>
-  (FACT_PLAN[index] ?? [])
-    .map((key) => ({value: (five?.[key] ?? '').trim()}))
-    .filter((fact) => fact.value.length > 0 && fact.value.length <= 90);
 
 export const totalFrames = (story: Story, fps: number): number =>
   Math.max(1, Math.ceil((story.duration_seconds + TAIL_SECONDS) * fps));
@@ -90,7 +84,7 @@ export const Reel: React.FC<Story> = (story) => {
             durationInFrames={Math.max(SCENE_EXIT_FRAMES + 1, ends[i] - starts[i])}
             index={i}
             total={scenes.length}
-            facts={factsForScene(i, story.five_w_one_h)}
+            motion={scene.motion}
           />
         </Sequence>
       ))}
