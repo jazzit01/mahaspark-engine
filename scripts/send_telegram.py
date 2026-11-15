@@ -86,6 +86,23 @@ def build_summary_message(story: dict, source_url: str) -> str:
     return "\n".join(lines)[:MESSAGE_LIMIT]
 
 
+def send_message(text: str) -> bool:
+    """Send one HTML text message to the configured chat. Returns True when Telegram accepted it."""
+    token, chat_id = _credentials()
+    try:
+        resp = requests.post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            data={"chat_id": chat_id, "text": text[:MESSAGE_LIMIT], "parse_mode": "HTML", "disable_web_page_preview": "false"},
+            timeout=30,
+        )
+    except requests.RequestException as exc:
+        print(f"⚠️ Telegram message failed: {exc}")
+        return False
+    if resp.status_code != 200:
+        print(f"⚠️ Telegram message HTTP {resp.status_code}: {resp.text[:200]}")
+    return resp.status_code == 200
+
+
 def send_reel(video_path: Path, story: dict, source_url: str, max_retries: int = 3) -> bool:
     """Send the video, then the summary message. Returns True when the video was delivered."""
     token, chat_id = _credentials()

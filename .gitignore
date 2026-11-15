@@ -9,3 +9,5 @@ node_modules/
 remotion/public/voiceover.wav
 remotion/public/story.json
 remotion/public/media/
+remotion/public/bulletin/
+remotion/public/bulletin.json
