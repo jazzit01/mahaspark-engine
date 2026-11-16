@@ -53,8 +53,7 @@ A model slip is caught and the model gets one repair attempt with the exact erro
   face for victims or accused). Stock footage is representative, never presented as the event; the Telegram summary
   says so and lists credits. Footage reels render at CRF 21 (Telegram's 50 MB limit); the light studio is swapped
   for `GlassNewsroomDepth` when footage is attached.
-- **Motion graphics.** Per scene the model may add one `motion` graphic: `stat` (a figure that is in the source),
-  `place` (a place name that is in the source) or `quote` (words verbatim from the source plus the named speaker).
+- **Motion graphics.** Per scene the model may add one `motion` graphic: `stat` (a figure that is in the source) or `quote` (words verbatim from the source plus the named speaker).
   `clean_motion` drops anything the source does not back, silently (no repair churn). Rendered by `MotionGraphic.tsx`.
 - **SEO output** (Telegram only): `social_title` (60-95 chars, keyword first), `social_caption` (3-4 sentences),
   `seo_keywords` (8-12, Marathi + English), `hashtags` (10-15, always starting `#MahaSpark`).

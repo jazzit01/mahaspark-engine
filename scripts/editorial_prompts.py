@@ -158,7 +158,6 @@ The video shows footage behind the text. Think like a video editor choosing b-ro
 - "motion" (per scene, optional): ONE animated graphic that makes the scene easier to grasp, or an empty object when none
   fits. Use it sparingly (at most half of the scenes) and only when the source supports it exactly:
     {{"type": "stat",  "value": "₹1,200 कोटी", "label": "मंजूर निधी"}}   a key figure copied from the source
-    {{"type": "place", "value": "नगर रस्ता"}}                               a place name exactly as in the source
     {{"type": "quote", "value": "<sentence>", "label": "<speaker>"}}        words quoted EXACTLY from the source,
                                                                             with the named speaker
   A figure or quote that is not in the source is dropped automatically. Never invent or paraphrase for this.
