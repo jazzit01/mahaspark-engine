@@ -216,8 +216,7 @@ def test_stat_motion_needs_a_figure_that_is_in_the_source():
 
 
 def test_place_and_quote_motion_must_be_verbatim_from_the_source():
-    assert ee.clean_motion({"type": "place", "value": "पुणे"}, MOTION_SOURCE)["type"] == "place"
-    assert ee.clean_motion({"type": "place", "value": "नाशिक"}, MOTION_SOURCE) == {}
+    assert ee.clean_motion({"type": "place", "value": "पुणे"}, MOTION_SOURCE) == {}  # location pin removed on request
     quote = {"type": "quote", "value": "काम दोन वर्षांत पूर्ण होईल.", "label": "राजेश पाटील"}
     assert ee.clean_motion(quote, MOTION_SOURCE) == quote
     assert ee.clean_motion({**quote, "value": "काम लवकरच पूर्ण होईल असे सांगितले."}, MOTION_SOURCE) == {}

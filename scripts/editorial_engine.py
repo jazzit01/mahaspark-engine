@@ -189,9 +189,8 @@ def clean_motion(raw, source_text: str) -> dict:
     """One animated graphic for a scene, or {} when it is not fully backed by the source.
 
     stat:  a figure that appears in the source (count-up / bar)      value="₹1,200 कोटी", label="मंजूर निधी"
-    place: a place name that appears in the source (pulsing pin)     value="पुणे"
     quote: a sentence quoted word for word from the source + speaker  value="...", label="speaker"
-    Anything that does not check out is dropped silently, so the scene simply has no graphic."""
+    The map-pin 'place' graphic was removed on request (it is dropped like any unknown type). Anything that does not check out is dropped silently, so the scene simply has no graphic."""
     if not isinstance(raw, dict):
         return {}
     kind = str(raw.get("type", "")).strip().lower()
@@ -202,10 +201,6 @@ def clean_motion(raw, source_text: str) -> dict:
         numbers = source_numbers(value)
         if not numbers or len(value) > 24 or not numbers <= source_numbers(source):
             return {}
-    elif kind == "place":
-        if not (2 <= len(value) <= 24) or value not in source:
-            return {}
-        label = ""
     elif kind == "quote":
         if not (10 <= len(value) <= 90) or _squash(value) not in _squash(source) or not label or label not in source:
             return {}
