@@ -20,6 +20,36 @@ UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos"
 CHUNK_BYTES = 8 * 1024 * 1024
 MAX_TITLE, MAX_DESCRIPTION, MAX_TAGS_CHARS = 100, 5000, 450
 PRIVACY_VALUES = ("private", "unlisted", "public")
+AI_NOTE = "ℹ️ बातमी विश्वसनीय स्रोतांच्या माहितीवर आधारित आहे; निवेदनाचा आवाज AI ने तयार केला आहे."
+REEL_UPLOAD_SLOTS = (7, 12, 19)  # IST hours; one more reel may be uploaded after each (YouTube API quota)
+
+
+def synthetic_flag() -> bool:
+    """YOUTUBE_SYNTHETIC_FLAG=1 also ticks YouTube's "altered or synthetic content" box (off by default: the anchor
+    voice is a generic AI voice, not a real person's). The AI voice is always disclosed in the description."""
+    return (get_env_value("YOUTUBE_SYNTHETIC_FLAG", "") or "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def reel_uploads_enabled() -> bool:
+    return (get_env_value("YOUTUBE_UPLOAD_REELS", "1") or "1").strip().lower() not in ("0", "false", "no", "off")
+
+
+def allowed_reel_uploads(hour: int, done_today: int, slots: tuple[int, ...] = REEL_UPLOAD_SLOTS) -> bool:
+    """True while fewer reels were uploaded today than slots have started. A default YouTube API project can upload
+    about six videos a day (1,600 quota units each of 10,000), and the two bulletins must always fit."""
+    return done_today < sum(1 for s in slots if hour >= s)
+
+
+def build_reel_description(story: dict) -> str:
+    five = story.get("five_w_one_h") or {}
+    lines = [str(story.get("social_caption", "")).strip(), ""]
+    if five.get("what"):
+        lines += ["📰 मुख्य मुद्दा", f"• {five['what']}", ""]
+    credits = story.get("media_credits") or []
+    if credits:
+        lines += ["🖼️ चित्रे: प्रातिनिधिक; घटनेचे थेट चित्र असेलच असे नाही.", *credits, ""]
+    lines += [AI_NOTE, "", "🔔 MahaSpark ला फॉलो आणि सबस्क्राईब करा, रोज ताज्या बातम्या मिळवा.", "▶️ @MahaSparkOfficial", "", str(story.get("hashtags", ""))]
+    return "\n".join(lines).strip()
 
 
 class YouTubeUnavailable(RuntimeError):
@@ -68,6 +98,7 @@ def build_metadata(title: str, description: str, tags: list[str], privacy: str |
             "privacyStatus": privacy or privacy_status(),
             "selfDeclaredMadeForKids": False,
             "embeddable": True,
+            **({"containsSyntheticMedia": True} if synthetic_flag() else {}),
         },
     }
 
