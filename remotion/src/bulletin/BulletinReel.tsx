@@ -32,7 +32,7 @@ export const BulletinReel: React.FC<BulletinProps> = (props) => {
         const ticker = upcoming.length ? upcoming : props.items.map((it) => it.headline);
         return (
           <Sequence key={i} from={starts[i]} durationInFrames={frames}>
-            <ItemScreen item={item} frames={frames} />
+            <ItemScreen item={item} frames={frames} hue={(props.bg_hue ?? 0) + (i % 4) * 18} />
             <Ticker headlines={ticker} label={upcoming.length ? 'पुढील बातम्या' : 'आजच्या बातम्या'} offset={starts[i]} total={total} />
             <Sequence from={Math.round(item.lead_seconds * fps)} layout="none">
               <Audio src={staticFile(item.audio)} />

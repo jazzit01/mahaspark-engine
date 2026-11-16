@@ -7,11 +7,11 @@ import {BulletinItem} from './types';
 const PANEL_HEIGHT = 1080 - TICKER_HEIGHT;
 const CUT_CLIP = `polygon(${PHOTO_CUT}px 0, 100% 0, 100% 100%, 0 100%)`;
 
-const Background: React.FC = () => {
+const Background: React.FC<{hue: number}> = ({hue}) => {
   const frame = useCurrentFrame();
   const drift = Math.sin(frame / 90) * 40;
   return (
-    <AbsoluteFill style={{background: `linear-gradient(160deg, ${COLORS.bgTop} 0%, ${COLORS.bgBottom} 100%)`}}>
+    <AbsoluteFill style={{background: `linear-gradient(160deg, ${COLORS.bgTop} 0%, ${COLORS.bgBottom} 100%)`, filter: hue ? `hue-rotate(${hue}deg)` : undefined}}>
       <AbsoluteFill
         style={{
           backgroundImage: `linear-gradient(${COLORS.grid} 2px, transparent 2px), linear-gradient(90deg, ${COLORS.grid} 2px, transparent 2px)`,
@@ -81,7 +81,7 @@ const Panel: React.FC<{item: BulletinItem; total: number}> = ({item, total}) => 
   );
 };
 
-export const ItemScreen: React.FC<{item: BulletinItem; frames: number}> = ({item, frames}) => {
+export const ItemScreen: React.FC<{item: BulletinItem; frames: number; hue?: number}> = ({item, frames, hue = 0}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
   const enter = (delay: number) => spring({frame: frame - delay, fps, config: {damping: 200, mass: 0.7}});
@@ -95,7 +95,7 @@ export const ItemScreen: React.FC<{item: BulletinItem; frames: number}> = ({item
 
   return (
     <AbsoluteFill>
-      <Background />
+      <Background hue={hue} />
       <Panel item={item} total={frames} />
       <div
         style={{

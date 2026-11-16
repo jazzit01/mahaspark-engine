@@ -50,10 +50,14 @@ export type Story = {
   category: string;
   visual_theme: ThemeName;
   audio_mood: AudioMood;
+  /** Degrees the studio background is hue-rotated, so no two videos share one look. 0 keeps the studio colours. */
+  bg_hue?: number;
   scenes: StoryScene[];
   /** what/when/who/where/why/how answers; chips on the scene cards. */
   five_w_one_h?: Record<string, string>;
   words: StoryWord[];
+  /** Same timings as words, but spoken numbers merged into digits (१२, ₹१,२०० कोटी) for the screen. */
+  caption_words?: StoryWord[];
   duration_seconds: number;
   /** Studio previews set this to false because voiceover.wav does not exist there. */
   audio?: boolean;

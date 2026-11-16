@@ -25,6 +25,7 @@ import requests
 from pydantic import BaseModel, Field
 
 from config import STORY_PATH, VOICEOVER_PATH, get_env_value
+from marathi_numbers import words_to_digits
 from editorial_prompts import AUDIO_MOODS, SYSTEM_INSTRUCTION, THEMES, build_user_prompt
 from llm_providers import (
     ContentRejected,
@@ -147,7 +148,8 @@ def clean_tts_text(text: str) -> str:
 
 
 def source_numbers(text: str) -> set[str]:
-    normalised = str(text or "").translate(_DEVANAGARI_DIGITS)
+    # numbers the source spells out in words count too (the on-screen text is converted to digits)
+    normalised = words_to_digits(str(text or "")).translate(_DEVANAGARI_DIGITS)
     return {m.replace(",", "") for m in _NUMBER.findall(normalised)}
 
 
@@ -161,7 +163,7 @@ def find_forbidden(text: str) -> str | None:
 
 AVOID_THEME: str | None = None  # studio of the previous reel; set by the pipeline so two reels in a row differ
 
-CALM_THEMES = ["PrimeGridStudio", "EditorialDeskLight", "DataTelemetryStudio", "GlassNewsroomDepth"]
+CALM_THEMES = ["PrimeGridStudio", "DataTelemetryStudio", "GlassNewsroomDepth"]  # the white studio was retired on request
 
 
 def set_avoid_theme(theme: str | None) -> None:
@@ -198,6 +200,7 @@ def clean_motion(raw, source_text: str) -> dict:
     label = re.sub(r"\s+", " ", str(raw.get("label", ""))).strip()[:40]
     source = str(source_text or "")
     if kind == "stat":
+        value = words_to_digits(value)
         numbers = source_numbers(value)
         if not numbers or len(value) > 24 or not numbers <= source_numbers(source):
             return {}
@@ -256,6 +259,16 @@ def pick_theme(model_choice: str | None, mood: str, seed_text: str) -> str:
     return pool[zlib.crc32(seed_text.encode("utf-8")) % len(pool)]
 
 
+HUES = [-60, -35, -15, 20, 40, 65, 95, 140]  # degrees; 0 (the studio's own colours) is only used for Breaking
+
+
+def pick_hue(seed_text: str, calm: bool = True) -> int:
+    """Per-video hue rotation of the background, from a hash of the story, so every video looks different."""
+    if not calm:
+        return 0
+    return HUES[zlib.crc32(("hue" + seed_text).encode("utf-8")) % len(HUES)]
+
+
 TITLE_SUFFIXES = (" | MahaSpark मराठी बातम्या", " | MahaSpark")
 MAX_TITLE_CHARS = 100  # YouTube Shorts limit
 
@@ -295,8 +308,9 @@ def validate_story(data: dict, source_text: str = "") -> dict:
     for idx, raw in enumerate(scenes_in, start=1):
         if not isinstance(raw, dict):
             raise ValueError(f"Scene {idx} is not an object.")
-        headline = re.sub(r"\s+", " ", str(raw.get("headline", ""))).strip()
-        description = re.sub(r"\s+", " ", str(raw.get("description", ""))).strip()
+        # on-screen text shows digits (१२, ₹१,२०० कोटी), never spelled-out numbers; tts_text is not touched
+        headline = words_to_digits(re.sub(r"\s+", " ", str(raw.get("headline", ""))).strip())
+        description = words_to_digits(re.sub(r"\s+", " ", str(raw.get("description", ""))).strip())
         tts_text = clean_tts_text(raw.get("tts_text", ""))
 
         if len(headline) < 6:
@@ -368,7 +382,8 @@ def validate_story(data: dict, source_text: str = "") -> dict:
     return {
         "approved": True,
         "category": category,
-        "visual_theme": pick_theme(theme, mood, source_text or narration),
+        "visual_theme": (chosen_theme := pick_theme(theme, mood, source_text or narration)),
+        "bg_hue": pick_hue(source_text or narration, calm=chosen_theme != "BreakingNewsStudio"),
         "audio_mood": mood if mood in AUDIO_MOODS else "neutral",
         "five_w_one_h": {k: str(five.get(k, "")).strip() for k in ("what", "when", "who", "where", "why", "how")},
         "tts_narration_script": narration,

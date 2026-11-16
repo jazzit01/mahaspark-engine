@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from config import STORY_PATH, VOICEOVER_PATH
+from marathi_numbers import caption_words
 
 MATCH_THRESHOLD = 0.55
 MIN_WORD_SECONDS = 0.06
@@ -210,7 +211,7 @@ def build_story_timings(story: dict, heard: list[TimedWord], duration: float) ->
         end = duration if idx == len(story["scenes"]) - 1 else words[scene_first_index[idx + 1]]["start"]
         scenes.append({**scene, "start": round(start, 3), "end": round(end, 3)})
 
-    return {**story, "scenes": scenes, "words": words, "duration_seconds": round(duration, 3), "alignment_match": round(matched, 3)}
+    return {**story, "scenes": scenes, "words": words, "caption_words": caption_words(words), "duration_seconds": round(duration, 3), "alignment_match": round(matched, 3)}
 
 
 # Voiceless fallback: pace of a calm prime-time anchor, used only when no voiceover could be generated.

@@ -10,7 +10,12 @@ type Props = {
   delay: number;
 };
 
-const NUMBER = /(\d[\d,]*(?:\.\d+)?)/;
+const NUMBER = /([\d०-९][\d०-९,]*(?:\.[\d०-९]+)?)/;
+const DEVA = '०१२३४५६७८९';
+/** Devanagari digits to Latin so the count-up can be computed. */
+const toLatin = (text: string) => text.replace(/[०-९]/g, (d) => String(DEVA.indexOf(d)));
+/** Latin digits to Devanagari for display. */
+const toDeva = (text: string) => text.replace(/\d/g, (d) => DEVA[Number(d)]);
 
 const useEntrance = (delay: number) => {
   const frame = useCurrentFrame();
@@ -24,12 +29,12 @@ const useEntrance = (delay: number) => {
 const Stat: React.FC<Props> = ({motion, palette, delay}) => {
   const {local, enter} = useEntrance(delay);
   const match = NUMBER.exec(motion.value);
-  const target = match ? parseFloat(match[1].replace(/,/g, '')) : 0;
+  const target = match ? parseFloat(toLatin(match[1]).replace(/,/g, '')) : 0;
   const decimals = match && match[1].includes('.') ? match[1].split('.')[1].length : 0;
   const prefix = match ? motion.value.slice(0, match.index) : '';
   const suffix = match ? motion.value.slice(match.index + match[1].length) : motion.value;
   const progress = interpolate(local, [0, 42], [0, 1], {easing: Easing.out(Easing.cubic), extrapolateRight: 'clamp'});
-  const shown = (target * progress).toLocaleString('en-IN', {minimumFractionDigits: decimals, maximumFractionDigits: decimals});
+  const shown = toDeva((target * progress).toLocaleString('en-IN', {minimumFractionDigits: decimals, maximumFractionDigits: decimals}));
   const isPercent = motion.value.includes('%');
   const fill = Math.min(Math.max(target, 0), 100) * progress;
 

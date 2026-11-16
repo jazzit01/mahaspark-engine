@@ -210,7 +210,7 @@ MOTION_SOURCE = "पुणे महापालिकेने 1,200 कोट�
 
 def test_stat_motion_needs_a_figure_that_is_in_the_source():
     ok = ee.clean_motion({"type": "stat", "value": "₹1,200 कोटी", "label": "तरतूद"}, MOTION_SOURCE)
-    assert ok == {"type": "stat", "value": "₹1,200 कोटी", "label": "तरतूद"}
+    assert ok == {"type": "stat", "value": "₹१,२०० कोटी", "label": "तरतूद"}  # shown in Devanagari digits
     assert ee.clean_motion({"type": "stat", "value": "₹900 कोटी"}, MOTION_SOURCE) == {}
     assert ee.clean_motion({"type": "stat", "value": "मोठा निधी"}, MOTION_SOURCE) == {}
 
@@ -233,7 +233,7 @@ def test_validate_story_keeps_only_checked_motion():
     story["scenes"][1]["motion"] = {"type": "stat", "value": "120 कोटी", "label": "तरतूद"}
     story["scenes"][0]["motion"] = {"type": "stat", "value": "999 कोटी"}
     result = ee.validate_story(story, SOURCE_TEXT)
-    assert result["scenes"][1]["motion"]["value"] == "120 कोटी" and result["scenes"][0]["motion"] == {}
+    assert result["scenes"][1]["motion"]["value"] == "१२० कोटी" and result["scenes"][0]["motion"] == {}
 
 
 def test_a_ten_second_story_is_accepted():

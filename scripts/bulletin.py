@@ -245,6 +245,7 @@ def assemble(items: list[dict], credits: list[str]) -> dict:
     return {
         "items": entries,
         "outro_seconds": OUTRO_SECONDS,
+        "bg_hue": editorial_engine.pick_hue(" ".join(e["headline"] for e in entries), calm=True),
         "outro_start": round(cursor, 2),
         "total_seconds": round(cursor + OUTRO_SECONDS, 2),
         "credits": credits,
