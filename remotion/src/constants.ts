@@ -1,13 +1,16 @@
 export const COMPOSITION_ID = 'MahaSparkReel';
 
 export const FPS = 30;
-export const WIDTH = 1080;
-export const HEIGHT = 1920;
+export const WIDTH = 1920;
+export const HEIGHT = 1080;  // 16:9 landscape (was 1080x1920 vertical)
 
 /** Central safe zone: headlines, context cards and captions live between SAFE_TOP and HEIGHT - SAFE_BOTTOM. */
-export const SAFE_TOP = 290;
-export const SAFE_BOTTOM = 450;
-export const SAFE_SIDE = 60;
+export const SAFE_TOP = 175;
+export const SAFE_BOTTOM = 56;
+export const SAFE_SIDE = 80;
+
+/** The same outro as the news bulletin (Outro.tsx) closes every video. */
+export const OUTRO_SECONDS = 8;
 
 /** Seconds of studio after the last spoken word. */
 export const TAIL_SECONDS = 1.0;
@@ -23,6 +26,6 @@ export const WHOOSH_VOLUME = 0.5;
 export const WHOOSH_LEAD_FRAMES = 6;
 
 /** Main headline: as large as it can be for its length (a headline is at most 56 characters). */
-export const headlineSize = (chars: number): number => (chars <= 22 ? 108 : chars <= 34 ? 100 : chars <= 46 ? 92 : 84);
-export const DESCRIPTION_SIZE = 46; // sub-heading under the headline
-export const CAPTION_SIZE = 52;
+export const headlineSize = (chars: number): number => (chars <= 22 ? 124 : chars <= 34 ? 112 : chars <= 46 ? 100 : 90);
+export const DESCRIPTION_SIZE = 48; // sub-heading under the headline
+export const CAPTION_SIZE = 56;

@@ -49,10 +49,13 @@ machine-read: return exactly one JSON object that follows the supplied schema, n
 - "category": a short Marathi category label (for example "पुणे", "राजकारण", "अर्थकारण", "क्रीडा").
 - "audio_mood": one of
 {_MOOD_LINES}
-- "visual_query": 2 to 5 plain English words describing what a viewer should SEE (concrete and filmable, for example
-  "flyover construction traffic", "court building", "heavy rain flooded street"). Generic only: never a person,
-  party, brand or place name. "" if nothing sensible.
-- "visual_place": English name of the city, district or landmark the story is set in (at most 3 words) or "".
+- "photo_query" and "photo_keywords": the ONE concrete, photographable SUBJECT of the story, so a real photo of it
+  can be found. Only when the story is plainly about a named aircraft or vehicle of a company ("IndiGo Airbus A320",
+  keywords ["indigo"]), a named building, station, airport, dam, stadium, court or landmark ("Pune railway station",
+  keywords ["pune","railway"]; "Shaniwar Wada", keywords ["shaniwar"]), or a named institution's headquarters.
+  "photo_query" is 2 to 5 English words as they would appear on Wikipedia; "photo_keywords" are 1 to 3 lowercase
+  English words that MUST appear in the photo's file name. Never a person (use "public_figure"), never an event,
+  result, number, price, crime scene, victim or accused. If no such subject exists, leave both empty.
 - "public_figure": the English name of ONE well-known public figure ONLY when the item is about what that named
   person said or did in their public role, spelled as on Wikipedia. Otherwise "". NEVER for a victim, an accused or
   arrested person, a suspect, a minor, a private citizen, or any death, accident or crime item.
@@ -79,8 +82,8 @@ class BulletinItem(BaseModel):
     context: str = ""
     tts_text: str = ""
     audio_mood: MoodName = "neutral"
-    visual_query: str = ""
-    visual_place: str = ""
+    photo_query: str = ""
+    photo_keywords: list[str] = Field(default_factory=list)
     public_figure: str = ""
     event_key: str = ""
     seo_keywords: list[str] = Field(default_factory=list)
@@ -97,6 +100,16 @@ def build_item_prompt(title: str, summary: str, article_text: str, source_url: s
         f'"""\n{article[:6000] or "NOT AVAILABLE - only the title and summary above exist."}\n"""\n\n'
         "Write the bulletin item now. Set approved to false only for a rumour, an unattributed leak or an opinion piece."
     )
+
+
+def clean_photo_subject(query, keywords) -> dict:
+    """Subject photo lookup terms: ASCII words only, and every keyword must be part of the query (else no photo)."""
+    q = " ".join(re.sub(r"[^A-Za-z0-9 ]", " ", str(query or "")).split()[:6])
+    raw = keywords if isinstance(keywords, list) else []
+    words = [w for w in (re.sub(r"[^a-z0-9]", "", str(k).lower()) for k in raw) if len(w) >= 3][:3]
+    if not q or not words or not all(w in re.sub(r"[^a-z0-9]", "", q.lower()) for w in words):
+        return {"photo_query": "", "photo_keywords": []}
+    return {"photo_query": q, "photo_keywords": words}
 
 
 def validate_item(data: dict, source_text: str) -> dict:
@@ -140,8 +153,7 @@ def validate_item(data: dict, source_text: str) -> dict:
         "context": context,
         "tts_text": tts_text,
         "audio_mood": mood,
-        "visual_query": ee.clean_visual_query(data.get("visual_query", "")),
-        "visual_place": ee.clean_visual_place(data.get("visual_place", "")),
+        **clean_photo_subject(data.get("photo_query", ""), data.get("photo_keywords", [])),
         "public_figure": ee.clean_public_figure(data.get("public_figure", ""), mood),
         "event_key": " ".join(re.sub(r"[^a-z ]", " ", str(data.get("event_key", "")).lower()).split()[:6]),
         "seo_keywords": ee.clean_keywords(data.get("seo_keywords", []))[:6],

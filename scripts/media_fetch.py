@@ -89,9 +89,10 @@ def _plain(value: str) -> str:
 def search_commons_photo(name: str) -> dict | None:
     """A freely licensed photo of ``name`` from Wikimedia Commons, or None. The file name must contain the
     person's surname, so a loosely related picture is never used."""
-    surname = re.sub(r"[^a-z]", "", name.split()[-1].lower()) if name.split() else ""
-    if len(surname) < 3:
-        return None
+    parts = [re.sub(r"[^a-z]", "", w.lower()) for w in name.split()]
+    parts = [w for w in parts if len(w) >= 3]
+    if not parts or len(parts[-1]) < 3:
+        return None  # the file name must contain EVERY part of the name (a common surname alone matches strangers)
     resp = requests.get(
         COMMONS_API,
         headers={"User-Agent": USER_AGENT},
@@ -117,7 +118,7 @@ def search_commons_photo(name: str) -> dict | None:
         meta = info.get("extmetadata") or {}
         licence = _plain((meta.get("LicenseShortName") or {}).get("value", ""))
         thumb = info.get("thumburl") or info.get("url")
-        if surname not in re.sub(r"[^a-z]", "", title.lower()) or not thumb:
+        if not all(part in re.sub(r"[^a-z]", "", title.lower()) for part in parts) or not thumb:
             continue
         if not title.lower().endswith((".jpg", ".jpeg", ".png")):
             continue
@@ -133,7 +134,11 @@ def search_commons_photo(name: str) -> dict | None:
     return None
 
 
-def search_commons_topic(query: str, place: str, used_titles: set[str]) -> dict | None:
+def _squash(text: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", text.lower())
+
+
+def search_commons_topic(query: str, place: str, used_titles: set[str], must_have: tuple = ()) -> dict | None:
     """A freely licensed JPEG photo for a scene topic (``query``), preferring the story's place. Skips maps,
     logos, diagrams and anything already used in this reel. The picture is representative, not the event."""
     attempts = ([f"{query} {place}".strip()] if place else []) + [query]
@@ -168,6 +173,8 @@ def search_commons_topic(query: str, place: str, used_titles: set[str]) -> dict 
                 continue
             if any(word in lowered for word in NOT_A_PHOTO):
                 continue
+            if must_have and not all(_squash(word) in _squash(title) for word in must_have):
+                continue  # the file name must name the subject (for example "indigo" for an IndiGo aircraft)
             if not FREE_LICENCE.match(licence) or int(info.get("width") or 0) < MIN_TOPIC_PHOTO_WIDTH:
                 continue
             artist = _plain((meta.get("Artist") or {}).get("value", "")) or "Unknown author"

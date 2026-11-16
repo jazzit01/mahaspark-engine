@@ -19,10 +19,10 @@ export const SharedOverlay: React.FC<Props> = ({palette}) => {
       <div
         style={{
           position: 'absolute',
-          left: 34,
-          top: 34,
-          width: 300,
-          height: 200,
+          left: 40,
+          top: 26,
+          width: 230,
+          height: 140,
           borderRadius: 22,
           background: palette.logoPlate ?? 'transparent',
           display: 'flex',
@@ -32,7 +32,7 @@ export const SharedOverlay: React.FC<Props> = ({palette}) => {
       >
         <Img
           src={staticFile('logo.png')}
-          style={{width: 300, height: 200, objectFit: 'contain', display: 'block'}}
+          style={{width: 230, height: 140, objectFit: 'contain', display: 'block'}}
         />
       </div>
     </AbsoluteFill>
