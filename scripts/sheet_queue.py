@@ -121,6 +121,11 @@ class SheetQueue:
                 keys.add(row[COL_SOURCE_URL - 1].strip().lower())
         return keys
 
+    def youtube_reel_uploads_today(self, date: str) -> int:
+        """Reels already uploaded to YouTube on ``date`` (YYYY-MM-DD, IST), counted from the status notes."""
+        marker = f"YouTube: OK {date}"
+        return sum(1 for row in self._rows()[1:] if len(row) >= COL_ERROR_LOG and marker in row[COL_ERROR_LOG - 1])
+
     def last_theme(self) -> str | None:
         """Visual_Theme of the most recently finished reel (None when there is none)."""
         for row in reversed(self._rows()[1:]):

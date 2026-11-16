@@ -165,6 +165,10 @@ RSS (round-robin over feeds, de-duplicated) -> 10 items (bulletin_editorial) -> 
 - GitHub minutes: one render job per bulletin (about 15-25 min on the 2-core runner), twice a day, in addition to the 16 hourly reel runs.
 - Not verified here (no network): live Commons photos, the YouTube upload, the real Remotion render. Check the first run's logs.
 
+## YouTube upload of the 16:9 videos
+
+After Telegram, `pipeline.upload_reel_to_youtube` uploads the video (title `social_title`, description from `youtube_upload.build_reel_description`: caption, main point, CTA, AI-voice note, hashtags; NO source link; tags from `seo_keywords`). Best effort: a failure never fails the story. A default YouTube API project has 10,000 quota units/day and an upload costs 1,600, so only ~6 uploads/day fit and the two bulletins must always get in: reels upload at most one per slot hour (`REEL_UPLOAD_SLOTS` = 07, 12, 19 IST), counted from `YouTube: OK <date>` in the Sheet note. `YOUTUBE_UPLOAD_REELS=0` turns it off; `YOUTUBE_SYNTHETIC_FLAG=1` also ticks YouTube's altered/synthetic box (the AI voice is always disclosed in the description via `AI_NOTE`). Privacy follows `YOUTUBE_PRIVACY`.
+
 ## CI (`.github/workflows/runner.yml`)
 
 Hourly cron, daytime only (05:00-20:00 IST = cron `30 23` and `30 0-14` in UTC, 16 runs a day) + manual dispatch, 60 min timeout, one run at a time. It caches pip, `~/.npm`, Remotion's browser

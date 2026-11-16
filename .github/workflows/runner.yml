@@ -94,6 +94,12 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           # Extra keys from OTHER Google Cloud projects (comma separated); used when one key's quota is spent.
           GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          YOUTUBE_PRIVACY: ${{ vars.YOUTUBE_PRIVACY }}
+          YOUTUBE_UPLOAD_REELS: ${{ vars.YOUTUBE_UPLOAD_REELS }}
+          YOUTUBE_SYNTHETIC_FLAG: ${{ vars.YOUTUBE_SYNTHETIC_FLAG }}
           # Stock footage per scene (free key from pexels.com/api). Unset = studio backgrounds only.
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           # Optional overrides (Settings > Secrets and variables > Actions > Variables tab).

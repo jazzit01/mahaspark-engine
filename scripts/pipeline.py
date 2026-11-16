@@ -15,12 +15,15 @@ import shutil
 import subprocess
 import sys
 import time
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import align_timings
 import editorial_engine
 import fetch_news
 import media_fetch
 import send_telegram
+import youtube_upload
 from config import COMPOSITION_ID, OUT_DIR, REEL_PATH, REMOTION_DIR, STORY_PATH, VOICEOVER_PATH
 from llm_providers import ContentRejected, LLMUnavailableError
 from sheet_queue import DONE, ERROR, PENDING, PROCESSING, REJECTED, SheetQueue
@@ -142,6 +145,33 @@ def deliver(story: dict, source_url: str) -> str:
     return f"SUCCESS{voice} - Telegram: {'OK' if telegram_ok else 'FAIL'}"
 
 
+def upload_reel_to_youtube(queue, story: dict) -> str:
+    """Best-effort YouTube upload of the 16:9 video, within the daily slot budget. Returns a Sheet note fragment."""
+    if not youtube_upload.reel_uploads_enabled():
+        return ""
+    try:
+        youtube_upload.credentials()
+    except youtube_upload.YouTubeUnavailable:
+        return ""
+    now = datetime.now(ZoneInfo("Asia/Kolkata"))
+    day = now.strftime("%Y-%m-%d")
+    try:
+        done = queue.youtube_reel_uploads_today(day)
+        if not youtube_upload.allowed_reel_uploads(now.hour, done):
+            return " - YouTube: waiting for the next upload slot"
+        url = youtube_upload.upload_video(
+            REEL_PATH,
+            story.get("social_title") or story["scenes"][0]["headline"],
+            youtube_upload.build_reel_description(story),
+            list(story.get("seo_keywords") or []) + ["MahaSpark", "मराठी बातम्या"],
+        )
+        print(f"▶️ Uploaded to YouTube: {url}")
+        return f" - YouTube: OK {day} {url}"
+    except Exception as exc:  # noqa: BLE001 - the reel is already delivered; never fail the story over YouTube
+        print(f"⚠️ YouTube upload failed: {type(exc).__name__}: {str(exc)[:160]}")
+        return f" - YouTube: FAIL {str(exc)[:80]}"
+
+
 def run_scheduled() -> int:
     queue = SheetQueue.connect()
     try:
@@ -175,7 +205,7 @@ def run_scheduled() -> int:
                 print("ℹ️ No full article text available; using the RSS title and summary only.")
             story = produce_reel(title, summary, article, source_url)
             queue.write_story(row.index, story)
-            status_note = deliver(story, source_url)
+            status_note = deliver(story, source_url) + upload_reel_to_youtube(queue, story)
             queue.set_status(row.index, DONE, status_note)
             print(f"✅ Row {row.index} completed.")
             processed += 1

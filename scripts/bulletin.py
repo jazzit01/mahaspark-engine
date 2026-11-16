@@ -284,7 +284,7 @@ def build_description(items: list[dict], props: dict, slot_label: str) -> str:
         lines.append(f"• {it['headline']}: {it['context']}")
     if props.get("credits"):
         lines += ["", "🖼️ चित्रे: प्रातिनिधिक छायाचित्रे; घटनेचे थेट चित्र असेलच असे नाही.", *sorted(set(props["credits"]))]
-    lines += ["", "🔔 MahaSpark ला फॉलो आणि सबस्क्राईब करा, रोज ताज्या बातम्या मिळवा.", "▶️ @MahaSparkOfficial", "", CHANNEL_HASHTAGS]
+    lines += ["", youtube_upload.AI_NOTE, "", "🔔 MahaSpark ला फॉलो आणि सबस्क्राईब करा, रोज ताज्या बातम्या मिळवा.", "▶️ @MahaSparkOfficial", "", CHANNEL_HASHTAGS]
     return "\n".join(lines)
 
 

@@ -69,3 +69,36 @@ def test_beds_are_generated_loops(mood):
     assert len(audio) == int(make_beds.SR * 60 / bpm) * 4 * len(chords)
     assert abs(audio).max() <= 0.86 and abs(audio).max() > 0.5
     assert (make_beds.BED_DIR / f"{mood}.mp3").exists()
+
+
+# ----- YouTube upload of the 16:9 videos ------------------------------------------------------------
+
+import youtube_upload as yt  # noqa: E402
+
+
+def test_reel_upload_slots_respect_the_daily_quota():
+    assert not yt.allowed_reel_uploads(6, 0)
+    assert yt.allowed_reel_uploads(7, 0) and not yt.allowed_reel_uploads(8, 1)
+    assert yt.allowed_reel_uploads(12, 1) and not yt.allowed_reel_uploads(13, 2)
+    assert yt.allowed_reel_uploads(19, 2) and not yt.allowed_reel_uploads(23, 3)
+
+
+def test_reel_description_has_cta_ai_note_and_no_source_link():
+    story = {"social_caption": "पुणे महापालिकेची मोठी घोषणा.", "five_w_one_h": {"what": "तरतूद जाहीर"}, "hashtags": "#MahaSpark #पुणे"}
+    text = yt.build_reel_description(story)
+    assert "@MahaSparkOfficial" in text and yt.AI_NOTE in text and "http" not in text
+
+
+def test_synthetic_flag_is_opt_in(monkeypatch):
+    monkeypatch.delenv("YOUTUBE_SYNTHETIC_FLAG", raising=False)
+    assert "containsSyntheticMedia" not in yt.build_metadata("t", "d", [])["status"]
+    monkeypatch.setenv("YOUTUBE_SYNTHETIC_FLAG", "1")
+    assert yt.build_metadata("t", "d", [])["status"]["containsSyntheticMedia"] is True
+
+
+def test_pipeline_upload_is_skipped_without_credentials(monkeypatch):
+    import pipeline
+
+    for key in ("YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN"):
+        monkeypatch.delenv(key, raising=False)
+    assert pipeline.upload_reel_to_youtube(object(), {"scenes": [{"headline": "x"}]}) == ""
