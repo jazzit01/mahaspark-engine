@@ -20,7 +20,7 @@ type Props = {
 };
 
 /** Space reserved below the card for the karaoke captions (px from the bottom edge). */
-export const CARD_BOTTOM = 650;
+export const CARD_BOTTOM = 250;
 
 /**
  * One news scene: progress bar on top, then a vertically centred stack of the big main headline, the context

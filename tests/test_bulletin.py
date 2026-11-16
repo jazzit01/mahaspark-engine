@@ -19,8 +19,8 @@ GOOD = {
     "context": "महापालिकेच्या देखभाल कामामुळे 85% भागात परिणाम होईल",
     "tts_text": "पुणे महापालिकेने बुधवारी शहरातील पाणीपुरवठा बंद ठेवण्याचा निर्णय घेतला आहे. देखभालीचे काम सकाळी दहा वाजता सुरू होईल, पंच्याऐंशी टक्के भागात परिणाम होईल.",
     "audio_mood": "neutral",
-    "visual_query": "water pipeline maintenance",
-    "visual_place": "Pune",
+    "photo_query": "Pune water pipeline",
+    "photo_keywords": ["pune", "pipeline"],
     "public_figure": "",
     "seo_keywords": ["पुणे पाणीपुरवठा", "Pune water supply"],
 }
@@ -28,7 +28,7 @@ GOOD = {
 
 def test_valid_item_passes():
     out = be.validate_item(dict(GOOD), SOURCE)
-    assert out["headline"] == GOOD["headline"] and out["visual_query"]
+    assert out["headline"] == GOOD["headline"] and out["photo_keywords"] == ["pune", "pipeline"]
 
 
 def test_rejected_item_raises():
@@ -180,19 +180,58 @@ def test_telegram_text():
 # ----- photos ----------------------------------------------------------------------------------
 
 
-def test_photos_figure_then_topic(monkeypatch, tmp_path):
+def test_photos_figure_then_subject(monkeypatch, tmp_path):
     monkeypatch.setattr(bulletin.time, "sleep", lambda s: None)
     mf = bulletin.media_fetch
-    monkeypatch.setattr(mf, "search_commons_photo", lambda n: {"url": "u1", "credit": "c1", "width": 1, "height": 1} if n == "Fig" else None)
-    monkeypatch.setattr(mf, "search_commons_topic", lambda q, p, used: {"title": q, "url": "u2", "credit": "c2", "width": 2, "height": 2} if q != "none" else None)
+    monkeypatch.setattr(mf, "search_commons_photo", lambda n: {"url": "u1", "credit": "c1", "width": 1, "height": 1} if n == "Fig Person" else None)
+    seen = []
+
+    def topic(q, p, used, must_have=()):
+        seen.append((q, must_have))
+        return {"title": "File:IndiGo A320.jpg", "url": "u2", "credit": "c2", "width": 2, "height": 2} if q == "IndiGo Airbus A320" else None
+
+    monkeypatch.setattr(mf, "search_commons_topic", topic)
     monkeypatch.setattr(mf, "download", lambda url, dest: True)
-    items = make_items(3)
-    items[0].update(public_figure="Fig", visual_query="x")
-    items[1].update(visual_place="Pune City")
-    items[2].update(visual_place="Nowhere")
-    monkeypatch.setattr(mf, "search_commons_topic", lambda q, p, used: {"title": "File:Pune skyline.jpg" if q == "Pune City" else "File:Random men.jpg", "url": "u2", "credit": "c2", "width": 2, "height": 2})
+    items = make_items(4)
+    items[0].update(public_figure="Fig Person")
+    items[1].update(photo_query="IndiGo Airbus A320", photo_keywords=["indigo"])
+    items[2].update(photo_query="Nothing here", photo_keywords=["nothing"])
+    # item 3 has no subject at all: no lookup, designed panel
     credits = bulletin.add_photos(items, tmp_path)
-    assert credits == ["c1", "c2"] and items[0]["photo"]["is_figure"] and "photo" not in items[2]  # unrelated file name is refused
+    assert credits == ["c1", "c2"] and items[0]["photo"]["is_figure"] and not items[1]["photo"]["is_figure"]
+    assert "photo" not in items[2] and "photo" not in items[3]
+    assert seen == [("IndiGo Airbus A320", ("indigo",)), ("Nothing here", ("nothing",))]
+
+
+def test_photo_subject_terms_are_cleaned():
+    assert be.clean_photo_subject("IndiGo Airbus A320!", ["IndiGo"]) == {"photo_query": "IndiGo Airbus A320", "photo_keywords": ["indigo"]}
+    assert be.clean_photo_subject("Pune railway station", ["mumbai"]) == {"photo_query": "", "photo_keywords": []}  # keyword not in query
+    assert be.clean_photo_subject("पुणे", ["pune"]) == {"photo_query": "", "photo_keywords": []}
+    assert be.clean_photo_subject("", []) == {"photo_query": "", "photo_keywords": []}
+
+
+def test_commons_subject_must_match_file_name(monkeypatch):
+    import media_fetch as mf
+
+    def pages(titles):
+        return {"query": {"pages": {str(i): {"index": i, "title": t, "imageinfo": [{"thumburl": "u", "width": 3000, "thumbwidth": 1600, "thumbheight": 900, "extmetadata": {"LicenseShortName": {"value": "CC BY-SA 4.0"}, "Artist": {"value": "A"}}}]} for i, t in enumerate(titles)}}}
+
+    monkeypatch.setattr(mf.requests, "get", lambda *a, **k: SimpleNamespace(status_code=200, json=lambda: pages(["File:Random bus.jpg", "File:IndiGo ATR 72.jpg"])))
+    got = mf.search_commons_topic("IndiGo aircraft", "", set(), ("indigo",))
+    assert got and "IndiGo" in got["title"]
+    monkeypatch.setattr(mf.requests, "get", lambda *a, **k: SimpleNamespace(status_code=200, json=lambda: pages(["File:Random bus.jpg"])))
+    assert mf.search_commons_topic("IndiGo aircraft", "", set(), ("indigo",)) is None
+
+
+def test_person_photo_needs_the_full_name(monkeypatch):
+    import media_fetch as mf
+
+    def pages(t):
+        return {"query": {"pages": {"1": {"index": 1, "title": t, "imageinfo": [{"thumburl": "u", "width": 3000, "thumbwidth": 1000, "thumbheight": 900, "extmetadata": {"LicenseShortName": {"value": "CC BY 4.0"}, "Artist": {"value": "A"}}}]}}}}
+
+    monkeypatch.setattr(mf.requests, "get", lambda *a, **k: SimpleNamespace(status_code=200, json=lambda: pages("File:Eknath Shinde 2022.jpg")))
+    assert mf.search_commons_photo("Sayaji Shinde") is None  # same surname, different person
+    assert mf.search_commons_photo("Eknath Shinde")
 
 
 def test_commons_429_is_retried(monkeypatch):
@@ -216,7 +255,7 @@ def test_photo_errors_are_silent(monkeypatch, tmp_path):
 
     monkeypatch.setattr(bulletin.media_fetch, "search_commons_topic", boom)
     items = make_items(1)
-    items[0]["visual_place"] = "Pune"
+    items[0].update(photo_query="Pune station", photo_keywords=["pune"])
     assert bulletin.add_photos(items, tmp_path) == [] and "photo" not in items[0]
 
 
@@ -313,6 +352,3 @@ def test_thumbnail_is_skipped_for_missing_or_huge_files(tmp_path):
 def test_highlight_and_place_matching():
     assert bulletin.highlight_for({"headline": "पुणे मॅरेथॉनसाठी ५० लाखांच्या निधीवरून वाद", "context": "x"}).startswith("५०")
     assert bulletin.highlight_for({"headline": "विजय", "context": "मतदार संघात विजय"}) == ""
-    assert bulletin.title_matches_place("File:Shaniwar Wada Pune.jpg", "Pune")
-    assert not bulletin.title_matches_place("File:Two men at a press conference.jpg", "Pune")
-    assert not bulletin.title_matches_place("File:Anything.jpg", "")

@@ -1,7 +1,7 @@
 # MahaSpark Engine: maintenance guide
 
-A scheduled pipeline that turns one verified Marathi news story per run into a prime-time vertical
-news reel (1080x1920, 30 fps) and delivers it to Telegram.
+A scheduled pipeline that turns one verified Marathi news story per run into a prime-time
+16:9 news video of about one minute (1920x1080, 30 fps, shared 8 s outro) and delivers it to Telegram.
 
 ```
 RSS -> Sheet queue -> article text -> 5W1H + phonetic script (Gemini) -> Gemini TTS voiceover
@@ -103,7 +103,7 @@ adds `words[]` (`text,start,end,scene`), per-scene `start/end`, `duration_second
 
 ## Broadcast design (`remotion/`)
 
-- 1080x1920, 30 fps. Font: Noto Sans Devanagari through `@remotion/google-fonts` (loaded in `src/fonts.ts`).
+- 1920x1080 (16:9), 30 fps; the story is followed by the shared bulletin outro (`OUTRO_SECONDS` = 8). Scripts are ~150-175 words, 2-8 scenes, total cap 185 words. Vertical format was dropped. Font: Noto Sans Devanagari through `@remotion/google-fonts` (loaded in `src/fonts.ts`).
 - `story.json` -> props (`--props=public/story.json`). `Root.tsx` sets the video length from
   `duration_seconds + 1s`. Preview compositions `Preview-<theme>` exist for `npm run studio`.
 - `visual_theme` (`pick_theme`: grave moods -> Breaking; otherwise rotated over the other four by a hash of the story, skipping the previous reel's studio read from Sheet column O; the model's own pick is ignored for variety) selects one of five full-motion studios in `src/studios/`: `PrimeGridStudio` (navy
@@ -116,7 +116,7 @@ adds `words[]` (`text,start,end,scene`), per-scene `start/end`, `duration_second
   `<AbsoluteFill>` above all scenes so it never moves across cuts. **No date, time or timestamp
   badges anywhere.**
 - **Safe zones** (`src/constants.ts`): headlines (84-108 px bold, `headlineSize` by length; was 74 px until the owner asked for a bigger headline), the 46 px sub-heading and captions stay
-  between `top: 290px` and `bottom: 450px`.
+  inside `SAFE_TOP=175` / `SAFE_BOTTOM=56` / `SAFE_SIDE=80` (`src/constants.ts`).
 - Scene layout (`SceneCard.tsx`): progress bar (one segment per scene, no number), then a vertically centred stack: big main headline with an animated accent bar, the context line as a 46 px sub-heading, and the optional motion graphic. No boxes, no 5W1H chips on screen (the 5W1H stays in the Telegram summary). Captions unchanged.
 - Footage (`Backdrop.tsx`): per-scene video/photo behind the text with a slow zoom, 9-frame cross-fade and a dark scrim (`overMedia` in `theme.ts` gives light text). Portrait video fills the screen; landscape photos are framed (sharp near-square crop over a blurred, darkened copy). Videos are muted and looped.
 - Motion: spring card entrances, animated vertical accent bar, scale/fade exits, word-by-word karaoke captions
@@ -183,6 +183,10 @@ returns to `PENDING` and is retried next run; `ERROR` rows are never retried.
 - Add or change an editorial rule in BOTH the prompt and the validator, and add a test.
 - Keep `tts_text` free of digits, Latin letters and symbols. Keep on-screen text separate from spoken text.
 - Do not add date badges or extra brand text to the overlay.
-- Keep new visual text inside the 290/450 px safe zone.
+- Keep new visual text inside the `src/constants.ts` safe zone.
 - Not verified here (no network in the build environment): the live Pexels/Commons calls and a real footage render, the live Gemini TTS call, the Remotion render and
   `npx remotion skills add`. Check the first CI run's logs after any dependency or API change.
+
+## Subject-based bulletin photos
+
+Each bulletin item carries `photo_query` (English subject, e.g. "IndiGo Airbus A320") and `photo_keywords` (lowercase words that must appear in the Commons file name; `clean_photo_subject` validates). Person photos need EVERY name part in the file name. No match = the key-figure panel. Not verified here: live Commons results and the 16:9 render; check the first CI run.

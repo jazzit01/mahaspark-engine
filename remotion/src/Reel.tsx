@@ -4,12 +4,14 @@ import {Backdrop} from './Backdrop';
 import {Captions} from './Captions';
 import {
   BED_VOLUME,
+  OUTRO_SECONDS,
   SCENE_EXIT_FRAMES,
   SCENE_LEAD_FRAMES,
   TAIL_SECONDS,
   WHOOSH_LEAD_FRAMES,
   WHOOSH_VOLUME,
 } from './constants';
+import {Outro} from './bulletin/Outro';
 import {SceneCard} from './SceneCard';
 import {SharedOverlay} from './SharedOverlay';
 import {getStudio} from './studios';
@@ -19,8 +21,11 @@ import {Story} from './types';
 const BACKDROP_FADE_FRAMES = 9;
 
 
-export const totalFrames = (story: Story, fps: number): number =>
+/** Frames of the story itself (voice + studio tail); the shared outro follows it. */
+export const storyFrames = (story: Story, fps: number): number =>
   Math.max(1, Math.ceil((story.duration_seconds + TAIL_SECONDS) * fps));
+
+export const totalFrames = (story: Story, fps: number): number => storyFrames(story, fps) + Math.round(OUTRO_SECONDS * fps);
 
 /**
  * Layer order (bottom to top):
@@ -40,7 +45,8 @@ export const Reel: React.FC<Story> = (story) => {
   const starts = scenes.map((scene, i) =>
     i === 0 ? 0 : Math.max(0, Math.round(scene.start * fps) - SCENE_LEAD_FRAMES),
   );
-  const ends = scenes.map((_, i) => (i === scenes.length - 1 ? durationInFrames : starts[i + 1]));
+  const outroStart = storyFrames(story, fps);
+  const ends = scenes.map((_, i) => (i === scenes.length - 1 ? outroStart : starts[i + 1]));
 
   const bedFadeStart = durationInFrames - fps;
   const bedVolume = (f: number) =>
@@ -91,7 +97,17 @@ export const Reel: React.FC<Story> = (story) => {
 
       <Captions words={story.words} palette={palette} />
 
-      <SharedOverlay palette={palette} />
+      {/* the steady logo layer covers the story only; the outro shows its own large logo */}
+      <Sequence from={0} durationInFrames={outroStart} layout="none">
+        <SharedOverlay palette={palette} />
+      </Sequence>
+
+      <Sequence from={outroStart} durationInFrames={durationInFrames - outroStart}>
+        <Outro />
+      </Sequence>
+      <Sequence from={Math.max(0, outroStart - WHOOSH_LEAD_FRAMES)} layout="none">
+        <Audio src={staticFile('whoosh.wav')} volume={WHOOSH_VOLUME} />
+      </Sequence>
 
       {story.audio === false ? null : <Audio src={staticFile('voiceover.wav')} />}
       <Audio src={staticFile(`bed/${story.audio_mood}.mp3`)} loop volume={bedVolume} />

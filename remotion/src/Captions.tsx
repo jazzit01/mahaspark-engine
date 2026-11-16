@@ -97,7 +97,7 @@ export const Captions: React.FC<Props> = ({words, palette}) => {
           background: palette.captionPlate,
           border: `1px solid ${palette.cardBorder}`,
           boxShadow: palette.isLight ? '0 10px 30px rgba(15,23,42,0.16)' : '0 10px 34px rgba(0,0,0,0.4)',
-          maxWidth: HEIGHT / 2,
+          maxWidth: 1500,
         }}
       >
         {chunk.words.map((word, i) => {

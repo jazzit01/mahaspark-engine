@@ -155,13 +155,6 @@ def add_voices(items: list[dict], tts=editorial_engine.synthesize_voiceover, out
 # ----- 3. photos -------------------------------------------------------------------------------
 
 
-def title_matches_place(title: str, place: str) -> bool:
-    """A Commons file is used for a place only when its file name contains the place (so it shows that place)."""
-    words = re.findall(r"[a-z]{4,}", place.lower())
-    low = title.lower()
-    return bool(words) and any(w in low for w in words)
-
-
 _NUMBER = re.compile(r"[₹$]?\s?[\d०-९][\d०-९,\.]*\s?(?:%|टक्के|कोटी|लाख|हजार|हेक्टर|एकर|किलोमीटर|किमी|मतांनी|जागा|जागां|वर्षे|वर्ष)?")
 
 
@@ -202,12 +195,12 @@ def add_photos(items: list[dict], out_dir: Path = BULLETIN_DIR) -> list[str]:
         try:
             if item.get("public_figure"):
                 found = _with_backoff(media_fetch.search_commons_photo, item["public_figure"])
-            if not found and item.get("visual_place"):
-                # Only a photo whose file name names the place. A loosely matching "topic" photo was wrong far too
-                # often, so everything else gets the designed panel instead.
-                cand = _with_backoff(media_fetch.search_commons_topic, item["visual_place"], "", used)
-                if cand and title_matches_place(cand.get("title", ""), item["visual_place"]):
-                    found = cand
+            if not found and item.get("photo_query") and item.get("photo_keywords"):
+                # The story's own subject (an IndiGo aircraft, a railway station, a landmark): the file name must
+                # contain every keyword, so a loosely related picture is never used.
+                found = _with_backoff(
+                    media_fetch.search_commons_topic, item["photo_query"], "", used, tuple(item["photo_keywords"])
+                )
         except Exception as exc:  # noqa: BLE001 - network/API failures just mean no photo
             print(f"⚠️ Photo lookup failed for item {i + 1}: {exc}")
             continue

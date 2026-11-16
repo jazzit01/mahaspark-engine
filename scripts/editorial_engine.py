@@ -116,8 +116,8 @@ MIN_SOURCE_CHARS = 60  # headline + whatever context exists; a fuller article is
 MAX_HEADLINE_CHARS = 56
 MAX_DESCRIPTION_CHARS = 92
 MAX_CATEGORY_CHARS = 24
-MIN_SCENES, MAX_SCENES = 2, 6
-MIN_TOTAL_WORDS, MAX_TOTAL_WORDS = 25, 150  # 25 words is about a 10-second reel
+MIN_SCENES, MAX_SCENES = 2, 8
+MIN_TOTAL_WORDS, MAX_TOTAL_WORDS = 25, 185  # 25 words is a very short story; about 165 words is a full minute
 MAX_HOOK_WORDS = 14
 
 # Anything outside Devanagari letters/signs, whitespace, comma and full stop is unsafe for the voice.
