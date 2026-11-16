@@ -7,7 +7,6 @@ Every rule here is mirrored by a deterministic check in ``editorial_engine.valid
 THEMES = {
     "PrimeGridStudio": "default for governance, policy, economy, infrastructure, civic and general state news",
     "BreakingNewsStudio": "urgent or grave events: accidents, disasters, deaths, major crime, sudden political shocks, alerts",
-    "EditorialDeskLight": "explainers, court and legal rulings, education, culture, social issues, measured analysis",
     "DataTelemetryStudio": "numbers-driven stories: budgets, markets, surveys, statistics, technology, weather and agriculture data",
     "GlassNewsroomDepth": "feature-style, human-interest, sports, festivals, achievements, welfare and positive developments",
 }
@@ -89,8 +88,9 @@ Each scene has THREE texts:
   - "headline": on-screen headline, a complete declarative Marathi line of at most 52 characters.
   - "description": on-screen context line, one clean fact sentence of at most 88 characters that does not
     repeat the headline.
-    For the two on-screen texts use clean, crisp Marathi with SHARP DIGITS and symbols (85%, ₹1,200 कोटी,
-    5 लाख) for instant readability. Never use hashtags, emojis, quotation marks or English words.
+    For the two on-screen texts use clean, crisp Marathi with DEVANAGARI DIGITS and symbols (८५%, ₹१,२०० कोटी,
+    ५ लाख, १२ वर्षे, २७ नोव्हेंबर) for instant readability. NEVER spell a number, date, amount or percentage out
+    in words on screen (not "सत्तावीस", not "पाच हजार सहाशे"): only "tts_text" spells numbers out. Never use hashtags, emojis, quotation marks or English words.
   - "tts_text": what the anchor says for that scene, written under the PHONETIC RULES below.
     The scenes' tts_text values are joined in order to form the full narration, so each one must
     be a self-contained, well punctuated piece of speech.
@@ -162,7 +162,7 @@ The video shows footage behind the text. Think like a video editor choosing b-ro
   "Nashik", "Mumbai"), at most 3 words, so a photo of the real place can be found. "" if there is no clear place.
 - "motion" (per scene, optional): ONE animated graphic that makes the scene easier to grasp, or an empty object when none
   fits. Use it sparingly (at most half of the scenes) and only when the source supports it exactly:
-    {{"type": "stat",  "value": "₹1,200 कोटी", "label": "मंजूर निधी"}}   a key figure copied from the source
+    {{"type": "stat",  "value": "₹१,२०० कोटी", "label": "मंजूर निधी"}}   a key figure copied from the source
     {{"type": "quote", "value": "<sentence>", "label": "<speaker>"}}        words quoted EXACTLY from the source,
                                                                             with the named speaker
   A figure or quote that is not in the source is dropped automatically. Never invent or paraphrase for this.

@@ -57,7 +57,7 @@ export const Reel: React.FC<Story> = (story) => {
 
   return (
     <AbsoluteFill style={{background: palette.background}}>
-      <AbsoluteFill>
+      <AbsoluteFill style={story.bg_hue ? {filter: `hue-rotate(${story.bg_hue}deg)`} : undefined}>
         <Studio />
       </AbsoluteFill>
 
@@ -95,7 +95,7 @@ export const Reel: React.FC<Story> = (story) => {
         </Sequence>
       ))}
 
-      <Captions words={story.words} palette={palette} />
+      <Captions words={story.caption_words ?? story.words} palette={palette} />
 
       {/* the steady logo layer covers the story only; the outro shows its own large logo */}
       <Sequence from={0} durationInFrames={outroStart} layout="none">

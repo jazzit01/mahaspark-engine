@@ -14,9 +14,9 @@ def validate(story):
 def test_valid_story_passes_and_builds_dual_text():
     result = validate(valid_story())
     assert result["tts_narration_script"].startswith("पुणे महापालिकेने,")
-    assert result["scenes"][1]["headline"] == "प्रकल्पासाठी 120 कोटींची तरतूद"  # sharp digits on screen
+    assert result["scenes"][1]["headline"] == "प्रकल्पासाठी १२० कोटींची तरतूद"  # Devanagari digits on screen
     assert len(result["tts_narration_script"].split()) == sum(len(s["tts_text"].split()) for s in result["scenes"])
-    assert result["visual_theme"] == "PrimeGridStudio"
+    assert result["visual_theme"] in ee.CALM_THEMES and result["bg_hue"] in ee.HUES
 
 
 def test_rejected_story_raises_content_rejected():
@@ -67,8 +67,8 @@ def test_themes_rotate_skip_the_previous_one_and_grave_news_gets_breaking(monkey
     monkeypatch.setattr(ee, "AVOID_THEME", None)
     seen = {ee.pick_theme("DataTelemetryStudio", "neutral", f"story {i}") for i in range(60)}
     assert seen == set(ee.CALM_THEMES)
-    ee.set_avoid_theme("EditorialDeskLight")
-    assert all(ee.pick_theme("PrimeGridStudio", "neutral", f"s{i}") != "EditorialDeskLight" for i in range(60))
+    ee.set_avoid_theme("DataTelemetryStudio")
+    assert all(ee.pick_theme("PrimeGridStudio", "neutral", f"s{i}") != "DataTelemetryStudio" for i in range(60))
     ee.set_avoid_theme(None)
     assert ee.pick_theme("PrimeGridStudio", "serious", "x") == "BreakingNewsStudio"
     assert ee.pick_theme("BreakingNewsStudio", "neutral", "x") == "BreakingNewsStudio"

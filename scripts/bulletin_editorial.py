@@ -12,6 +12,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 import editorial_engine as ee
+from marathi_numbers import words_to_digits
 from editorial_prompts import AUDIO_MOODS, SYSTEM_INSTRUCTION
 from llm_providers import ContentRejected, generate_json
 
@@ -42,7 +43,7 @@ machine-read: return exactly one JSON object that follows the supplied schema, n
 - "headline": the on-screen headline, a complete, specific news line (subject + verb + fact) of at most 52
   characters, the way a news editor writes a top line. Never a label ("उड्डाणपूल बातमी"), no clickbait, no question.
 - "context": ONE clean fact sentence of at most 95 characters that adds what the headline does not (who, where, how
-  much, what next). It must not repeat the headline. Clean Marathi with sharp digits and symbols (85%, ₹1,200 कोटी);
+  much, what next). It must not repeat the headline. Clean Marathi with DEVANAGARI digits and symbols (८५%, ₹१,२०० कोटी, १२ वर्षे, २७ नोव्हेंबर); never spell a number or date out in words here (only tts_text does);
   no hashtags, emoji, quotation marks or English words.
 - "tts_text": what the anchor says: the headline's fact first, then the context, as two short sentences, 16 to 38
   words in total, written under the PHONETIC RULES below. Name the institution or leader inside the sentence.
@@ -117,8 +118,8 @@ def validate_item(data: dict, source_text: str) -> dict:
     if not data.get("approved", True):
         raise ContentRejected(str(data.get("rejection_reason") or "Not approved by the editorial model."))
 
-    headline = re.sub(r"\s+", " ", str(data.get("headline", ""))).strip()
-    context = re.sub(r"\s+", " ", str(data.get("context", ""))).strip()
+    headline = words_to_digits(re.sub(r"\s+", " ", str(data.get("headline", ""))).strip())
+    context = words_to_digits(re.sub(r"\s+", " ", str(data.get("context", ""))).strip())
     tts_text = ee.clean_tts_text(data.get("tts_text", ""))
     category = re.sub(r"\s+", " ", str(data.get("category", ""))).strip()[: ee.MAX_CATEGORY_CHARS] or "मोठी बातमी"
     mood = data.get("audio_mood") if data.get("audio_mood") in AUDIO_MOODS else "neutral"
