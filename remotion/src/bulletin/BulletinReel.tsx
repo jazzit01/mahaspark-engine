@@ -3,20 +3,24 @@ import {AbsoluteFill, Audio, Img, Sequence, staticFile} from 'remotion';
 import {BED_VOLUME, WHOOSH_VOLUME} from '../constants';
 import {COLORS, WHOOSH_FRAMES_EARLY, itemFrames} from './constants';
 import {ItemScreen} from './ItemScreen';
+import {Hook} from './Hook';
 import {Outro} from './Outro';
 import {Ticker} from './Ticker';
 import {BulletinProps} from './types';
 
 const FPS = 30;
 
+const hookFramesOf = (props: BulletinProps, fps: number): number => (props.hook_seconds ? itemFrames(props.hook_seconds, fps) : 0);
+
 export const bulletinFrames = (props: BulletinProps, fps = FPS): number =>
-  props.items.reduce((sum, item) => sum + itemFrames(item.seconds, fps), 0) + itemFrames(props.outro_seconds, fps);
+  hookFramesOf(props, fps) + props.items.reduce((sum, item) => sum + itemFrames(item.seconds, fps), 0) + itemFrames(props.outro_seconds, fps);
 
 export const BulletinReel: React.FC<BulletinProps> = (props) => {
   const fps = FPS;
   const total = bulletinFrames(props, fps);
   const starts: number[] = [];
-  let cursor = 0;
+  const hookFrames = hookFramesOf(props, fps);
+  let cursor = hookFrames;
   props.items.forEach((item) => {
     starts.push(cursor);
     cursor += itemFrames(item.seconds, fps);
@@ -26,6 +30,11 @@ export const BulletinReel: React.FC<BulletinProps> = (props) => {
 
   return (
     <AbsoluteFill style={{background: COLORS.bgBottom}}>
+      {hookFrames > 0 ? (
+        <Sequence from={0} durationInFrames={hookFrames}>
+          <Hook headlines={props.hook_headlines ?? props.items.map((it) => it.headline)} count={props.items.length} />
+        </Sequence>
+      ) : null}
       {props.items.map((item, i) => {
         const frames = itemFrames(item.seconds, fps);
         const upcoming = props.items.slice(i + 1).map((it) => it.headline);
@@ -50,7 +59,7 @@ export const BulletinReel: React.FC<BulletinProps> = (props) => {
       </Sequence>
 
       {/* whoosh on every cut, a little ahead of the wipe's peak */}
-      {starts.slice(1).concat(outroStart).map((from) => (
+      {(hookFrames > 0 ? [0] : []).concat(starts.slice(1), outroStart).map((from) => (
         <Sequence key={`w${from}`} from={Math.max(0, from - WHOOSH_FRAMES_EARLY)} layout="none">
           <Audio src={staticFile('whoosh.wav')} volume={WHOOSH_VOLUME} />
         </Sequence>
