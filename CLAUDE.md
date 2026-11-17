@@ -150,7 +150,7 @@ RSS (round-robin over feeds, de-duplicated) -> 10 items (bulletin_editorial) -> 
 ```
 
 - Each item shows a big headline (<= 56 chars) and ONE context line (<= 100 chars) beside a photo (layout: text left, photo right behind a gold cut line,
-  animated rings when there is no photo), a bottom ticker with the next headlines and a bulletin progress line. No intro; one fixed outro (`Outro.tsx`,
+  animated rings when there is no photo), a bottom ticker with the next headlines and a bulletin progress line. A silent 4 s cold open (`Hook.tsx`, `HOOK_SECONDS`: "आजच्या N मोठ्या बातम्या" + the top 3 headlines) counts inside chapter 1 (chapter 1 starts at 0:00); one fixed outro (`Outro.tsx`,
   8 s) is reused by every bulletin. The logo sits on one steady layer above all items. No date/time badges, no slide numbers, no category pill.
 - Items use the same fact discipline, banned phrases and phonetic TTS rules as reels (`FACT_RULES`/`PHONETIC_RULES` are sliced from `SYSTEM_INSTRUCTION`,
   so they cannot drift). `validate_item` enforces lengths, `tts_problems`, forbidden phrases and numbers-in-source.

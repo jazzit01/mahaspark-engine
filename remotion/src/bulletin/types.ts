@@ -21,6 +21,9 @@ export type BulletinItem = {
 export type BulletinProps = {
   items: BulletinItem[];
   outro_seconds: number;
+  /** Cold open before the first item (no voice); 0 or missing = none. */
+  hook_seconds?: number;
+  hook_headlines?: string[];
   /** Base hue rotation of the item backgrounds; each bulletin gets its own look. */
   bg_hue?: number;
   outro_start: number;

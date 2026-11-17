@@ -133,8 +133,9 @@ def test_voices_timing_and_assembly(tmp_path):
     assert [i["seconds"] for i in items] == [10.0, 10.0, 10.0]  # padded to the 10 s chapter minimum
     items[0]["seconds"] = 14.0
     props = bulletin.assemble(items, ["credit"])
-    assert [e["start"] for e in props["items"]] == [0, 14.0, 24.0]
-    assert props["outro_start"] == 34.0 and props["total_seconds"] == 34.0 + bulletin.OUTRO_SECONDS
+    assert [e["start"] for e in props["items"]] == [0, 18.0, 28.0]  # chapter 1 includes the 4 s cold open
+    assert props["hook_seconds"] == 4.0 and len(props["hook_headlines"]) == 3
+    assert props["outro_start"] == 38.0 and props["total_seconds"] == 38.0 + bulletin.OUTRO_SECONDS
 
 
 def test_voice_quota_keeps_voiced_items(tmp_path):
@@ -156,7 +157,7 @@ def test_seo_title_description_tags(tmp_path):
     assert len(title) <= 100 and title.endswith("MahaSpark")
     desc = bulletin.build_description(items, props, "सकाळच्या")
     assert desc.splitlines()[3].startswith("0:00 ")  # chapters start at 0:00
-    assert "0:10" in desc and "0:40 MahaSpark फॉलो करा" in desc
+    assert "0:14" in desc and "0:44 MahaSpark फॉलो करा" in desc  # item 2 and the outro are shifted by the 4 s cold open
     assert "Wikimedia Commons" in desc and len(desc) < 5000
     assert "https://" not in desc and "@MahaSparkOfficial" in desc and "सबस्क्राईब" in desc  # no source links, has the CTA
     tags = bulletin.build_tags(items)
@@ -352,3 +353,11 @@ def test_thumbnail_is_skipped_for_missing_or_huge_files(tmp_path):
 def test_highlight_and_place_matching():
     assert bulletin.highlight_for({"headline": "पुणे मॅरेथॉनसाठी ५० लाखांच्या निधीवरून वाद", "context": "x"}).startswith("५०")
     assert bulletin.highlight_for({"headline": "विजय", "context": "मतदार संघात विजय"}) == ""
+
+
+def test_cold_open_keeps_every_chapter_valid(tmp_path):
+    items = bulletin.add_voices(make_items(5), tts=fake_wav(5), out_dir=tmp_path)
+    props = bulletin.assemble(items, [])
+    starts = [e["start"] for e in props["items"]] + [props["outro_start"]]
+    assert starts[0] == 0.0 and all(b - a >= 10 for a, b in zip(starts, starts[1:]))
+    assert props["outro_start"] == bulletin.HOOK_SECONDS + sum(i["seconds"] for i in items)

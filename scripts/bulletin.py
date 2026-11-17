@@ -45,6 +45,7 @@ MIN_ITEMS = 5  # fewer good stories than this: no bulletin is published
 PER_FEED = 8
 MAX_CANDIDATES = 45
 SIMILAR_TITLE = 0.75
+HOOK_SECONDS = 4.0  # silent cold open with the top headlines; counted inside the first YouTube chapter
 LEAD_SECONDS, TAIL_SECONDS, MIN_ITEM_SECONDS = 0.5, 0.9, 10.0  # 10 s keeps every YouTube chapter valid
 OUTRO_SECONDS = 8.0
 MIN_CHAPTER_SECONDS = 10
@@ -226,7 +227,7 @@ def add_photos(items: list[dict], out_dir: Path = BULLETIN_DIR) -> list[str]:
 
 def assemble(items: list[dict], credits: list[str]) -> dict:
     """The props for the Remotion composition. Every start time is derived from the item durations."""
-    cursor, entries = 0.0, []
+    cursor, entries = HOOK_SECONDS, []
     for item in items:
         entries.append(
             {
@@ -242,8 +243,12 @@ def assemble(items: list[dict], credits: list[str]) -> dict:
             }
         )
         cursor += item["seconds"]
+    if entries:
+        entries[0]["start"] = 0.0  # chapter 1 starts at 0:00 and includes the cold open
     return {
         "items": entries,
+        "hook_seconds": HOOK_SECONDS,
+        "hook_headlines": [e["headline"] for e in entries[:3]],
         "outro_seconds": OUTRO_SECONDS,
         "bg_hue": editorial_engine.pick_hue(" ".join(e["headline"] for e in entries), calm=True),
         "outro_start": round(cursor, 2),
