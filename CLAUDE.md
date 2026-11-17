@@ -47,7 +47,7 @@ A model slip is caught and the model gets one repair attempt with the exact erro
 - **Banned phrases** (`FORBIDDEN_PHRASES`): अधिकृत माहितीनुसार, वृत्तानुसार, सूत्रांनी दिलेल्या माहितीनुसार and similar
   agency clichés, plus old filler/clickbait lines. Extend that list rather than adding prompt-only rules.
 - **On-screen numbers** in `headline`/`description` must appear in the source text (no invented figures).
-- **Length.** 2-6 scenes, 25-150 spoken words in total (a 10-second reel is valid; the voiceless minimum is 10 s), headline at most 56 characters, description at most 92.
+- **Length.** Reels are about one minute: 140-185 spoken words (`REEL_MIN_WORDS`; `validate_story(min_words=...)`), 2-8 scenes, headline at most 56 characters, description at most 92. A story whose sources cannot fill that is REJECTED ("too thin for a one-minute video") and the next one is used, never published short. A thin source (under `THIN_SOURCE_CHARS`) first gets up to two other reports of the same event via `fetch_news.enrich_thin_source` (Google News search on the headline, labelled in the source text). Bulletin items keep their short length.
 - **Visuals (reels: OFF by default).** `pipeline.add_visuals` does nothing unless `REEL_VISUALS=1`: reels use the animated studios only because photos did not match the news. The rest of this bullet and `media_fetch.py` still describe the optional/bulletin path. The model writes a generic English `visual_query` per scene and, only for a named public figure acting in
   their public role, `public_figure`. `clean_public_figure` drops it for serious/crime/breaking stories (never a
   face for victims or accused). Stock footage is representative, never presented as the event; the Telegram summary
@@ -120,7 +120,7 @@ adds `words[]` (`text,start,end,scene`), per-scene `start/end`, `duration_second
 - Scene layout (`SceneCard.tsx`): progress bar (one segment per scene, no number), then a vertically centred stack: big main headline with an animated accent bar, the context line as a 46 px sub-heading, and the optional motion graphic. No boxes, no 5W1H chips on screen (the 5W1H stays in the Telegram summary). Captions unchanged.
 - Footage (`Backdrop.tsx`): per-scene video/photo behind the text with a slow zoom, 9-frame cross-fade and a dark scrim (`overMedia` in `theme.ts` gives light text). Portrait video fills the screen; landscape photos are framed (sharp near-square crop over a blurred, darkened copy). Videos are muted and looped.
 - Motion: spring card entrances, animated vertical accent bar, scale/fade exits, word-by-word karaoke captions
-  (`Captions.tsx`), `whoosh.wav` on every scene cut, mood bed (`public/bed/<audio_mood>.mp3`) at -20 dB
+  (`Captions.tsx`), `whoosh.wav` on every scene cut, mood bed (`public/bed/<audio_mood>.mp3`, `BED_VOLUME` 0.26, ducked to `BED_DUCK` 45% while the anchor speaks)
   with a 1 s fade-out.
 - The white studio `EditorialDeskLight` is retired (not in `CALM_THEMES`, not offered to the model); its component stays only so old story files still render.
 - **Backgrounds:** `bg_hue` in `story.json` (and `bulletin.json`, +18 deg per item) hue-rotates only the studio layer, from a hash of the story, so no two videos look alike. Breaking keeps its crimson (`bg_hue` 0).

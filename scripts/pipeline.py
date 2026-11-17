@@ -203,6 +203,7 @@ def run_scheduled() -> int:
             article = fetch_news.fetch_article_text(source_url)
             if not article:
                 print("ℹ️ No full article text available; using the RSS title and summary only.")
+            article = fetch_news.enrich_thin_source(title, summary, article, source_url)
             story = produce_reel(title, summary, article, source_url)
             queue.write_story(row.index, story)
             status_note = deliver(story, source_url) + upload_reel_to_youtube(queue, story)

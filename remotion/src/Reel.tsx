@@ -3,7 +3,7 @@ import {AbsoluteFill, Audio, Sequence, interpolate, staticFile, useVideoConfig} 
 import {Backdrop} from './Backdrop';
 import {Captions} from './Captions';
 import {
-  BED_VOLUME,
+  BED_DUCK, BED_VOLUME,
   OUTRO_SECONDS,
   SCENE_EXIT_FRAMES,
   SCENE_LEAD_FRAMES,
@@ -49,8 +49,20 @@ export const Reel: React.FC<Story> = (story) => {
   const ends = scenes.map((_, i) => (i === scenes.length - 1 ? outroStart : starts[i + 1]));
 
   const bedFadeStart = durationInFrames - fps;
+  // The bed dips while the anchor speaks and swells back in the gaps and the outro.
+  const spoken = story.audio === false ? [] : story.words;
+  const duck = (f: number) => {
+    const t = f / fps;
+    let nearest = 1;
+    for (const w of spoken) {
+      const d = t < w.start ? w.start - t : t > w.end ? t - w.end : 0;
+      if (d < nearest) nearest = d;
+      if (nearest === 0) break;
+    }
+    return interpolate(nearest, [0, 0.45], [BED_DUCK, 1], {extrapolateRight: 'clamp'});
+  };
   const bedVolume = (f: number) =>
-    BED_VOLUME * interpolate(f, [0, fps * 0.5, bedFadeStart, durationInFrames], [0, 1, 1, 0], {
+    BED_VOLUME * duck(f) * interpolate(f, [0, fps * 0.5, bedFadeStart, durationInFrames], [0, 1, 1, 0], {
       extrapolateLeft: 'clamp',
       extrapolateRight: 'clamp',
     });

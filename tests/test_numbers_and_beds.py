@@ -102,3 +102,39 @@ def test_pipeline_upload_is_skipped_without_credentials(monkeypatch):
     for key in ("YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN"):
         monkeypatch.delenv(key, raising=False)
     assert pipeline.upload_reel_to_youtube(object(), {"scenes": [{"headline": "x"}]}) == ""
+
+
+# ----- one-minute minimum and extra sources -----------------------------------------------------
+
+import fetch_news  # noqa: E402
+from llm_providers import ContentRejected  # noqa: E402
+
+
+def test_thin_story_is_skipped_not_published_short(monkeypatch):
+    def too_short(**kwargs):
+        kwargs["validate"]({"approved": True, "scenes": [{"headline": "x", "description": "y", "tts_text": "थोडे शब्द."}]})
+
+    monkeypatch.setattr(ee, "generate_json", too_short)
+    monkeypatch.setattr(ee, "validate_story", lambda *a, **k: (_ for _ in ()).throw(ValueError("Narration has 30 words; it must be between 140 and 185.")))
+    with pytest.raises(ContentRejected):
+        ee.write_story("पुणे महापालिकेची मोठी घोषणा आज झाली", "तपशील", "मजकूर " * 40, "https://x")
+
+
+def test_reels_need_a_minute_but_other_callers_keep_the_old_minimum():
+    assert ee.REEL_MIN_WORDS == 140 and ee.MIN_TOTAL_WORDS < ee.REEL_MIN_WORDS
+
+
+def test_rich_source_is_not_enriched(monkeypatch):
+    monkeypatch.setattr(fetch_news, "related_sources", lambda *a, **k: pytest.fail("must not search"))
+    assert fetch_news.enrich_thin_source("शीर्षक", "सारांश", "म" * 3000, "https://a.in/x") == "म" * 3000
+
+
+def test_thin_source_gets_other_reports_labelled(monkeypatch):
+    monkeypatch.setattr(fetch_news, "related_sources", lambda *a, **k: [("दुसरी बातमी", "https://b.in/y", "दुसऱ्या वृत्ताचा मजकूर")])
+    out = fetch_news.enrich_thin_source("शीर्षक", "सारांश", "थोडा मजकूर", "https://a.in/x")
+    assert out.startswith("थोडा मजकूर") and "b.in" in out and "दुसऱ्या वृत्ताचा मजकूर" in out
+
+
+def test_thin_source_without_extras_is_unchanged(monkeypatch):
+    monkeypatch.setattr(fetch_news, "related_sources", lambda *a, **k: [])
+    assert fetch_news.enrich_thin_source("शीर्षक", "सारांश", "थोडा", "https://a.in/x") == "थोडा"
