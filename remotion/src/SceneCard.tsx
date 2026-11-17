@@ -1,6 +1,7 @@
 import React from 'react';
 import {interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
-import {DESCRIPTION_SIZE, headlineSize, SAFE_SIDE, SAFE_TOP, SCENE_EXIT_FRAMES} from './constants';
+import {SCENE_EXIT_FRAMES} from './constants';
+import {useLayout} from './layout';
 import {fontFamily} from './fonts';
 import {MotionGraphic} from './MotionGraphic';
 import {Palette} from './theme';
@@ -20,7 +21,6 @@ type Props = {
 };
 
 /** Space reserved below the card for the karaoke captions (px from the bottom edge). */
-export const CARD_BOTTOM = 250;
 
 /**
  * One news scene: progress bar on top, then a vertically centred stack of the big main headline, the context
@@ -30,6 +30,7 @@ export const CARD_BOTTOM = 250;
 export const SceneCard: React.FC<Props> = ({headline, description, palette, durationInFrames, index, total, motion}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
+  const layout = useLayout();
 
   const enter = spring({frame, fps, config: {damping: 15, stiffness: 120, mass: 0.9}});
   const subEnter = spring({frame: frame - 8, fps, config: {damping: 16, stiffness: 110, mass: 0.9}});
@@ -50,10 +51,10 @@ export const SceneCard: React.FC<Props> = ({headline, description, palette, dura
     <div
       style={{
         position: 'absolute',
-        left: SAFE_SIDE,
-        right: SAFE_SIDE,
-        top: SAFE_TOP + 6,
-        bottom: CARD_BOTTOM,
+        left: layout.safeSide,
+        right: layout.safeSide,
+        top: layout.safeTop + 6,
+        bottom: layout.cardBottom,
         display: 'flex',
         flexDirection: 'column',
         gap: 24,
@@ -88,7 +89,7 @@ export const SceneCard: React.FC<Props> = ({headline, description, palette, dura
               flex: 1,
               minWidth: 0,
               color: palette.textPrimary,
-              fontSize: headlineSize(headline.length),
+              fontSize: layout.headlineSize(headline.length),
               fontWeight: 800,
               lineHeight: 1.22,
               letterSpacing: -0.4,
@@ -105,7 +106,7 @@ export const SceneCard: React.FC<Props> = ({headline, description, palette, dura
             ...staged(subEnter),
             marginLeft: 44,
             color: palette.textSecondary,
-            fontSize: DESCRIPTION_SIZE,
+            fontSize: layout.descriptionSize,
             fontWeight: 600,
             lineHeight: 1.45,
             textShadow: palette.textShadow,

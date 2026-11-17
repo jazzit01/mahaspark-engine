@@ -20,6 +20,7 @@ THUMB_JSON = PUBLIC_DIR / "bulletin_thumb.json"
 THUMB_PATH = OUT_DIR / "bulletin_thumbnail.jpg"
 
 COMPOSITION_ID = "MahaSparkReel"
+SHORT_COMPOSITION_ID = "MahaSparkShort"
 BULLETIN_COMPOSITION_ID = "MahaSparkBulletin"
 
 

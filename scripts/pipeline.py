@@ -25,7 +25,7 @@ import fetch_news
 import media_fetch
 import send_telegram
 import youtube_upload
-from config import COMPOSITION_ID, OUT_DIR, REEL_PATH, REMOTION_DIR, STORY_PATH, VOICEOVER_PATH
+from config import COMPOSITION_ID, OUT_DIR, SHORT_COMPOSITION_ID, REEL_PATH, REMOTION_DIR, STORY_PATH, VOICEOVER_PATH
 from llm_providers import ContentRejected, LLMUnavailableError
 from sheet_queue import DONE, ERROR, PENDING, PROCESSING, REJECTED, SheetQueue
 
@@ -73,7 +73,7 @@ def render_concurrency() -> int:
     return max(1, min(wanted, cores))
 
 
-def render_reel(output=REEL_PATH, crf: int = 18) -> None:
+def render_reel(output=REEL_PATH, crf: int = 18, composition: str = COMPOSITION_ID) -> None:
     """Render the Remotion composition with the studio chosen by story.json's visual_theme."""
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     cmd = [
@@ -81,7 +81,7 @@ def render_reel(output=REEL_PATH, crf: int = 18) -> None:
         "remotion",
         "render",
         "src/index.ts",
-        COMPOSITION_ID,
+        composition,
         str(output),
         "--props=public/story.json",
         "--codec=h264",
@@ -122,6 +122,11 @@ def add_visuals(story: dict) -> dict:
         return story
 
 
+def is_short(story: dict) -> bool:
+    """True for the 9:16 Short that thin stories become."""
+    return story.get("format") == "portrait"
+
+
 def reel_crf(story: dict) -> int:
     """Footage is busier than the studios; a slightly higher CRF keeps the file under Telegram's 50 MB limit."""
     return 21 if media_fetch.has_media(story) else 18
@@ -131,11 +136,11 @@ def produce_reel(title: str, summary: str, article_text: str, source_url: str) -
     """Script -> voiceover -> alignment -> render. Returns the final story dict."""
     story = editorial_engine.write_story(title, summary, article_text, source_url)
     editorial_engine.save_story(story)
-    print(f"📝 Script ready ({story['visual_theme']}, {story['audio_mood']}): {story['scenes'][0]['headline']}")
+    print(f"📝 Script ready ({story.get('format')}, {story['visual_theme']}, {story['audio_mood']}): {story['scenes'][0]['headline']}")
 
     story = add_voice_and_timings(story)
     story = add_visuals(story)
-    render_reel(crf=reel_crf(story))
+    render_reel(crf=reel_crf(story), composition=SHORT_COMPOSITION_ID if is_short(story) else COMPOSITION_ID)
     return story
 
 
@@ -180,7 +185,7 @@ def render_reel_thumbnail(story: dict) -> bool:
 
 def upload_reel_to_youtube(queue, story: dict) -> str:
     """Best-effort YouTube upload of the 16:9 video, within the daily slot budget. Returns a Sheet note fragment."""
-    if not youtube_upload.reel_uploads_enabled():
+    if not youtube_upload.reel_uploads_enabled() or is_short(story):  # Shorts go to Telegram only for now
         return ""
     try:
         youtube_upload.credentials()

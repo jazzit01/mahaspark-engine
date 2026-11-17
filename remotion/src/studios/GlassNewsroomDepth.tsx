@@ -1,6 +1,5 @@
 import React from 'react';
 import {AbsoluteFill, useCurrentFrame, useVideoConfig} from 'remotion';
-import {HEIGHT, WIDTH} from '../constants';
 
 type Blob = {color: string; size: number; cx: number; cy: number; ax: number; ay: number; fx: number; fy: number; phase: number};
 
@@ -11,7 +10,7 @@ const BLOBS: Blob[] = [
   {color: 'rgba(251,191,36,0.20)', size: 700, cx: 820, cy: 1650, ax: 120, ay: 100, fx: 0.13, fy: 0.08, phase: 5.0},
 ];
 
-const mesh = (frame: number, fps: number) => {
+const mesh = (frame: number, fps: number, WIDTH: number, HEIGHT: number) => {
   const t = frame / fps;
   const horizontal: string[] = [];
   for (let row = 0; row < 11; row++) {
@@ -39,9 +38,9 @@ const mesh = (frame: number, fps: number) => {
 /** Deep indigo-slate depth with slow volumetric light and a drifting light mesh behind frosted-glass cards. */
 export const GlassNewsroomDepth: React.FC = () => {
   const frame = useCurrentFrame();
-  const {fps} = useVideoConfig();
+  const {fps, width: WIDTH, height: HEIGHT} = useVideoConfig();
   const t = frame / fps;
-  const {horizontal, vertical} = mesh(frame, fps);
+  const {horizontal, vertical} = mesh(frame, fps, WIDTH, HEIGHT);
 
   const beamOpacity = 0.5 + 0.5 * Math.sin(t * 0.35);
 

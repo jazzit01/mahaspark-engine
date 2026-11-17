@@ -1,5 +1,6 @@
 import React from 'react';
 import {AbsoluteFill, Img, staticFile} from 'remotion';
+import {useLayout} from './layout';
 import {Palette} from './theme';
 
 type Props = {
@@ -14,15 +15,16 @@ type Props = {
  * Rules: only the MahaSpark logo file (no extra brand text, no category pill), and no date/time badge of any kind.
  */
 export const SharedOverlay: React.FC<Props> = ({palette}) => {
+  const layout = useLayout();
   return (
     <AbsoluteFill style={{pointerEvents: 'none'}}>
       <div
         style={{
           position: 'absolute',
-          left: 40,
-          top: 26,
-          width: 230,
-          height: 140,
+          left: layout.logo.left,
+          top: layout.logo.top,
+          width: layout.logo.width,
+          height: layout.logo.height,
           borderRadius: 22,
           background: palette.logoPlate ?? 'transparent',
           display: 'flex',
@@ -32,7 +34,7 @@ export const SharedOverlay: React.FC<Props> = ({palette}) => {
       >
         <Img
           src={staticFile('logo.png')}
-          style={{width: 230, height: 140, objectFit: 'contain', display: 'block'}}
+          style={{width: layout.logo.width, height: layout.logo.height, objectFit: 'contain', display: 'block'}}
         />
       </div>
     </AbsoluteFill>

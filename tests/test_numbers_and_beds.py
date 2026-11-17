@@ -110,14 +110,56 @@ import fetch_news  # noqa: E402
 from llm_providers import ContentRejected  # noqa: E402
 
 
-def test_thin_story_is_skipped_not_published_short(monkeypatch):
-    def too_short(**kwargs):
-        kwargs["validate"]({"approved": True, "scenes": [{"headline": "x", "description": "y", "tts_text": "थोडे शब्द."}]})
+def _capture(monkeypatch, outcomes):
+    """Replace the model call; ``outcomes`` is a list of dicts (a story) or exceptions to raise, one per call."""
+    calls = []
 
-    monkeypatch.setattr(ee, "generate_json", too_short)
-    monkeypatch.setattr(ee, "validate_story", lambda *a, **k: (_ for _ in ()).throw(ValueError("Narration has 30 words; it must be between 140 and 185.")))
-    with pytest.raises(ContentRejected):
-        ee.write_story("पुणे महापालिकेची मोठी घोषणा आज झाली", "तपशील", "मजकूर " * 40, "https://x")
+    def fake_write(title, summary, article_text, source_url, source_text, short):
+        calls.append(short)
+        outcome = outcomes[len(calls) - 1]
+        if isinstance(outcome, Exception):
+            raise outcome
+        return dict(outcome)
+
+    monkeypatch.setattr(ee, "_write", fake_write)
+    return calls
+
+
+def test_thin_source_becomes_a_9x16_short(monkeypatch):
+    calls = _capture(monkeypatch, [{"scenes": []}])
+    story = ee.write_story("पुणे महापालिकेची मोठी घोषणा आज झाली", "तपशील " * 15, "थोडा मजकूर", "https://x")
+    assert calls == [True] and story["format"] == "portrait"  # no long attempt at all
+
+
+def test_rich_source_stays_a_long_16x9_video(monkeypatch):
+    calls = _capture(monkeypatch, [{"scenes": []}])
+    story = ee.write_story("पुणे महापालिकेची मोठी घोषणा आज झाली", "तपशील", "म " * 1500, "https://x")
+    assert calls == [False] and story["format"] == "landscape"
+
+
+def test_rich_source_that_still_comes_out_short_falls_back_to_a_short(monkeypatch):
+    calls = _capture(monkeypatch, [ValueError("Narration has 90 words; it must be between 140 and 185."), {"scenes": []}])
+    story = ee.write_story("पुणे महापालिकेची मोठी घोषणा आज झाली", "तपशील", "म " * 1500, "https://x")
+    assert calls == [False, True] and story["format"] == "portrait"
+
+
+def test_other_errors_are_not_swallowed(monkeypatch):
+    _capture(monkeypatch, [ValueError("Expected 2 to 8 scenes, got 1.")])
+    with pytest.raises(ValueError):
+        ee.write_story("पुणे महापालिकेची मोठी घोषणा आज झाली", "तपशील", "म " * 1500, "https://x")
+
+
+def test_short_limits_are_looser_on_length_but_tighter_on_scenes():
+    assert ee.SHORT_MAX_WORDS < ee.MAX_TOTAL_WORDS and ee.SHORT_MAX_SCENES < ee.MAX_SCENES
+    assert "SHORT vertical (9:16)" in ee.build_user_prompt("t", "s", "a", "u", short=True)
+    assert "SHORT vertical" not in ee.build_user_prompt("t", "s", "a", "u")
+
+
+def test_shorts_render_the_short_composition_and_skip_youtube():
+    import pipeline
+
+    assert pipeline.is_short({"format": "portrait"}) and not pipeline.is_short({"format": "landscape"}) and not pipeline.is_short({})
+    assert pipeline.upload_reel_to_youtube(object(), {"format": "portrait", "scenes": [{"headline": "x"}]}) == ""
 
 
 def test_reels_need_a_minute_but_other_callers_keep_the_old_minimum():

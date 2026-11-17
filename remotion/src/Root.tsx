@@ -1,6 +1,6 @@
 import React from 'react';
 import {CalculateMetadataFunction, Composition} from 'remotion';
-import {COMPOSITION_ID, FPS, HEIGHT, WIDTH} from './constants';
+import {COMPOSITION_ID, FPS, HEIGHT, SHORT_COMPOSITION_ID, SHORT_HEIGHT, SHORT_WIDTH, WIDTH} from './constants';
 import './fonts';
 import {Reel, totalFrames} from './Reel';
 import {buildSampleStory} from './sampleStory';
@@ -28,9 +28,28 @@ const calculateMetadata: CalculateMetadataFunction<Story> = ({props}) => ({
   height: HEIGHT,
 });
 
+/** The 9:16 Short (thin stories): same component and graphics, vertical size, no outro. */
+const calculateShortMetadata: CalculateMetadataFunction<Story> = ({props}) => ({
+  durationInFrames: totalFrames({...props, format: 'portrait'}, FPS),
+  fps: FPS,
+  width: SHORT_WIDTH,
+  height: SHORT_HEIGHT,
+});
+
 export const RemotionRoot: React.FC = () => {
   return (
     <>
+      <Composition
+        id={SHORT_COMPOSITION_ID}
+        component={Reel}
+        width={SHORT_WIDTH}
+        height={SHORT_HEIGHT}
+        fps={FPS}
+        durationInFrames={FPS * 20}
+        defaultProps={{...buildSampleStory('PrimeGridStudio'), format: 'portrait' as const}}
+        calculateMetadata={calculateShortMetadata}
+      />
+
       {/* Production composition: rendered with --props=public/story.json. */}
       <Composition
         id={COMPOSITION_ID}

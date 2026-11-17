@@ -1,4 +1,7 @@
 export const COMPOSITION_ID = 'MahaSparkReel';
+export const SHORT_COMPOSITION_ID = 'MahaSparkShort';
+export const SHORT_WIDTH = 1080;
+export const SHORT_HEIGHT = 1920;
 
 export const FPS = 30;
 export const WIDTH = 1920;

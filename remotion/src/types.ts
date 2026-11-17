@@ -50,6 +50,8 @@ export type Story = {
   category: string;
   visual_theme: ThemeName;
   audio_mood: AudioMood;
+  /** 'landscape' (16:9 video with outro, default) or 'portrait' (9:16 Short for thin stories, no outro). */
+  format?: 'landscape' | 'portrait';
   /** Degrees the studio background is hue-rotated, so no two videos share one look. 0 keeps the studio colours. */
   bg_hue?: number;
   scenes: StoryScene[];

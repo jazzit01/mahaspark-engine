@@ -18,7 +18,6 @@ import requests
 from config import REEL_PATH, STORY_PATH, get_env_value
 
 DEFAULT_CHAT_ID = "935514943"  # previous working destination, kept as the default
-CAPTION_LIMIT = 1000  # Telegram allows 1024
 MESSAGE_LIMIT = 4000
 MAX_VIDEO_BYTES = 49 * 1024 * 1024  # Bot API upload limit is 50 MB
 
@@ -44,27 +43,6 @@ CTA_LINES = ("🔔 ताज्या बातम्यांसाठी MahaS
 CTA_TEXT = "\n".join(CTA_LINES)
 
 
-def _hashtag_line(story: dict, limit: int = 8) -> str:
-    return " ".join(str(story.get("hashtags", "")).split()[:limit])
-
-
-def build_caption(story: dict) -> str:
-    """Video caption (Telegram allows 1024 characters): SEO title, description, hashtags, handle."""
-    title = story.get("social_title") or (story["scenes"][0]["headline"] if story.get("scenes") else "")
-    parts = [
-        f"🔴 <b>{html.escape(title)}</b>",
-        f"🏷️ <i>{html.escape(story.get('category', ''))}</i>",
-        html.escape(story.get("social_caption", "")),
-        html.escape(_hashtag_line(story)),
-        html.escape(CTA_TEXT),
-    ]
-    text = "\n\n".join(p for p in parts if p.strip())
-    if len(text) > CAPTION_LIMIT:  # drop the caption body before cutting an HTML tag in half
-        parts[2] = ""
-        text = "\n\n".join(p for p in parts if p.strip())
-    return text[:CAPTION_LIMIT]
-
-
 def build_summary_message(story: dict, source_url: str) -> str:
     five = story.get("five_w_one_h", {})
     lines = ["<b>📋 5W1H सारांश</b>"]
@@ -72,7 +50,7 @@ def build_summary_message(story: dict, source_url: str) -> str:
         lines.append(f"<b>{label}:</b> {html.escape(str(five.get(key) or '—'))}")
     if story.get("audio") is False:
         lines.append("")
-        lines.append("<b>🔇 व्हॉइसओव्हर उपलब्ध नव्हता:</b> हा रील आवाजाशिवाय तयार झाला आहे.")
+        lines.append("<b>🔇 व्हॉइसओव्हर उपलब्ध नव्हता:</b> हा व्हिडिओ आवाजाशिवाय तयार झाला आहे.")
     lines.append("")
     lines.append(f"<b>🌐 मूळ स्रोत:</b> {html.escape(source_url or 'उपलब्ध नाही')}")
     lines.append("")
@@ -128,11 +106,10 @@ def send_reel(video_path: Path, story: dict, source_url: str, max_retries: int =
                     f"{api}/sendVideo",
                     data={
                         "chat_id": chat_id,
-                        "caption": build_caption(story),
-                        "parse_mode": "HTML",
+                        # no caption: the SEO title, description, keywords and tags come in the message after the video
                         "supports_streaming": "true",
-                        "width": 1080,
-                        "height": 1920,
+                        "width": 1080 if story.get("format") == "portrait" else 1920,
+                        "height": 1920 if story.get("format") == "portrait" else 1080,
                         "duration": int(round(story.get("duration_seconds", 0))) or None,
                     },
                     files={"video": handle},

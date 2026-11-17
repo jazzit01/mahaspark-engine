@@ -1,6 +1,5 @@
 import React from 'react';
 import {AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig} from 'remotion';
-import {HEIGHT, WIDTH} from '../constants';
 
 const INK = '#0F172A';
 const RED = '#D90429';
@@ -8,7 +7,7 @@ const RED = '#D90429';
 /** Crisp ivory studio with drifting geometric framing lines and broadcast-red accent bars. */
 export const EditorialDeskLight: React.FC = () => {
   const frame = useCurrentFrame();
-  const {fps} = useVideoConfig();
+  const {fps, width: WIDTH, height: HEIGHT} = useVideoConfig();
   const t = frame / fps;
 
   const draw = interpolate(frame, [0, 30], [0, 1], {extrapolateRight: 'clamp'});

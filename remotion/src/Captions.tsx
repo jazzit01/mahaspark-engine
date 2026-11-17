@@ -1,6 +1,6 @@
 import React, {useMemo} from 'react';
 import {interpolate, useCurrentFrame, useVideoConfig} from 'remotion';
-import {CAPTION_SIZE, HEIGHT, SAFE_BOTTOM, SAFE_SIDE} from './constants';
+import {useLayout} from './layout';
 import {fontFamily} from './fonts';
 import {Palette} from './theme';
 import {StoryWord} from './types';
@@ -48,6 +48,7 @@ type Props = {
 
 /** Word-by-word karaoke captions synced to story.words; the active word is highlighted and lifted. */
 export const Captions: React.FC<Props> = ({words, palette}) => {
+  const layout = useLayout();
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
   const t = frame / fps;
@@ -76,9 +77,9 @@ export const Captions: React.FC<Props> = ({words, palette}) => {
     <div
       style={{
         position: 'absolute',
-        left: SAFE_SIDE,
-        right: SAFE_SIDE,
-        bottom: SAFE_BOTTOM + 8,
+        left: layout.safeSide,
+        right: layout.safeSide,
+        bottom: layout.safeBottom + 8,
         display: 'flex',
         justifyContent: 'center',
         opacity: fadeIn,
@@ -97,7 +98,7 @@ export const Captions: React.FC<Props> = ({words, palette}) => {
           background: palette.captionPlate,
           border: `1px solid ${palette.cardBorder}`,
           boxShadow: palette.isLight ? '0 10px 30px rgba(15,23,42,0.16)' : '0 10px 34px rgba(0,0,0,0.4)',
-          maxWidth: 1500,
+          maxWidth: layout.captionMaxWidth,
         }}
       >
         {chunk.words.map((word, i) => {
@@ -110,7 +111,7 @@ export const Captions: React.FC<Props> = ({words, palette}) => {
               key={`${index}-${i}`}
               style={{
                 color,
-                fontSize: CAPTION_SIZE,
+                fontSize: layout.captionSize,
                 fontWeight: active ? 800 : 700,
                 lineHeight: 1.35,
                 transform: `scale(${lift})`,

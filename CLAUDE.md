@@ -1,12 +1,11 @@
 # MahaSpark Engine: maintenance guide
 
-A scheduled pipeline that turns one verified Marathi news story per run into a prime-time
-16:9 news video of about one minute (1920x1080, 30 fps, shared 8 s outro) and delivers it to Telegram.
+A scheduled pipeline that turns one verified Marathi news story per run into a prime-time news video and delivers it to Telegram: a 16:9 video of about one minute (1920x1080, 30 fps, shared 8 s outro) when the sources are rich, otherwise a 9:16 Short (1080x1920, no outro).
 
 ```
 RSS -> Sheet queue -> article text -> 5W1H + phonetic script (Gemini) -> Gemini TTS voiceover
     -> faster-whisper word timings -> Remotion render (studio chosen by visual_theme)
-    -> out/mahaspark_reel.mp4 -> Telegram (video + 5W1H summary + source URL) -> Sheet DONE
+    -> out/mahaspark_reel.mp4 -> Telegram (video without caption, then the message: 5W1H, source URL, SEO title/description/keywords/tags) -> Sheet DONE
 ```
 
 ## Layout
@@ -47,7 +46,7 @@ A model slip is caught and the model gets one repair attempt with the exact erro
 - **Banned phrases** (`FORBIDDEN_PHRASES`): अधिकृत माहितीनुसार, वृत्तानुसार, सूत्रांनी दिलेल्या माहितीनुसार and similar
   agency clichés, plus old filler/clickbait lines. Extend that list rather than adding prompt-only rules.
 - **On-screen numbers** in `headline`/`description` must appear in the source text (no invented figures).
-- **Length.** Reels are about one minute: 140-185 spoken words (`REEL_MIN_WORDS`; `validate_story(min_words=...)`), 2-8 scenes, headline at most 56 characters, description at most 92. A story whose sources cannot fill that is REJECTED ("too thin for a one-minute video") and the next one is used, never published short. A thin source (under `THIN_SOURCE_CHARS`) first gets up to two other reports of the same event via `fetch_news.enrich_thin_source` (Google News search on the headline, labelled in the source text). Bulletin items keep their short length.
+- **Length.** Reels are about one minute: 140-185 spoken words (`REEL_MIN_WORDS`; `validate_story(min_words=...)`), 2-8 scenes, headline at most 56 characters, description at most 92. A story whose sources cannot fill that (source text under `THIN_SOURCE_CHARS`, or a long attempt that still comes out short) is written as a **9:16 Short** instead (`story["format"] == "portrait"`): hook + 1-3 scenes, 25-100 words (`SHORT_MAX_WORDS`, `SHORT_MAX_SCENES`), prompt override via `build_user_prompt(short=True)`; the Short renders as composition `MahaSparkShort`, has no outro and goes to Telegram only (no YouTube upload). A thin source (under `THIN_SOURCE_CHARS`) first gets up to two other reports of the same event via `fetch_news.enrich_thin_source` (Google News search on the headline, labelled in the source text). Bulletin items keep their short length.
 - **Visuals (reels: OFF by default).** `pipeline.add_visuals` does nothing unless `REEL_VISUALS=1`: reels use the animated studios only because photos did not match the news. The rest of this bullet and `media_fetch.py` still describe the optional/bulletin path. The model writes a generic English `visual_query` per scene and, only for a named public figure acting in
   their public role, `public_figure`. `clean_public_figure` drops it for serious/crime/breaking stories (never a
   face for victims or accused). Stock footage is representative, never presented as the event; the Telegram summary
@@ -103,7 +102,8 @@ adds `words[]` (`text,start,end,scene`), per-scene `start/end`, `duration_second
 
 ## Broadcast design (`remotion/`)
 
-- 1920x1080 (16:9), 30 fps; the story is followed by the shared bulletin outro (`OUTRO_SECONDS` = 8). Scripts are ~150-175 words, 2-8 scenes, total cap 185 words. Vertical format was dropped. Font: Noto Sans Devanagari through `@remotion/google-fonts` (loaded in `src/fonts.ts`).
+- Two formats from the same components: `MahaSparkReel` 1920x1080 (16:9) and `MahaSparkShort` 1080x1920 (9:16, original vertical layout, no outro). `src/layout.ts` (`useLayout`, from the composition size) holds every size that differs (safe zones 175/56/80 landscape vs 290/450/60 portrait, logo plate, headline/caption sizes); studios read `useVideoConfig()`.
+- 1920x1080 (16:9), 30 fps; the story is followed by the shared bulletin outro (`OUTRO_SECONDS` = 8). Scripts are ~150-175 words, 2-8 scenes, total cap 185 words. Font: Noto Sans Devanagari through `@remotion/google-fonts` (loaded in `src/fonts.ts`).
 - `story.json` -> props (`--props=public/story.json`). `Root.tsx` sets the video length from
   `duration_seconds + 1s`. Preview compositions `Preview-<theme>` exist for `npm run studio`.
 - `visual_theme` (`pick_theme`: grave moods -> Breaking; otherwise rotated over the other four by a hash of the story, skipping the previous reel's studio read from Sheet column O; the model's own pick is ignored for variety) selects one of five full-motion studios in `src/studios/`: `PrimeGridStudio` (navy
