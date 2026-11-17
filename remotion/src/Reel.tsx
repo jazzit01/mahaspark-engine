@@ -25,7 +25,11 @@ const BACKDROP_FADE_FRAMES = 9;
 export const storyFrames = (story: Story, fps: number): number =>
   Math.max(1, Math.ceil((story.duration_seconds + TAIL_SECONDS) * fps));
 
-export const totalFrames = (story: Story, fps: number): number => storyFrames(story, fps) + Math.round(OUTRO_SECONDS * fps);
+/** A 9:16 Short has no outro; the 16:9 video ends with the shared outro. */
+export const hasOutro = (story: Story): boolean => story.format !== 'portrait';
+
+export const totalFrames = (story: Story, fps: number): number =>
+  storyFrames(story, fps) + (hasOutro(story) ? Math.round(OUTRO_SECONDS * fps) : 0);
 
 /**
  * Layer order (bottom to top):
@@ -114,12 +118,16 @@ export const Reel: React.FC<Story> = (story) => {
         <SharedOverlay palette={palette} />
       </Sequence>
 
-      <Sequence from={outroStart} durationInFrames={durationInFrames - outroStart}>
-        <Outro />
-      </Sequence>
-      <Sequence from={Math.max(0, outroStart - WHOOSH_LEAD_FRAMES)} layout="none">
-        <Audio src={staticFile('whoosh.wav')} volume={WHOOSH_VOLUME} />
-      </Sequence>
+      {hasOutro(story) ? (
+        <>
+          <Sequence from={outroStart} durationInFrames={durationInFrames - outroStart}>
+            <Outro />
+          </Sequence>
+          <Sequence from={Math.max(0, outroStart - WHOOSH_LEAD_FRAMES)} layout="none">
+            <Audio src={staticFile('whoosh.wav')} volume={WHOOSH_VOLUME} />
+          </Sequence>
+        </>
+      ) : null}
 
       {story.audio === false ? null : <Audio src={staticFile('voiceover.wav')} />}
       <Audio src={staticFile(`bed/${story.audio_mood}.mp3`)} loop volume={bedVolume} />

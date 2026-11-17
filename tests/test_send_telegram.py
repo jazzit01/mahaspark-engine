@@ -9,10 +9,25 @@ def test_summary_contains_all_5w1h_and_source_url():
     assert "https://example.com/a?x=1&amp;y=2" in text  # HTML-escaped for Telegram
 
 
-def test_caption_is_within_telegram_limit():
+def test_video_is_sent_without_a_caption_and_with_its_real_size(monkeypatch, tmp_path):
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "test-token")
+    sent = []
+
+    class Resp:
+        status_code = 200
+        text = ""
+
+    monkeypatch.setattr(tg.requests, "post", lambda url, data=None, **kw: sent.append((url, dict(data))) or Resp())
+    video = tmp_path / "v.mp4"
+    video.write_bytes(b"x")
     story = valid_story()
-    story["social_caption"] = "क" * 3000
-    assert len(tg.build_caption(story)) <= tg.CAPTION_LIMIT
+    assert tg.send_reel(video, {**story, "format": "portrait"}, "https://src")
+    assert tg.send_reel(video, {**story, "format": "landscape"}, "https://src")
+    videos = [d for u, d in sent if u.endswith("/sendVideo")]
+    assert all("caption" not in d for d in videos)
+    assert (videos[0]["width"], videos[0]["height"]) == (1080, 1920) and (videos[1]["width"], videos[1]["height"]) == (1920, 1080)
+    messages = [d for u, d in sent if u.endswith("/sendMessage")]
+    assert len(messages) == 2 and all("Title (SEO)" in m["text"] and "Tags" in m["text"] for m in messages)
 
 
 def test_missing_credentials_raise(monkeypatch):
@@ -58,5 +73,5 @@ def test_reel_caption_and_description_carry_the_follow_cta():
     import send_telegram as st
 
     story = {"social_title": "शीर्षक", "social_caption": "वर्णन", "category": "पुणे", "hashtags": "#MahaSpark", "five_w_one_h": {}, "scenes": []}
-    assert "@MahaSparkOfficial" in st.build_caption(story) and "सबस्क्राईब" in st.build_caption(story)
-    assert "@MahaSparkOfficial" in st.build_summary_message(story, "https://src")
+    message = st.build_summary_message(story, "https://src")
+    assert "@MahaSparkOfficial" in message and "सबस्क्राईब" in message

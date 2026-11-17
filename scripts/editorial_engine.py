@@ -25,6 +25,7 @@ import requests
 from pydantic import BaseModel, Field
 
 from config import STORY_PATH, VOICEOVER_PATH, get_env_value
+from fetch_news import THIN_SOURCE_CHARS
 from marathi_numbers import words_to_digits
 from editorial_prompts import AUDIO_MOODS, SYSTEM_INSTRUCTION, THEMES, build_user_prompt
 from llm_providers import (
@@ -119,7 +120,8 @@ MAX_DESCRIPTION_CHARS = 92
 MAX_CATEGORY_CHARS = 24
 MIN_SCENES, MAX_SCENES = 2, 8
 MIN_TOTAL_WORDS, MAX_TOTAL_WORDS = 25, 185  # 25 words is a very short story; about 165 words is a full minute
-REEL_MIN_WORDS = 140  # reels are about one minute; a thinner story is skipped, not published short
+SHORT_MAX_WORDS, SHORT_MAX_SCENES = 100, 4  # a 9:16 Short: 25-100 words, hook + up to three scenes
+REEL_MIN_WORDS = 140  # a 16:9 video is about one minute; a thinner story becomes a 9:16 Short instead
 MAX_HOOK_WORDS = 14
 
 # Anything outside Devanagari letters/signs, whitespace, comma and full stop is unsafe for the voice.
@@ -286,7 +288,13 @@ def polish_title(title: str) -> str:
     return title[:MAX_TITLE_CHARS].rstrip()
 
 
-def validate_story(data: dict, source_text: str = "", min_words: int = MIN_TOTAL_WORDS) -> dict:
+def validate_story(
+    data: dict,
+    source_text: str = "",
+    min_words: int = MIN_TOTAL_WORDS,
+    max_words: int = MAX_TOTAL_WORDS,
+    max_scenes: int = MAX_SCENES,
+) -> dict:
     """Validate and normalise a generated story. Raises ValueError (repairable) or ContentRejected."""
     if not isinstance(data, dict):
         raise ValueError("Generated content is not a JSON object.")
@@ -301,8 +309,8 @@ def validate_story(data: dict, source_text: str = "", min_words: int = MIN_TOTAL
         raise ValueError("five_w_one_h.what is missing; state in one sentence what happened.")
 
     scenes_in = data.get("scenes") or []
-    if not (MIN_SCENES <= len(scenes_in) <= MAX_SCENES):
-        raise ValueError(f"Expected {MIN_SCENES} to {MAX_SCENES} scenes, got {len(scenes_in)}.")
+    if not (MIN_SCENES <= len(scenes_in) <= max_scenes):
+        raise ValueError(f"Expected {MIN_SCENES} to {max_scenes} scenes, got {len(scenes_in)}.")
 
     allowed_numbers = source_numbers(source_text)
     scenes = []
@@ -369,9 +377,9 @@ def validate_story(data: dict, source_text: str = "", min_words: int = MIN_TOTAL
 
     narration = " ".join(s["tts_text"] for s in scenes)
     total_words = len(narration.split())
-    if not (min_words <= total_words <= MAX_TOTAL_WORDS):
+    if not (min_words <= total_words <= max_words):
         raise ValueError(
-            f"Narration has {total_words} words; it must be between {min_words} and {MAX_TOTAL_WORDS}."
+            f"Narration has {total_words} words; it must be between {min_words} and {max_words}."
             " Add more verified facts from the source (never invent or repeat) or shorten it."
         )
     hook_words = len(scenes[0]["tts_text"].split())
@@ -399,8 +407,24 @@ def validate_story(data: dict, source_text: str = "", min_words: int = MIN_TOTAL
     }
 
 
+def _write(title: str, summary: str, article_text: str, source_url: str, source_text: str, short: bool) -> dict:
+    return generate_json(
+        system_instruction=SYSTEM_INSTRUCTION,
+        prompt=build_user_prompt(title, summary, article_text, source_url, short=short),
+        response_model=Story,
+        validate=lambda data: validate_story(
+            data,
+            source_text,
+            min_words=MIN_TOTAL_WORDS if short else REEL_MIN_WORDS,
+            max_words=SHORT_MAX_WORDS if short else MAX_TOTAL_WORDS,
+            max_scenes=SHORT_MAX_SCENES if short else MAX_SCENES,
+        ),
+    )
+
+
 def write_story(title: str, summary: str, article_text: str, source_url: str) -> dict:
-    """Write one validated prime-time story. Raises ContentRejected / LLMUnavailableError."""
+    """Write one validated prime-time story: a one-minute 16:9 video when the sources are rich enough, otherwise a
+    9:16 Short (``story["format"] == "portrait"``). Raises ContentRejected / LLMUnavailableError."""
     title, summary, article_text = (title or "").strip(), (summary or "").strip(), (article_text or "").strip()
     if len(summary) + len(article_text) < MIN_SOURCE_CHARS:
         raise ContentRejected(
@@ -408,17 +432,18 @@ def write_story(title: str, summary: str, article_text: str, source_url: str) ->
         )
 
     source_text = f"{title}\n{summary}\n{article_text}"
-    try:
-        story = generate_json(
-            system_instruction=SYSTEM_INSTRUCTION,
-            prompt=build_user_prompt(title, summary, article_text, source_url),
-            response_model=Story,
-            validate=lambda data: validate_story(data, source_text, min_words=REEL_MIN_WORDS),
-        )
-    except ValueError as exc:
-        if "Narration has" in str(exc):  # the sources cannot fill a minute: skip the story, do not publish it short
-            raise ContentRejected(f"Too thin for a one-minute video: {exc}") from exc
-        raise
+    story = None
+    if len(source_text) >= THIN_SOURCE_CHARS:  # enough facts for a full minute: try the long video first
+        try:
+            story = _write(title, summary, article_text, source_url, source_text, short=False)
+            story["format"] = "landscape"
+        except ValueError as exc:
+            if "Narration has" not in str(exc):
+                raise
+            print(f"ℹ️ Too thin for a one-minute video after all ({exc}); writing a 9:16 Short instead.")
+    if story is None:
+        story = _write(title, summary, article_text, source_url, source_text, short=True)
+        story["format"] = "portrait"
     story["source"] = {"title": title, "url": source_url}
     return story
 

@@ -1,10 +1,9 @@
 import React from 'react';
 import {AbsoluteFill, useCurrentFrame, useVideoConfig} from 'remotion';
-import {HEIGHT, WIDTH} from '../constants';
 
-const wavePath = (frame: number, base: number, amp: number, k: number, speed: number, phase: number): string => {
+const wavePath = (width: number, frame: number, base: number, amp: number, k: number, speed: number, phase: number): string => {
   const points: string[] = [];
-  for (let x = 0; x <= WIDTH; x += 20) {
+  for (let x = 0; x <= width; x += 20) {
     const y = base + amp * Math.sin(x * k + frame * speed + phase);
     points.push(`${x === 0 ? 'M' : 'L'}${x},${y.toFixed(1)}`);
   }
@@ -26,7 +25,7 @@ const Bracket: React.FC<{corner: 'tl' | 'tr' | 'bl' | 'br'}> = ({corner}) => {
 /** Dark charcoal studio with crimson kinetic light waves, moving scanlines and urgent crimson/amber framing. */
 export const BreakingNewsStudio: React.FC = () => {
   const frame = useCurrentFrame();
-  const {fps} = useVideoConfig();
+  const {fps, width: WIDTH, height: HEIGHT} = useVideoConfig();
   const t = frame / fps;
 
   const pulse = 1 + 0.18 * Math.sin(t * 2.2);
@@ -53,7 +52,7 @@ export const BreakingNewsStudio: React.FC = () => {
         {waves.map((w, i) => (
           <path
             key={`glow-${i}`}
-            d={wavePath(frame, w.base, w.amp * pulse, w.k, w.speed, w.phase)}
+            d={wavePath(WIDTH, frame, w.base, w.amp * pulse, w.k, w.speed, w.phase)}
             stroke="#E11D48"
             strokeWidth={w.width * 4}
             strokeOpacity={w.opacity * 0.55}
@@ -65,7 +64,7 @@ export const BreakingNewsStudio: React.FC = () => {
         {waves.map((w, i) => (
           <path
             key={`line-${i}`}
-            d={wavePath(frame, w.base, w.amp * pulse, w.k, w.speed, w.phase)}
+            d={wavePath(WIDTH, frame, w.base, w.amp * pulse, w.k, w.speed, w.phase)}
             stroke="#F43F5E"
             strokeWidth={w.width}
             strokeOpacity={w.opacity}

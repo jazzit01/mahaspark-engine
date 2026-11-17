@@ -182,15 +182,7 @@ def test_telegram_shows_seo_title_keywords_tags_and_visual_credits():
     )
     text = tg.build_summary_message(story, "https://example.com")
     assert "Pune flyover, पुणे उड्डाणपूल" in text and "Video: Asha / Pexels" in text and "not footage of the event" in text
-    caption = tg.build_caption(story)
-    assert caption.startswith("🔴 <b>पुणे उड्डाणपूल मंजुरी") and "#PuneFlyover" in caption and len(caption) <= 1000
-
-
-def test_long_caption_stays_within_the_limit_without_cutting_html():
-    story = valid_story()
-    story["social_caption"] = "वाक्य " * 400
-    caption = tg.build_caption(story)
-    assert len(caption) <= tg.CAPTION_LIMIT and caption.count("<b>") == caption.count("</b>")
+    assert "#PuneFlyover" in text and "<code>पुणे उड्डाणपूल मंजुरी" in text  # title, description, keywords, tags stay in the message
 
 
 def test_pipeline_visuals_hook_is_failure_proof_and_picks_crf(monkeypatch):

@@ -1,6 +1,5 @@
 import React from 'react';
 import {AbsoluteFill, random, useCurrentFrame, useVideoConfig} from 'remotion';
-import {HEIGHT, WIDTH} from '../constants';
 
 const EMERALD = '#10B981';
 const GOLD = '#FBBF24';
@@ -13,7 +12,7 @@ type Node = {x: number; y: number};
 /** Midnight blue studio: rotating radar rings and sweep, floating telemetry nodes, emerald/gold metric callouts. */
 export const DataTelemetryStudio: React.FC = () => {
   const frame = useCurrentFrame();
-  const {fps} = useVideoConfig();
+  const {fps, width: WIDTH, height: HEIGHT} = useVideoConfig();
   const t = frame / fps;
 
   const sweep = (t * 55) % 360;

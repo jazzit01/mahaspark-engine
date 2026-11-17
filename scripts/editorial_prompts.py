@@ -81,10 +81,8 @@ Produce 6 or 7 scenes in this order when the source has enough facts (4 or 5 sce
   6. Impact on people, or the background the source itself gives.
   7. The next official step or a closing fact. Skip scenes the source cannot fill; never pad or repeat.
 Total spoken narration: 145 to 175 words across all scenes (about one minute). The material may hold several
-reports of the same event: use the facts they agree on, and attribute anything only one report says. If all the
-material together cannot support at least 140 words of verified facts, set "approved": false with
-"rejection_reason": "too thin for a one-minute video" instead of padding. More words only ever come from more
-verified facts, never from repetition or invention.
+reports of the same event: use the facts they agree on, and attribute anything only one report says. More words
+only ever come from more verified facts, never from repetition or invention.
 
 Each scene has THREE texts:
   - "headline": on-screen headline, a complete declarative Marathi line of at most 52 characters.
@@ -175,7 +173,7 @@ phrase appears anywhere; the hook is 8 to 12 words and leads with the strongest 
 """.strip()
 
 
-def build_user_prompt(title: str, summary: str, article_text: str, source_url: str) -> str:
+def build_user_prompt(title: str, summary: str, article_text: str, source_url: str, short: bool = False) -> str:
     article = article_text.strip() if article_text else ""
     return (
         "SOURCE MATERIAL (the only facts you may use)\n"
@@ -184,7 +182,14 @@ def build_user_prompt(title: str, summary: str, article_text: str, source_url: s
         f"Source summary: {summary.strip() or 'not available'}\n"
         "Full article text:\n"
         f'"""\n{article or "NOT AVAILABLE - only the title and summary above exist."}\n"""\n\n'
-        "Write the one-minute video now (145 to 175 spoken words) from the headline and the context above. Set"
-        " approved to false for a rumour, an unattributed leak or an opinion piece, or when the material cannot"
-        " support 140 words of verified facts."
+        + (
+            "This is a SHORT vertical (9:16) video because the material is thin. This OVERRIDES the scene plan and the"
+            " word targets above: write 2 to 4 scenes (a 3-4 second hook, then one or two scenes with the verified"
+            " facts) and 40 to 90 spoken words in total, only what the material states. Set approved to false only"
+            " for a rumour, an unattributed leak or an opinion piece."
+            if short
+            else "Write the one-minute video now (145 to 175 spoken words) from the headline and the context above."
+            " Use only verified facts from the material; never pad. Set approved to false only for a rumour, an"
+            " unattributed leak or an opinion piece."
+        )
     )
