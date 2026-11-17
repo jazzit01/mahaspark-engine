@@ -68,9 +68,7 @@ A model slip is caught and the model gets one repair attempt with the exact erro
 - `tts_text` (joined into `tts_narration_script`): what the voice reads. It may contain ONLY Devanagari letters,
   spaces, commas and full stops. `tts_problems()` rejects digits (including ०-९), Latin letters, symbols
   and `? !`.
-  - Numbers, dates, money, percentages are written as full Marathi words ("पंच्याऐंशी टक्के",
-    "एक हजार दोनशे कोटी रुपये"). Marathi 11-99 are irregular, so this is the likeliest place for a model error.
-    Spot check numbers when changing the prompt.
+  - Numbers, dates, money, percentages: the MODEL WRITES DIGITS in `tts_text` (`35000`, `₹1,200 कोटी`, `85%`) and `marathi_numbers.numbers_to_words` spells them as correct Marathi (`पस्तीस हजार`, `एक हजार दोनशे कोटी रुपये`, `पंच्याऐंशी टक्के`) inside `validate_story` / `validate_item`, before `tts_problems`. Marathi 11-99 are irregular and the model got them wrong on air (35000 was read as "तीस पॉइंट पाच हजार"), so never ask the model to spell numbers. Times like 10:30 and numbers over 99 crore stay digits and are rejected (the model repairs them in words). Extend the converter and its tests rather than the prompt.
   - Acronyms are spelled letter by letter ("पी एम आर डी ए", "एफ आय आर"); borrowed words are transliterated
     ("मेट्रो", "हायकोर्ट").
   - No heavy Sanskritised compounds; a comma wherever the anchor breathes; every scene ends with a full stop.
