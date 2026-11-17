@@ -103,7 +103,7 @@ adds `words[]` (`text,start,end,scene`), per-scene `start/end`, `duration_second
 ## Broadcast design (`remotion/`)
 
 - Two formats from the same components: `MahaSparkReel` 1920x1080 (16:9) and `MahaSparkShort` 1080x1920 (9:16, original vertical layout, no outro). `src/layout.ts` (`useLayout`, from the composition size) holds every size that differs (safe zones 175/56/80 landscape vs 290/450/60 portrait, logo plate, headline/caption sizes); studios read `useVideoConfig()`.
-- 1920x1080 (16:9), 30 fps; the story is followed by the shared bulletin outro (`OUTRO_SECONDS` = 8). Scripts are ~150-175 words, 2-8 scenes, total cap 185 words. Vertical format was dropped. Font: Noto Sans Devanagari through `@remotion/google-fonts` (loaded in `src/fonts.ts`).
+- 1920x1080 (16:9), 30 fps; the story is followed by the shared bulletin outro (`OUTRO_SECONDS` = 8). Scripts are ~150-175 words, 2-8 scenes, total cap 185 words. Font: Noto Sans Devanagari through `@remotion/google-fonts` (loaded in `src/fonts.ts`).
 - `story.json` -> props (`--props=public/story.json`). `Root.tsx` sets the video length from
   `duration_seconds + 1s`. Preview compositions `Preview-<theme>` exist for `npm run studio`.
 - `visual_theme` (`pick_theme`: grave moods -> Breaking; otherwise rotated over the other four by a hash of the story, skipping the previous reel's studio read from Sheet column O; the model's own pick is ignored for variety) selects one of five full-motion studios in `src/studios/`: `PrimeGridStudio` (navy
