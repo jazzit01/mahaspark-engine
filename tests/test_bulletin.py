@@ -42,7 +42,7 @@ def test_rejected_item_raises():
         {"headline": "अ" * 80},
         {"context": "क" * 140},
         {"tts_text": "पुणे पाणी बंद."},
-        {"tts_text": GOOD["tts_text"] + " 85 टक्के."},
+        {"tts_text": GOOD["tts_text"] + " सकाळी 10:30 वाजता."},
         {"context": "महापालिकेच्या कामामुळे 97% भागात परिणाम होईल"},
         {"context": "अधिकृत माहितीनुसार पाणीपुरवठा बंद राहणार आहे"},
     ],

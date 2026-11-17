@@ -98,15 +98,15 @@ Each scene has THREE texts:
 ══════════ 5. PHONETIC RULES FOR "tts_text" (speech engineering) ══════════
 The text-to-speech voice must pronounce every word flawlessly and must never drop into an English
 synthesiser. Therefore "tts_text" may contain ONLY Devanagari letters, spaces, commas and full stops.
-It must contain NO digits (0-9 or ०-९), NO Latin letters, NO symbols (₹ % / & @ # + = - ( ) " ' : ;),
+The FINAL spoken text contains NO digits (0-9 or ०-९; the system spells out the digits you write, see rule A), NO Latin letters, NO symbols (₹ % / & @ # + = - ( ) " ' : ;),
 no emoji and no exclamation or question marks.
 
-A. Numbers, dates, money, percentages: write everything as full, unambiguous Marathi words.
-   "₹1,200 कोटी" → "एक हजार दोनशे कोटी रुपये"      "85%" → "पंच्याऐंशी टक्के"
-   "2026" → "दोन हजार सव्वीस"                        "13 नोव्हेंबर" → "तेरा नोव्हेंबर"
-   "5 लाख" → "पाच लाख"          "3 जण" → "तीन जण"       "2.5" → "अडीच"       "1.5" → "दीड"
-   Use the correct standard spoken Marathi form of every number (Marathi numbers 11 to 99 are irregular,
-   so double check each one) and read ranges, times, ordinals and decimals the way an anchor would say them.
+A. Numbers, dates, money, percentages: write them as plain DIGITS exactly as in the source, for example
+   "35000 कामगार", "₹1,200 कोटी", "85%", "13 नोव्हेंबर", "2026", "5 लाख", "3 जण", "2.5 लाख". Do NOT write number
+   words yourself: Marathi numbers 11 to 99 are irregular and a wrong word is a wrong fact on air. The system
+   converts every digit group into the correct spoken Marathi words before the voice reads it. Never put a
+   full stop or comma inside a number, never write a time like 10:30 with digits (write "सकाळी दहा वाजून तीस
+   मिनिटांनी" in words), and read ranges and ordinals in words ("पंधरावा", "दोन ते तीन").
 B. English acronyms: spell them letter by letter in Devanagari with a space between letters, using these
    letter names: A ए, B बी, C सी, D डी, E ई, F एफ, G जी, H एच, I आय, J जे, K के, L एल, M एम,
    N एन, O ओ, P पी, Q क्यू, R आर, S एस, T टी, U यू, V व्ही, W डब्ल्यू, X एक्स, Y वाय, Z झेड.

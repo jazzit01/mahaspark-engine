@@ -12,7 +12,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 import editorial_engine as ee
-from marathi_numbers import words_to_digits
+from marathi_numbers import numbers_to_words, words_to_digits
 from editorial_prompts import AUDIO_MOODS, SYSTEM_INSTRUCTION
 from llm_providers import ContentRejected, generate_json
 
@@ -120,7 +120,7 @@ def validate_item(data: dict, source_text: str) -> dict:
 
     headline = words_to_digits(re.sub(r"\s+", " ", str(data.get("headline", ""))).strip())
     context = words_to_digits(re.sub(r"\s+", " ", str(data.get("context", ""))).strip())
-    tts_text = ee.clean_tts_text(data.get("tts_text", ""))
+    tts_text = ee.clean_tts_text(numbers_to_words(data.get("tts_text", "")))
     category = re.sub(r"\s+", " ", str(data.get("category", ""))).strip()[: ee.MAX_CATEGORY_CHARS] or "मोठी बातमी"
     mood = data.get("audio_mood") if data.get("audio_mood") in AUDIO_MOODS else "neutral"
 

@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field
 
 from config import STORY_PATH, VOICEOVER_PATH, get_env_value
 from fetch_news import THIN_SOURCE_CHARS
-from marathi_numbers import words_to_digits
+from marathi_numbers import numbers_to_words, words_to_digits
 from editorial_prompts import AUDIO_MOODS, SYSTEM_INSTRUCTION, THEMES, build_user_prompt
 from llm_providers import (
     ContentRejected,
@@ -317,10 +317,11 @@ def validate_story(
     for idx, raw in enumerate(scenes_in, start=1):
         if not isinstance(raw, dict):
             raise ValueError(f"Scene {idx} is not an object.")
-        # on-screen text shows digits (१२, ₹१,२०० कोटी), never spelled-out numbers; tts_text is not touched
+        # on-screen text shows digits (१२, ₹१,२०० कोटी), never spelled-out numbers
         headline = words_to_digits(re.sub(r"\s+", " ", str(raw.get("headline", ""))).strip())
         description = words_to_digits(re.sub(r"\s+", " ", str(raw.get("description", ""))).strip())
-        tts_text = clean_tts_text(raw.get("tts_text", ""))
+        # the voice script is spoken Marathi: digits the model wrote are spelled out here, deterministically
+        tts_text = clean_tts_text(numbers_to_words(raw.get("tts_text", "")))
 
         if len(headline) < 6:
             raise ValueError(f"Scene {idx} headline is missing or too short.")

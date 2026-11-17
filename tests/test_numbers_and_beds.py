@@ -193,3 +193,57 @@ def test_reel_thumbnail_props_use_hook_headline_tag_and_key_figure():
     assert props["headline"] == "पुण्यात ११ वाहनांची तोडफोड" and props["tag"] == "ताजी बातमी" and props["figure"] == "११"
     story["visual_theme"] = "BreakingNewsStudio"
     assert pipeline.reel_thumbnail_props(story)["tag"] == "ब्रेकिंग"
+
+
+# ----- the voice script spells numbers out in code, not in the model -------------------------------
+
+import bulletin_editorial as be  # noqa: E402
+from helpers import valid_story  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    "written,spoken",
+    [
+        ("35000 कामगार", "पस्तीस हजार कामगार"),  # the bug: it was read as "तीस पॉइंट पाच हजार"
+        ("₹35,000 कोटी", "पस्तीस हजार कोटी रुपये"),
+        ("₹1,200 कोटी रुपये", "एक हजार दोनशे कोटी रुपये"),
+        ("85% मतदान", "पंच्याऐंशी टक्के मतदान"),
+        ("13 नोव्हेंबर 2026 रोजी", "तेरा नोव्हेंबर दोन हजार सव्वीस रोजी"),
+        ("3,50,000 जण", "तीन लाख पन्नास हजार जण"),
+        ("१२० जण", "एकशे वीस जण"),
+        ("शंभर जण 100 जण", "शंभर जण शंभर जण"),
+        ("1.5 लाख, 2.5 लाख, 3.5 लाख", "दीड लाख, अडीच लाख, साडेतीन लाख"),
+        ("2.7 टक्के", "दोन पूर्णांक सात टक्के"),
+        ("5675 कोटी", "पाच हजार सहाशे पंच्याहत्तर कोटी"),
+        ("काही आकडा नाही", "काही आकडा नाही"),
+    ],
+)
+def test_digits_are_spelled_as_correct_marathi(written, spoken):
+    assert mn.numbers_to_words(written) == spoken
+
+
+def test_every_number_up_to_a_thousand_round_trips_through_the_reader():
+    for n in range(0, 1000):
+        words = mn.int_to_words(n)
+        assert mn.words_to_digits(words) == ("एक" if n == 1 else mn.dev_digits(str(n))), (n, words)
+
+
+def test_times_are_left_for_the_validator_to_reject():
+    assert "10:30" in mn.numbers_to_words("सकाळी 10:30 वाजता")
+
+
+def test_story_voice_script_has_no_digits_after_conversion():
+    story = valid_story()
+    story["scenes"][1]["tts_text"] = "प्रकल्पासाठी, ₹1,200 कोटी रुपयांची तरतूद करण्यात आली आहे."
+    out = ee.validate_story(story, "प्रकल्प 1,200 कोटी तरतूद 120 दोन वर्षांत")
+    assert "एक हजार दोनशे कोटी रुपये" in out["scenes"][1]["tts_text"] and not ee.tts_problems(out["scenes"][1]["tts_text"])
+
+
+def test_bulletin_item_voice_script_is_converted_too():
+    data = {
+        "approved": True, "headline": "पुण्यात 35000 कामगार संपावर", "context": "कंपनीतील कामगारांनी संप पुकारला आहे.",
+        "tts_text": "पुण्यातील 35000 कामगार संपावर गेले आहेत, त्यामुळे कंपनीतील कामकाज पूर्णपणे ठप्प झाले आहे, असे कामगार संघटनेने सांगितले.", "category": "पुणे", "audio_mood": "neutral",
+        "event_key": "pune strike", "photo_query": "", "photo_keywords": [],
+    }
+    out = be.validate_item(data, "पुण्यात 35000 कामगार संपावर गेले. कंपनीतील कामकाज ठप्प झाले. कामगार संघटनेने हे सांगितले.")
+    assert "पस्तीस हजार" in out["tts_text"] and out["headline"] == "पुण्यात ३५,००० कामगार संपावर".replace("३५,०००", "३५०००")

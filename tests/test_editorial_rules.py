@@ -26,7 +26,7 @@ def test_rejected_story_raises_content_rejected():
         validate(story)
 
 
-@pytest.mark.parametrize("bad", ["120", "₹", "%", "A", "१२०", "-", "?", "!"])
+@pytest.mark.parametrize("bad", ["10:30", "₹", "%", "A", "-", "?", "!", "123456789012"])  # digits that can be spelled out are converted, not rejected
 def test_tts_text_rejects_digits_latin_and_symbols(bad):
     story = valid_story()
     story["scenes"][1]["tts_text"] = f"प्रकल्पासाठी, {bad} कोटी रुपयांची तरतूद करण्यात आली आहे."

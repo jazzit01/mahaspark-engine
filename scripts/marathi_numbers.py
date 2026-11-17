@@ -34,7 +34,7 @@ _UNITS = {
     "पंच्याण्णव": 95, "शहाण्णव": 96, "सत्त्याण्णव": 97, "अठ्ठ्याण्णव": 98, "नव्व्याण्णव": 99,
 }
 _HUNDREDS = {
-    "शंभर": 100, "दोनशे": 200, "तीनशे": 300, "चारशे": 400, "पाचशे": 500, "सहाशे": 600, "सातशे": 700,
+    "शंभर": 100, "एकशे": 100, "दोनशे": 200, "तीनशे": 300, "चारशे": 400, "पाचशे": 500, "सहाशे": 600, "सातशे": 700,
     "आठशे": 800, "नऊशे": 900,
 }
 _BIG = {"हजार": 1000}  # lakh and crore stay as unit words after the digits (५ लाख, १२ कोटी)
@@ -156,3 +156,94 @@ def caption_words(words: list[dict]) -> list[dict]:
         first, last = words[a], words[b]
         out.append({**first, "text": text, "end": last["end"]})
     return out
+
+
+# ----- digits -> spoken Marathi words (voice script) --------------------------------------------------
+# The model is error-prone with Marathi numbers 11-99, so for the VOICE it writes plain digits and this code
+# spells them out. ``numbers_to_words`` is deterministic and covers integers up to 99 crore, rupees, percent,
+# halves (1.5 दीड, 2.5 अडीच, 3.5 साडेतीन) and other decimals ("पूर्णांक").
+
+_CANON: dict[int, str] = {}
+for _word, _value in _UNITS.items():
+    _CANON.setdefault(_value, _word)  # the first spelling listed above is the canonical spoken one
+_HUNDRED_WORDS = {1: "एकशे", 2: "दोनशे", 3: "तीनशे", 4: "चारशे", 5: "पाचशे", 6: "सहाशे", 7: "सातशे", 8: "आठशे", 9: "नऊशे"}
+_MAX_SPOKEN = 99_99_99_999  # 99 crore and change; anything larger is left for the validator to reject
+_NUM = r"\d[\d,]*"
+_UNIT_WORD = r"(?:कोटी|लाख|हजार)"
+_LATIN = str.maketrans("०१२३४५६७८९", "0123456789")
+
+
+def int_to_words(n: int) -> str:
+    """Standard spoken Marathi for 0 <= n <= 99 crore (35000 -> पस्तीस हजार)."""
+    if n < 0 or n > _MAX_SPOKEN:
+        raise ValueError(n)
+    if n < 100:
+        return _CANON[n]
+    parts: list[str] = []
+    crore, lakh, thousand = n // 10_000_000, (n // 100_000) % 100, (n // 1000) % 100
+    hundred, rest = (n // 100) % 10, n % 100
+    if crore:
+        parts.append(f"{int_to_words(crore)} कोटी")
+    if lakh:
+        parts.append(f"{_CANON[lakh]} लाख")
+    if thousand:
+        parts.append(f"{_CANON[thousand]} हजार")
+    if hundred:
+        parts.append("शंभर" if hundred == 1 and rest == 0 else _HUNDRED_WORDS[hundred])
+    if rest:
+        parts.append(_CANON[rest])
+    return " ".join(parts)
+
+
+def _clean_int(text: str) -> int | None:
+    digits = text.replace(",", "")
+    return int(digits) if digits.isdigit() and int(digits) <= _MAX_SPOKEN else None
+
+
+def _half(whole: int) -> str:
+    return {0: "अर्धा", 1: "दीड", 2: "अडीच"}.get(whole) or f"साडे{int_to_words(whole)}"
+
+
+def _decimal_words(whole: str, frac: str) -> str | None:
+    w = _clean_int(whole)
+    if w is None:
+        return None
+    if frac == "5":
+        return _half(w)
+    return f"{int_to_words(w)} पूर्णांक " + " ".join(_CANON[int(d)] for d in frac)
+
+
+def numbers_to_words(text: str) -> str:
+    """Spell every number in ``text`` as Marathi words: ₹ amounts, percent, decimals, dates and years included.
+    Text without digits is returned unchanged. A number that cannot be spoken safely is left as digits so the
+    validator rejects it (never a wrong word)."""
+    s = str(text or "").translate(_LATIN)
+    if not re.search(r"\d", s):
+        return s
+
+    def whole(m: re.Match) -> str:
+        n = _clean_int(m.group(0))
+        return int_to_words(n) if n is not None else m.group(0)
+
+    # rupees: ₹1,200 कोटी  /  ₹35,000  /  ₹ 2.5 लाख
+    def rupees(m: re.Match) -> str:
+        amount, unit = m.group(1), m.group(2) or ""
+        spoken = _amount_words(amount)
+        return f"{spoken}{' ' + unit if unit else ''} रुपये" if spoken else m.group(0)
+
+    def _amount_words(amount: str) -> str | None:
+        if "." in amount:
+            w, f = amount.split(".", 1)
+            return _decimal_words(w, f)
+        n = _clean_int(amount)
+        return int_to_words(n) if n is not None else None
+
+    s = re.sub(rf"₹\s*({_NUM}(?:\.\d+)?)(?:\s*({_UNIT_WORD}))?(?:\s*रुपये)?", rupees, s)
+    s = re.sub(
+        rf"({_NUM}(?:\.\d+)?)\s*%",
+        lambda m: f"{_amount_words(m.group(1)) or m.group(1)} टक्के",
+        s,
+    )
+    s = re.sub(rf"(?<![\d,.])(\d+)\.(\d+)(?!\d)", lambda m: _decimal_words(m.group(1), m.group(2)) or m.group(0), s)
+    s = re.sub(rf"(?<![\d,])(?<!\d:){_NUM}(?<!,)(?!\d|:\d)", whole, s)  # times like 10:30 stay digits (rejected later)
+    return re.sub(r"\s{2,}", " ", s)
