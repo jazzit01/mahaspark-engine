@@ -138,3 +138,16 @@ def test_thin_source_gets_other_reports_labelled(monkeypatch):
 def test_thin_source_without_extras_is_unchanged(monkeypatch):
     monkeypatch.setattr(fetch_news, "related_sources", lambda *a, **k: [])
     assert fetch_news.enrich_thin_source("शीर्षक", "सारांश", "थोडा", "https://a.in/x") == "थोडा"
+
+
+def test_reel_thumbnail_props_use_hook_headline_tag_and_key_figure():
+    import pipeline
+
+    story = {
+        "visual_theme": "PrimeGridStudio",
+        "scenes": [{"headline": "पुण्यात ११ वाहनांची तोडफोड", "description": "कोयता गँगची दहशत"}],
+    }
+    props = pipeline.reel_thumbnail_props(story)
+    assert props["headline"] == "पुण्यात ११ वाहनांची तोडफोड" and props["tag"] == "ताजी बातमी" and props["figure"] == "११"
+    story["visual_theme"] = "BreakingNewsStudio"
+    assert pipeline.reel_thumbnail_props(story)["tag"] == "ब्रेकिंग"

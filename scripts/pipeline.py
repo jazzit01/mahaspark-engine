@@ -10,6 +10,7 @@ Local one-off, no Sheet needed:   python scripts/pipeline.py --text "<article te
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -145,6 +146,38 @@ def deliver(story: dict, source_url: str) -> str:
     return f"SUCCESS{voice} - Telegram: {'OK' if telegram_ok else 'FAIL'}"
 
 
+REEL_THUMB_JSON = REMOTION_DIR / "public" / "reel_thumb.json"
+REEL_THUMB_PATH = OUT_DIR / "reel_thumb.jpg"
+
+
+def reel_thumbnail_props(story: dict) -> dict:
+    """Headline of the hook scene, a red tag, and the story's key figure for the right-hand panel."""
+    from bulletin import highlight_for  # lazy: only needed when a thumbnail is made
+
+    scenes = story.get("scenes") or [{}]
+    figure = ""
+    for scene in scenes:
+        figure = highlight_for({"headline": scene.get("headline", ""), "context": scene.get("description", "")})
+        if figure:
+            break
+    tag = "ब्रेकिंग" if story.get("visual_theme") == "BreakingNewsStudio" else "ताजी बातमी"
+    return {"headline": scenes[0].get("headline", ""), "tag": tag, "figure": figure, "photo": None}
+
+
+def render_reel_thumbnail(story: dict) -> bool:
+    """1280x720 YouTube thumbnail for the video. Failure never stops the story."""
+    try:
+        REEL_THUMB_JSON.write_text(json.dumps(reel_thumbnail_props(story), ensure_ascii=False), encoding="utf-8")
+        cmd = [
+            "npx", "remotion", "still", "src/index.ts", "BulletinThumbnail", str(REEL_THUMB_PATH),
+            "--props=public/reel_thumb.json", "--image-format=jpeg", "--jpeg-quality=88",
+        ]
+        return subprocess.run(cmd, cwd=REMOTION_DIR).returncode == 0 and REEL_THUMB_PATH.exists()
+    except Exception as exc:  # noqa: BLE001
+        print(f"⚠️ Reel thumbnail render failed: {exc}")
+        return False
+
+
 def upload_reel_to_youtube(queue, story: dict) -> str:
     """Best-effort YouTube upload of the 16:9 video, within the daily slot budget. Returns a Sheet note fragment."""
     if not youtube_upload.reel_uploads_enabled():
@@ -166,6 +199,11 @@ def upload_reel_to_youtube(queue, story: dict) -> str:
             list(story.get("seo_keywords") or []) + ["MahaSpark", "मराठी बातम्या"],
         )
         print(f"▶️ Uploaded to YouTube: {url}")
+        if render_reel_thumbnail(story):
+            try:
+                youtube_upload.set_thumbnail(url, REEL_THUMB_PATH)
+            except Exception as exc:  # noqa: BLE001
+                print(f"⚠️ Thumbnail upload failed: {exc}")
         return f" - YouTube: OK {day} {url}"
     except Exception as exc:  # noqa: BLE001 - the reel is already delivered; never fail the story over YouTube
         print(f"⚠️ YouTube upload failed: {type(exc).__name__}: {str(exc)[:160]}")
