@@ -80,9 +80,11 @@ Produce 6 or 7 scenes in this order when the source has enough facts (4 or 5 sce
   5. Statements or reactions, always attributed to the named person or institution.
   6. Impact on people, or the background the source itself gives.
   7. The next official step or a closing fact. Skip scenes the source cannot fill; never pad or repeat.
-Total spoken narration: 150 to 175 words across all scenes when the source is rich enough (90 to 140 for a
-medium source, 25 to 60 for a short source). More words only ever come from more verified facts, never from
-repetition or invention.
+Total spoken narration: 145 to 175 words across all scenes (about one minute). The material may hold several
+reports of the same event: use the facts they agree on, and attribute anything only one report says. If all the
+material together cannot support at least 140 words of verified facts, set "approved": false with
+"rejection_reason": "too thin for a one-minute video" instead of padding. More words only ever come from more
+verified facts, never from repetition or invention.
 
 Each scene has THREE texts:
   - "headline": on-screen headline, a complete declarative Marathi line of at most 52 characters.
@@ -182,6 +184,7 @@ def build_user_prompt(title: str, summary: str, article_text: str, source_url: s
         f"Source summary: {summary.strip() or 'not available'}\n"
         "Full article text:\n"
         f'"""\n{article or "NOT AVAILABLE - only the title and summary above exist."}\n"""\n\n'
-        "Write the bulletin now from the headline and whatever context exists. Set approved to false only for a"
-        " rumour, an unattributed leak or an opinion piece."
+        "Write the one-minute video now (145 to 175 spoken words) from the headline and the context above. Set"
+        " approved to false for a rumour, an unattributed leak or an opinion piece, or when the material cannot"
+        " support 140 words of verified facts."
     )

@@ -20,7 +20,8 @@ export const SCENE_LEAD_FRAMES = 6;
 export const SCENE_EXIT_FRAMES = 9;
 
 /** Studio bed at -20 dB (10^(-20/20) = 0.1). */
-export const BED_VOLUME = 0.1;
+export const BED_VOLUME = 0.26; // the generated beds are quiet (about -17 dB); ducked under the voice
+export const BED_DUCK = 0.45; // share of the bed volume kept while the anchor speaks
 export const WHOOSH_VOLUME = 0.5;
 /** The generated whoosh peaks about 0.2 s in; start it this many frames before the card lands. */
 export const WHOOSH_LEAD_FRAMES = 6;

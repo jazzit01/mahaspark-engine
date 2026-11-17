@@ -185,3 +185,70 @@ def _download_article_text(url: str) -> str:
         print(f"⚠️ Article fetch failed: {exc}")
         return ""
     return text if len(text) >= MIN_ARTICLE_CHARS else ""
+
+
+# ----- extra sources for thin stories -----------------------------------------------------------
+
+THIN_SOURCE_CHARS = 2200  # title + summary + article shorter than this is too thin for a one-minute video
+MAX_EXTRA_SOURCES = 2
+MAX_COMBINED_CHARS = 12000
+_TITLE_TAIL = re.compile(r"\s+[-|–]\s+[^-|–]{2,40}$")
+
+
+def _headline_query(title: str) -> str:
+    return _TITLE_TAIL.sub("", title or "").strip()[:120]
+
+
+def related_sources(title: str, source_url: str, limit: int = MAX_EXTRA_SOURCES) -> list[tuple[str, str, str]]:
+    """Other publishers' reports of the same event as ``(title, url, article_text)``, found with a Google News
+    search on the headline. Pages that cannot be read are skipped; any failure returns what was found so far."""
+    import difflib
+    from urllib.parse import quote
+
+    import feedparser
+
+    query = _headline_query(title)
+    if len(query) < 12:
+        return []
+    feed = f"https://news.google.com/rss/search?q={quote(query)}&hl=mr&gl=IN&ceid=IN:mr"
+    found: list[tuple[str, str, str]] = []
+    seen_hosts = {urlparse(source_url).netloc.lower()}
+    try:
+        entries = feedparser.parse(feed).entries[:8]
+    except Exception as exc:  # noqa: BLE001
+        print(f"ℹ️ Related-source search failed: {exc}")
+        return []
+    for entry in entries:
+        if len(found) >= limit:
+            break
+        other = strip_html(entry.get("title", ""))
+        if not other or difflib.SequenceMatcher(None, _headline_query(other), query).ratio() < 0.3:
+            continue  # a different story that merely shares a word
+        url = resolve_article_url((entry.get("link") or "").strip())
+        host = urlparse(url).netloc.lower()
+        if not url or host in seen_hosts or "news.google.com" in host:
+            continue
+        text = fetch_article_text(url)
+        if text:
+            seen_hosts.add(host)
+            found.append((other, url, text))
+    return found
+
+
+def enrich_thin_source(title: str, summary: str, article: str, source_url: str) -> str:
+    """Return ``article`` unchanged when it is rich enough; otherwise append other reports of the same event, each
+    labelled, so the writer has enough verified facts for a one-minute video."""
+    if len(title) + len(summary) + len(article) >= THIN_SOURCE_CHARS:
+        return article
+    try:
+        extra = related_sources(title, source_url)
+    except Exception as exc:  # noqa: BLE001 - extra sources are a bonus, never a reason to fail the story
+        print(f"ℹ️ Could not add related sources: {type(exc).__name__}: {exc}")
+        return article
+    if not extra:
+        return article
+    print(f"🔎 Thin source: added {len(extra)} more report(s) of the same event.")
+    parts = [article] if article else []
+    for other_title, url, text in extra:
+        parts.append(f"Another report of the same event ({urlparse(url).netloc}): {other_title}\n{text}")
+    return "\n\n".join(parts)[:MAX_COMBINED_CHARS]

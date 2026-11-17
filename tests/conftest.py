@@ -17,3 +17,11 @@ def _gemini_test_keys(monkeypatch):
     editorial_engine.reset_tts_state()
     yield
     editorial_engine.reset_tts_state()
+
+
+@pytest.fixture(autouse=True)
+def _no_related_source_search(monkeypatch):
+    """Tests never search the web for extra reports of a story."""
+    import fetch_news
+
+    monkeypatch.setattr(fetch_news, "related_sources", lambda *a, **k: [])
