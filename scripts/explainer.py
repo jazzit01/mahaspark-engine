@@ -15,10 +15,12 @@ import argparse
 import re
 import sys
 import time
+from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
+import drafts
 import editorial_engine as ee
 import fetch_news
 import longform
@@ -268,43 +270,17 @@ def pick_story(known: set[str], deadline: float):
     return None
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Build and publish one MahaSpark explainer video.")
-    parser.add_argument("--text", help='"<title>\\n<article>" for a local one-off (no Sheet, no RSS)')
-    parser.add_argument("--url", default="")
-    parser.add_argument("--skip-render", action="store_true")
-    parser.add_argument("--skip-upload", action="store_true")
-    parser.add_argument("--skip-telegram", action="store_true")
-    args = parser.parse_args(argv)
-
-    from sheet_queue import SheetQueue
-
-    queue, known = None, set()
-    if not args.text:
-        try:
-            queue = SheetQueue.connect()
-            known = queue.longform_known_keys()
-        except Exception as exc:  # noqa: BLE001
-            print(f"⚠️ Long-video log unavailable, continuing without de-duplication: {exc}")
+def finish(ex: dict, queue, skip_render: bool, skip_upload: bool, skip_telegram: bool) -> int:
+    """Voice, render, upload and announce an explainer dict (written by the model OR approved by you from a .txt)."""
     try:
-        if args.text:
-            head, _, body = args.text.partition("\n")
-            ex = write_explainer(head, "", body, args.url)
-        else:
-            ex = pick_story(known, time.time() + 1200)
-        if not ex:
-            print("❌ No story with enough verified text to explain right now.")
-            return 1
-        print(f"🧠 Explainer: {ex['title']} ({len(ex['scenes'])} scenes)")
         scenes = longform.voice_all(ex["scenes"])
     except (LLMUnavailableError, ContentFailed, ContentRejected) as exc:
         print(f"❌ {exc}")
         return 1
-
     props = longform.assemble("explainer", ex["title"], scenes, ee.pick_hue(ex["title"]), ex["audio_mood"])
     longform.write_props(props)
     print(f"🧾 {props['total_seconds']:.0f} s")
-    if args.skip_render:
+    if skip_render:
         return 0
     try:
         longform.render()
@@ -313,7 +289,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     video_url, uploaded = None, False
-    if not args.skip_upload:
+    if not skip_upload:
         try:
             video_url = youtube_upload.upload_video(LONG_PATH, ex["title"], build_description(ex, props), build_tags(ex))
             uploaded = True
@@ -328,18 +304,100 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:  # noqa: BLE001
             print(f"❌ YouTube upload failed: {exc}")
 
-    if not args.skip_telegram:
-        text = f"🧠 <b>MahaSpark समजून घ्या: {ex['title']}</b>\n" + (video_url or "(YouTube अपलोड झाला नाही; व्हिडिओ GitHub Actions artifact मध्ये आहे.)")
+    if not skip_telegram:
+        text = f"🧠 <b>MahaSpark समजून घ्या: {ex['title']}</b>\n" + (video_url or "(YouTube अपलोड झाला नाही; व्हिडिओ out/ फोल्डरमध्ये आहे.)")
         try:
             send_telegram.send_message(text)
         except Exception as exc:  # noqa: BLE001
             print(f"⚠️ Telegram notification failed: {exc}")
-    if queue is not None and (uploaded or args.skip_upload):
+    if queue is not None and (uploaded or skip_upload):
         try:
             queue.record_longform("explainer", ex["title"], (ex.get("source") or {}).get("url", ""), video_url or "")
         except Exception as exc:  # noqa: BLE001
             print(f"⚠️ Could not record the video in the Sheet: {exc}")
-    return 0 if (uploaded or args.skip_upload or not _youtube_configured()) else 1
+    return 0 if (uploaded or skip_upload or not _youtube_configured()) else 1
+
+
+def _connect_log():
+    from sheet_queue import SheetQueue
+
+    try:
+        queue = SheetQueue.connect()
+        return queue, queue.longform_known_keys()
+    except Exception as exc:  # noqa: BLE001
+        print(f"⚠️ Long-video log unavailable, continuing without de-duplication: {exc}")
+        return None, set()
+
+
+def draft_main(argv: list[str]) -> int:
+    """Write the script for YOUR topic to drafts/explainer-<time>.txt for you to edit."""
+    parser = argparse.ArgumentParser(prog="explainer.py draft", description="Write an explainer script as a .txt for approval.")
+    parser.add_argument("--topic", required=True, help="the topic in your words, e.g. 'पुणे मेट्रो विस्तार'")
+    parser.add_argument("--url", action="append", default=[], help="a source article to use (repeat for more)")
+    args = parser.parse_args(argv)
+    text, urls = drafts.topic_sources(args.topic, args.url)
+    if len(text) < MIN_SOURCE_CHARS // 2:
+        print(f"❌ Found only {len(text)} characters of readable news about this topic. Add article links with --url.")
+        return 1
+    try:
+        ex = write_explainer(args.topic, "", text, "\n".join(urls))
+    except (LLMUnavailableError, ContentFailed, ContentRejected, ValueError) as exc:
+        print(f"❌ {exc}")
+        return 1
+    path = drafts.new_draft_path("explainer")
+    path.write_text(drafts.explainer_to_text(ex, urls), encoding="utf-8")
+    print(f"📝 Script ready: {path}\n   Edit it, save, then run: python scripts/explainer.py produce {path}")
+    return 0
+
+
+def produce_main(argv: list[str]) -> int:
+    """Produce the video from an approved (or self-written) script .txt."""
+    parser = argparse.ArgumentParser(prog="explainer.py produce", description="Make the video from an approved script file.")
+    parser.add_argument("file", type=Path)
+    parser.add_argument("--skip-render", action="store_true")
+    parser.add_argument("--skip-upload", action="store_true")
+    parser.add_argument("--skip-telegram", action="store_true")
+    args = parser.parse_args(argv)
+    try:
+        ex = drafts.parse_explainer(args.file.read_text(encoding="utf-8"))
+    except drafts.DraftError as exc:
+        print("❌ Fix these lines in the script and run again:\n" + "\n".join(f"  • {p}" for p in exc.problems))
+        return 1
+    print(f"✅ Script accepted: {ex['title']} ({len(ex['scenes'])} scenes)")
+    queue = _connect_log()[0]
+    return finish(ex, queue, args.skip_render, args.skip_upload, args.skip_telegram)
+
+
+def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "draft":
+        return draft_main(argv[1:])
+    if argv and argv[0] == "produce":
+        return produce_main(argv[1:])
+
+    parser = argparse.ArgumentParser(description="Build and publish one MahaSpark explainer video (automatic; use 'draft' / 'produce' for your own topic and approval).")
+    parser.add_argument("--text", help='"<title>\\n<article>" for a local one-off (no Sheet, no RSS)')
+    parser.add_argument("--url", default="")
+    parser.add_argument("--skip-render", action="store_true")
+    parser.add_argument("--skip-upload", action="store_true")
+    parser.add_argument("--skip-telegram", action="store_true")
+    args = parser.parse_args(argv)
+
+    queue, known = (None, set()) if args.text else _connect_log()
+    try:
+        if args.text:
+            head, _, body = args.text.partition("\n")
+            ex = write_explainer(head, "", body, args.url)
+        else:
+            ex = pick_story(known, time.time() + 1200)
+        if not ex:
+            print("❌ No story with enough verified text to explain right now.")
+            return 1
+        print(f"🧠 Explainer: {ex['title']} ({len(ex['scenes'])} scenes)")
+    except (LLMUnavailableError, ContentFailed, ContentRejected) as exc:
+        print(f"❌ {exc}")
+        return 1
+    return finish(ex, queue, args.skip_render, args.skip_upload, args.skip_telegram)
 
 
 def _youtube_configured() -> bool:

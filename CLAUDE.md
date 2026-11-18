@@ -28,6 +28,7 @@ RSS -> Sheet queue -> article text -> 5W1H + phonetic script (Gemini) -> Gemini 
 | `scripts/longform.py` | Shared engine of the explainer and quiz: per-scene TTS, Whisper word times, `cue_times` (a graphic appears on the word that names it; `cue_index` = exact word position), `assemble`, chapters, render, thumbnail. Writes `remotion/public/long.json`. |
 | `scripts/explainer.py` | ~3 min 16:9 explainer of ONE fresh story (scene kinds title/points/steps/compare/timeline/stat/quote/summary). Facts, numbers and quotes validated against the source. `python scripts/explainer.py [--text ... --url ...]`. |
 | `scripts/quiz.py` | ~5 min daily news quiz: 10 questions from fresh stories, 4 options, 5 s silent countdown, answer + explanation. A bad question is dropped; fewer than 6 good ones = model repair. |
+| `scripts/drafts.py` | Script approval for the explainer and quiz: `draft` writes an editable `.txt` in `drafts/` (git-ignored) from the person's topic/URLs, `produce` reads the approved (or self-written) `.txt`. Parsers refuse only what would break the voice/layout (non-Devanagari speech, bad kinds, missing items) and list every line to fix; approved text is not fact-checked again. |
 | `remotion/` | Remotion v4 TypeScript project (see Broadcast design). `src/bulletin/` is the 16:9 bulletin. |
 | `assets/archive/` | Retired static backgrounds (`bg1-6`). Not used by the pipeline. |
 | `tests/` | `python -m pytest -q`. No network or API keys needed. |
@@ -207,3 +208,7 @@ Two more long videos on the shared engine `longform.py` and ONE composition, `Ma
 - Sheet worksheet `LongForm` (created on first run) stores used titles/URLs so a story is not explained or quizzed twice.
 - YouTube quota: 2 bulletins + explainer + quiz + 2 reels = 6 uploads a day (`REEL_UPLOAD_SLOTS` was cut to 12 and 19 IST for this).
 - Not verified here (no network): the real Remotion render of `MahaSparkLong`, live Gemini output for the explainer/quiz schemas, TTS of the option letters. Check the first runs' logs and look at the first videos.
+
+### Your own topic and script approval (laptop)
+
+`python scripts/explainer.py draft --topic "..." [--url ...]` and `python scripts/quiz.py draft [--topic "..." --url ...]` write `drafts/<kind>-<time>.txt` (the quiz without `--topic` uses today's news). Edit it, save, then `python scripts/explainer.py produce drafts/<file>.txt` / `python scripts/quiz.py produce drafts/<file>.txt` (same `--skip-render/--skip-upload/--skip-telegram`). A script written from scratch in the same format works too. With no sub-command both scripts stay fully automatic (what `explainer.yml` / `quiz.yml` run). Format and rules: the comment block at the top of every draft, `drafts.py`.

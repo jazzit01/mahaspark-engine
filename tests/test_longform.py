@@ -210,3 +210,90 @@ def test_quiz_scenes_have_intro_question_answer_pairs_and_an_end():
     assert not any(c.isdigit() for s in scenes for c in s["tts_text"])  # numbers are spelled out for the voice
     a = scenes[2]
     assert a["tts_text"].split()[a["explain_index"]] == good_question()["explanation_tts"].split()[0]
+
+
+# ----- approval drafts ---------------------------------------------------------------------------
+
+import drafts  # noqa: E402
+
+
+def test_explainer_draft_round_trips_through_the_txt_format():
+    ex = explainer.validate_explainer(good_explainer(), SOURCE)
+    text = drafts.explainer_to_text(ex, ["https://x/1", "https://x/2"])
+    back = drafts.parse_explainer(text)
+    assert [s["kind"] for s in back["scenes"]] == [s["kind"] for s in ex["scenes"]]
+    assert back["scenes"][1]["tts_text"] == ex["scenes"][1]["tts_text"]
+    assert back["scenes"][2]["items"][0]["value"] == ex["scenes"][2]["items"][0]["value"]
+    assert back["source"]["url"] == "https://x/1\nhttps://x/2" and back["title"]
+
+
+HAND_WRITTEN = """
+TITLE: माझी स्वतःची पुणे पाणी योजना माहिती
+CAPTION: थोडक्यात
+KEYWORDS: पुणे, Pune water
+=== SCENE 1 | title ===
+HEADLINE: पुण्याची नवी पाणी योजना
+SPEECH: पुणे महापालिकेने 1200 कोटी रुपयांची
+  पाणी योजना मंजूर केली आहे.
+=== SCENE 2 | points ===
+HEADLINE: मुख्य मुद्दे
+SPEECH: योजनेमुळे नागरिकांना नियमित पाणी मिळेल, गळती कमी होईल, काम वेळेत पूर्ण होईल.
+ITEMS:
+- नियमित पाणी
+- गळती कमी | | गळती
+=== SCENE 3 | stat ===
+HEADLINE: निधी
+SPEECH: एकूण खर्च 1200 कोटी रुपये आहे.
+ITEMS:
+- मंजूर निधी | ₹1200 कोटी | खर्च
+"""
+
+
+def test_a_hand_written_script_is_accepted_and_numbers_are_spelled_for_the_voice():
+    ex = drafts.parse_explainer(HAND_WRITTEN)
+    assert [s["kind"] for s in ex["scenes"]] == ["title", "points", "stat"]
+    assert "1200" not in ex["scenes"][0]["tts_text"] and not any(c.isdigit() for s in ex["scenes"] for c in s["tts_text"])
+    assert ex["scenes"][1]["items"][0]["cue"] == "नियमित"  # no cue given: found from the item text
+    assert ex["scenes"][1]["items"][1]["cue"] == "गळती"
+    assert ex["scenes"][2]["items"][0]["value"].startswith("₹")
+
+
+def test_script_problems_name_the_scene_and_what_to_fix():
+    bad = HAND_WRITTEN.replace("पाणी योजना मंजूर केली आहे.", "water plan approved.").replace("SCENE 3 | stat", "SCENE 3 | stat\nHEADLINE: x")
+    with pytest.raises(drafts.DraftError) as err:
+        drafts.parse_explainer(bad)
+    assert any("Scene 1" in p and "Devanagari" in p for p in err.value.problems)
+    with pytest.raises(drafts.DraftError) as err:
+        drafts.parse_explainer(HAND_WRITTEN.replace("| title ===", "| banana ==="))
+    assert "unknown kind" in err.value.problems[0]
+    with pytest.raises(drafts.DraftError):
+        drafts.parse_explainer("TITLE: काहीही नाही इथे\n")
+
+
+def test_quiz_draft_round_trips_and_accepts_hand_edits():
+    qz = quiz.validate_quiz({"title": "आजची न्यूज क्विझ: पुणे पाणी योजना", "questions": [good_question() for _ in range(6)]}, STORIES)
+    text = drafts.quiz_to_text(qz, ["https://x/1"])
+    back = drafts.parse_quiz(text)
+    assert len(back["questions"]) == 6 and back["questions"][0]["correct"] == 0
+    assert back["questions"][0]["options"] == qz["questions"][0]["options"]
+    edited = text.replace("ANSWER: A\n", "ANSWER: C\n", 1)
+    assert drafts.parse_quiz(edited)["questions"][0]["correct"] == 2
+    scenes, _extras = quiz.build_scenes(back)  # the approved file feeds the same scene builder
+    assert [s["kind"] for s in scenes].count("question") == 6
+
+
+def test_quiz_file_errors_are_listed():
+    text = "TITLE: आजची न्यूज क्विझ चाचणी\n=== Q1 ===\nQ: पुणे महापालिकेने कोणती योजना मंजूर केली?\nA) एक\nB) एक\nC) तीन\nD) चार\nANSWER: E\nWHY: कारण असे आहे.\n"
+    with pytest.raises(drafts.DraftError) as err:
+        drafts.parse_quiz(text)
+    joined = " ".join(err.value.problems)
+    assert "four different options" in joined and "ANSWER" in joined and "at least 3" in joined
+
+
+def test_cli_dispatch_keeps_the_automatic_mode(monkeypatch):
+    called = {}
+    monkeypatch.setattr(explainer, "draft_main", lambda a: called.setdefault("draft", a) and 0)
+    monkeypatch.setattr(explainer, "produce_main", lambda a: called.setdefault("produce", a) and 0)
+    explainer.main(["draft", "--topic", "x"])
+    explainer.main(["produce", "f.txt"])
+    assert called == {"draft": ["--topic", "x"], "produce": ["f.txt"]}
