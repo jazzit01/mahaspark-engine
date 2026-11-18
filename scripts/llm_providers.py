@@ -65,6 +65,14 @@ class LLMUnavailableError(RuntimeError):
     marking it as an error."""
 
 
+class ContentFailed(Exception):
+    """Every provider answered, but none produced content that passed the quality checks."""
+
+    def __init__(self, message: str, errors: list[str] | None = None):
+        super().__init__(message)
+        self.errors = errors or []
+
+
 class ContentRejected(Exception):
     """The model (or a validator) decided the story must not be published.
 
@@ -264,6 +272,7 @@ def generate_json(
 
     last_error = ""
     bad_content = False
+    content_errors: list[str] = []
 
     for provider, model_name, call in attempts:
         slot = f"{provider}:{model_name}"
@@ -288,6 +297,7 @@ def generate_json(
                 # something unusable. Give it one repair attempt, then move on.
                 bad_content = True
                 last_error = f"[{slot}] {type(e).__name__}: {e}"
+                content_errors.append(str(e))
                 print(f"⚠️ {slot} returned unusable content: {last_error[:200]}")
                 if repaired:
                     break
@@ -330,5 +340,5 @@ def generate_json(
         f" Last error: {last_error or 'all providers were already unavailable earlier in this run'}"
     )
     if bad_content:
-        raise Exception(message)
+        raise ContentFailed(message, content_errors)
     raise LLMUnavailableError(message)

@@ -29,6 +29,7 @@ from fetch_news import THIN_SOURCE_CHARS
 from marathi_numbers import numbers_to_words, words_to_digits
 from editorial_prompts import AUDIO_MOODS, SYSTEM_INSTRUCTION, THEMES, build_user_prompt
 from llm_providers import (
+    ContentFailed,
     ContentRejected,
     LLMUnavailableError,
     gemini_keys,
@@ -438,10 +439,10 @@ def write_story(title: str, summary: str, article_text: str, source_url: str) ->
         try:
             story = _write(title, summary, article_text, source_url, source_text, short=False)
             story["format"] = "landscape"
-        except ValueError as exc:
-            if "Narration has" not in str(exc):
-                raise
-            print(f"ℹ️ Too thin for a one-minute video after all ({exc}); writing a 9:16 Short instead.")
+        except (ValueError, ContentFailed) as exc:
+            # Every model failed the one-minute checks (usually too few facts for 140 words, sometimes a slip in a
+            # long script). A Short is far easier to write correctly than losing the story.
+            print(f"ℹ️ No valid one-minute script ({str(exc)[:160]}); writing a 9:16 Short instead.")
     if story is None:
         story = _write(title, summary, article_text, source_url, source_text, short=True)
         story["format"] = "portrait"
