@@ -29,6 +29,8 @@ TOTAL_COLUMNS = 16
 EXTRA_HEADERS = {COL_SOURCE_URL: "Source_URL", COL_THEME: "Visual_Theme", COL_SUMMARY: "Summary_5W1H"}
 
 BULLETIN_SHEET = "Bulletins"
+LONGFORM_SHEET = "LongForm"
+LONGFORM_HEADERS = ["Published_At", "Kind", "Title", "Source_URL", "YouTube_URL"]
 BULLETIN_HEADERS = ["Bulletin_ID", "Slot", "Published_At", "Position", "Headline", "Source_URL", "YouTube_URL"]
 
 PENDING, PROCESSING, DONE, ERROR, REJECTED = "PENDING", "PROCESSING", "DONE", "ERROR", "REJECTED"
@@ -105,6 +107,29 @@ class SheetQueue:
                 for i, it in enumerate(items)
             ]
         )
+
+    # ----- explainer / quiz log (separate worksheet) -------------------------------------------
+
+    def _longform_sheet(self):
+        book = self.sheet.spreadsheet
+        try:
+            return book.worksheet(LONGFORM_SHEET)
+        except Exception:  # noqa: BLE001 - gspread.WorksheetNotFound; create it on first use
+            ws = book.add_worksheet(title=LONGFORM_SHEET, rows=500, cols=len(LONGFORM_HEADERS))
+            ws.append_row(LONGFORM_HEADERS)
+            return ws
+
+    def longform_known_keys(self) -> set[str]:
+        """Titles and source URLs already used by an explainer or quiz (lower-cased)."""
+        keys: set[str] = set()
+        for row in self._longform_sheet().get_all_values()[1:]:
+            for idx in (2, 3):
+                if len(row) > idx and row[idx].strip():
+                    keys.update(part.strip().lower() for part in row[idx].split("\n") if part.strip())
+        return keys
+
+    def record_longform(self, kind: str, title: str, source_urls: str, video_url: str) -> None:
+        self._longform_sheet().append_row([now_ist(), kind, title, source_urls, video_url])
 
     # ----- reading ----------------------------------------------------------------------------
 

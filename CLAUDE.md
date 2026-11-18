@@ -25,6 +25,9 @@ RSS -> Sheet queue -> article text -> 5W1H + phonetic script (Gemini) -> Gemini 
 | `scripts/bulletin.py` | The long 16:9 **news bulletin** orchestrator (see News bulletin). `python scripts/bulletin.py [--skip-render] [--skip-upload] [--skip-telegram]`. |
 | `scripts/bulletin_editorial.py` | One bulletin item (headline + ONE context line + spoken sentences). Reuses the reel prompt's fact and phonetic sections verbatim. |
 | `scripts/youtube_upload.py` | YouTube Data API resumable upload with an OAuth refresh token (env only). |
+| `scripts/longform.py` | Shared engine of the explainer and quiz: per-scene TTS, Whisper word times, `cue_times` (a graphic appears on the word that names it; `cue_index` = exact word position), `assemble`, chapters, render, thumbnail. Writes `remotion/public/long.json`. |
+| `scripts/explainer.py` | ~3 min 16:9 explainer of ONE fresh story (scene kinds title/points/steps/compare/timeline/stat/quote/summary). Facts, numbers and quotes validated against the source. `python scripts/explainer.py [--text ... --url ...]`. |
+| `scripts/quiz.py` | ~5 min daily news quiz: 10 questions from fresh stories, 4 options, 5 s silent countdown, answer + explanation. A bad question is dropped; fewer than 6 good ones = model repair. |
 | `remotion/` | Remotion v4 TypeScript project (see Broadcast design). `src/bulletin/` is the 16:9 bulletin. |
 | `assets/archive/` | Retired static backgrounds (`bg1-6`). Not used by the pipeline. |
 | `tests/` | `python -m pytest -q`. No network or API keys needed. |
@@ -165,7 +168,7 @@ RSS (round-robin over feeds, de-duplicated) -> 10 items (bulletin_editorial) -> 
 
 ## YouTube upload of the 16:9 videos
 
-After Telegram, `pipeline.upload_reel_to_youtube` uploads the video (and sets a 1280x720 thumbnail from the `BulletinThumbnail` composition: hook headline, red tag, key figure; best effort) (title `social_title`, description from `youtube_upload.build_reel_description`: caption, main point, CTA, AI-voice note, hashtags; NO source link; tags from `seo_keywords`). Best effort: a failure never fails the story. A default YouTube API project has 10,000 quota units/day and an upload costs 1,600, so only ~6 uploads/day fit and the two bulletins must always get in: reels upload at most one per slot hour (`REEL_UPLOAD_SLOTS` = 07, 12, 19 IST), counted from `YouTube: OK <date>` in the Sheet note. `YOUTUBE_UPLOAD_REELS=0` turns it off; `YOUTUBE_SYNTHETIC_FLAG=1` also ticks YouTube's altered/synthetic box (the AI voice is always disclosed in the description via `AI_NOTE`). Privacy follows `YOUTUBE_PRIVACY`.
+After Telegram, `pipeline.upload_reel_to_youtube` uploads the video (and sets a 1280x720 thumbnail from the `BulletinThumbnail` composition: hook headline, red tag, key figure; best effort) (title `social_title`, description from `youtube_upload.build_reel_description`: caption, main point, CTA, AI-voice note, hashtags; NO source link; tags from `seo_keywords`). Best effort: a failure never fails the story. A default YouTube API project has 10,000 quota units/day and an upload costs 1,600, so only ~6 uploads/day fit and the two bulletins must always get in: reels upload at most one per slot hour (`REEL_UPLOAD_SLOTS` = 12, 19 IST; the explainer and quiz take two of the ~6 daily uploads), counted from `YouTube: OK <date>` in the Sheet note. `YOUTUBE_UPLOAD_REELS=0` turns it off; `YOUTUBE_SYNTHETIC_FLAG=1` also ticks YouTube's altered/synthetic box (the AI voice is always disclosed in the description via `AI_NOTE`). Privacy follows `YOUTUBE_PRIVACY`.
 
 ## CI (`.github/workflows/runner.yml`)
 
@@ -195,3 +198,12 @@ returns to `PENDING` and is retried next run; `ERROR` rows are never retried.
 ## Subject-based bulletin photos
 
 Each bulletin item carries `photo_query` (English subject, e.g. "IndiGo Airbus A320") and `photo_keywords` (lowercase words that must appear in the Commons file name; `clean_photo_subject` validates). Person photos need EVERY name part in the file name. No match = the key-figure panel. Not verified here: live Commons results and the 16:9 render; check the first CI run.
+
+## Explainer and daily quiz (16:9, YouTube)
+
+Two more long videos on the shared engine `longform.py` and ONE composition, `MahaSparkLong` (`remotion/src/long/`, props `remotion/public/long.json`, outro shared with the bulletin). Each scene has its own voice clip; word times are relative to the scene start and the graphics are cued to spoken words, so nothing appears before it is said. Scene components: `ExplainerScenes.tsx` (kinds), `QuizScenes.tsx` (intro, question with countdown ring, answer reveal, end), `LongCaptions.tsx` (karaoke), `LongVideo.tsx` (sequencing, bed ducking, whoosh, progress line, logo layer). Same rules as everywhere: facts only, digits on screen / spelled in `tts_text`, no date or category badges.
+
+- Workflows `explainer.yml` and `quiz.yml` are `workflow_dispatch` only (GitHub's schedule runs hours late). Start them from cron-job.org like the bulletin (POST `https://api.github.com/repos/jazzit01/mahaspark-engine/actions/workflows/<file>/dispatches`, body `{"ref":"main"}`).
+- Sheet worksheet `LongForm` (created on first run) stores used titles/URLs so a story is not explained or quizzed twice.
+- YouTube quota: 2 bulletins + explainer + quiz + 2 reels = 6 uploads a day (`REEL_UPLOAD_SLOTS` was cut to 12 and 19 IST for this).
+- Not verified here (no network): the real Remotion render of `MahaSparkLong`, live Gemini output for the explainer/quiz schemas, TTS of the option letters. Check the first runs' logs and look at the first videos.

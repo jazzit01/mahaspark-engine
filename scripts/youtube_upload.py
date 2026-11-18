@@ -21,7 +21,7 @@ CHUNK_BYTES = 8 * 1024 * 1024
 MAX_TITLE, MAX_DESCRIPTION, MAX_TAGS_CHARS = 100, 5000, 450
 PRIVACY_VALUES = ("private", "unlisted", "public")
 AI_NOTE = "ℹ️ बातमी विश्वसनीय स्रोतांच्या माहितीवर आधारित आहे; निवेदनाचा आवाज AI ने तयार केला आहे."
-REEL_UPLOAD_SLOTS = (7, 12, 19)  # IST hours; one more reel may be uploaded after each (YouTube API quota)
+REEL_UPLOAD_SLOTS = (12, 19)  # IST hours; one more reel may be uploaded after each (YouTube API quota: 2 bulletins + explainer + quiz + 2 reels = 6 uploads)
 
 
 def synthetic_flag() -> bool:

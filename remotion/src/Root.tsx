@@ -10,6 +10,8 @@ import {BulletinReel, bulletinFrames} from './bulletin/BulletinReel';
 import {BULLETIN_HEIGHT, BULLETIN_WIDTH} from './bulletin/constants';
 import {sampleBulletin} from './bulletin/sampleBulletin';
 import {BulletinProps} from './bulletin/types';
+import {LongVideo, longFrames} from './long/LongVideo';
+import {LongProps} from './long/types';
 import {BulletinThumbnail, THUMB_HEIGHT, THUMB_WIDTH} from './bulletin/Thumbnail';
 
 /** Bulletin length is the sum of its item voiceovers plus the fixed outro (all derived in bulletin.json). */
@@ -19,6 +21,31 @@ const calculateBulletinMetadata: CalculateMetadataFunction<BulletinProps> = ({pr
   width: BULLETIN_WIDTH,
   height: BULLETIN_HEIGHT,
 });
+
+/** Explainer / quiz length is the sum of its scenes plus the fixed outro (all derived in long.json). */
+const calculateLongMetadata: CalculateMetadataFunction<LongProps> = ({props}) => ({
+  durationInFrames: longFrames(props, FPS),
+  fps: FPS,
+  width: BULLETIN_WIDTH,
+  height: BULLETIN_HEIGHT,
+});
+
+const sampleLong: LongProps = {
+  kind: 'explainer',
+  title: 'नमुना',
+  audio_mood: 'neutral',
+  bg_hue: 0,
+  outro_seconds: 8,
+  outro_start: 6,
+  total_seconds: 14,
+  scenes: [
+    {
+      kind: 'points', headline: 'मुख्य मुद्दे', items: [{label: 'पहिला मुद्दा', cue: 1}, {label: 'दुसरा मुद्दा', cue: 2.5}],
+      audio: 'whoosh.wav', audio_seconds: 4, lead_seconds: 0.5, seconds: 6, start: 0,
+      words: [{text: 'पहिला', start: 1, end: 1.4}, {text: 'मुद्दा.', start: 1.4, end: 2}],
+    },
+  ],
+};
 
 /** Video length follows the real voiceover: duration_seconds (from faster-whisper) plus a short studio tail. */
 const calculateMetadata: CalculateMetadataFunction<Story> = ({props}) => ({
@@ -72,6 +99,18 @@ export const RemotionRoot: React.FC = () => {
         durationInFrames={FPS * 38}
         defaultProps={sampleBulletin}
         calculateMetadata={calculateBulletinMetadata}
+      />
+
+      {/* Explainer and daily quiz (16:9): rendered with --props=public/long.json. */}
+      <Composition
+        id="MahaSparkLong"
+        component={LongVideo}
+        width={BULLETIN_WIDTH}
+        height={BULLETIN_HEIGHT}
+        fps={FPS}
+        durationInFrames={FPS * 14}
+        defaultProps={sampleLong}
+        calculateMetadata={calculateLongMetadata}
       />
 
       {/* YouTube thumbnail still for the bulletin: rendered with --props=public/bulletin_thumb.json. */}
