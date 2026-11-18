@@ -25,7 +25,7 @@ export const LANDSCAPE: Layout = {
   captionSize: 56,
   captionMaxWidth: 1500,
   logo: {left: 40, top: 26, width: 230, height: 140},
-  headlineSize: (chars) => (chars <= 22 ? 124 : chars <= 34 ? 112 : chars <= 46 ? 100 : 90),
+  headlineSize: (chars) => (chars <= 22 ? 144 : chars <= 34 ? 128 : chars <= 46 ? 114 : 102),
 };
 
 /** The original vertical reel layout (1080x1920), unchanged. */
@@ -39,7 +39,7 @@ export const PORTRAIT: Layout = {
   captionSize: 52,
   captionMaxWidth: 960,
   logo: {left: 34, top: 34, width: 300, height: 200},
-  headlineSize: (chars) => (chars <= 22 ? 108 : chars <= 34 ? 100 : chars <= 46 ? 92 : 84),
+  headlineSize: (chars) => (chars <= 22 ? 124 : chars <= 34 ? 114 : chars <= 46 ? 104 : 94),
 };
 
 export const layoutFor = (width: number, height: number): Layout => (width >= height ? LANDSCAPE : PORTRAIT);

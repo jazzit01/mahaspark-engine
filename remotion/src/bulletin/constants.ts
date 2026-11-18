@@ -22,10 +22,10 @@ export const WHOOSH_FRAMES_EARLY = 4;
 /** Headline size by length: the text is sized to fill the left column, never to be timid. */
 export const headlineSize = (text: string): number => {
   const n = text.length;
-  if (n <= 20) return 140;
-  if (n <= 30) return 124;
-  if (n <= 40) return 108;
-  return 96;
+  if (n <= 20) return 160;
+  if (n <= 30) return 140;
+  if (n <= 40) return 122;
+  return 108;
 };
 
 /** Frame length of each item, and the outro after them. Item starts are the running sum. */
