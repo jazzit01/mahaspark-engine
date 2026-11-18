@@ -77,10 +77,9 @@ import youtube_upload as yt  # noqa: E402
 
 
 def test_reel_upload_slots_respect_the_daily_quota():
-    assert not yt.allowed_reel_uploads(6, 0)
-    assert yt.allowed_reel_uploads(7, 0) and not yt.allowed_reel_uploads(8, 1)
-    assert yt.allowed_reel_uploads(12, 1) and not yt.allowed_reel_uploads(13, 2)
-    assert yt.allowed_reel_uploads(19, 2) and not yt.allowed_reel_uploads(23, 3)
+    assert not yt.allowed_reel_uploads(11, 0)
+    assert yt.allowed_reel_uploads(12, 0) and not yt.allowed_reel_uploads(13, 1)
+    assert yt.allowed_reel_uploads(19, 1) and not yt.allowed_reel_uploads(23, 2)
 
 
 def test_reel_description_has_cta_ai_note_and_no_source_link():
