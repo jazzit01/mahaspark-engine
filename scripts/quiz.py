@@ -14,9 +14,11 @@ import argparse
 import re
 import sys
 import time
+from pathlib import Path
 
 from pydantic import BaseModel, Field
 
+import drafts
 import editorial_engine as ee
 import fetch_news
 import longform
@@ -258,38 +260,18 @@ def gather_stories(known: set[str], deadline: float) -> list[dict]:
     return stories
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Build and publish the MahaSpark daily news quiz.")
-    parser.add_argument("--skip-render", action="store_true")
-    parser.add_argument("--skip-upload", action="store_true")
-    parser.add_argument("--skip-telegram", action="store_true")
-    args = parser.parse_args(argv)
-
-    from sheet_queue import SheetQueue
-
-    queue, known = None, set()
+def finish(quiz: dict, queue, skip_render: bool, skip_upload: bool, skip_telegram: bool) -> int:
+    """Voice, render, upload and announce a quiz dict (written by the model OR approved by you from a .txt)."""
     try:
-        queue = SheetQueue.connect()
-        known = queue.longform_known_keys()
-    except Exception as exc:  # noqa: BLE001
-        print(f"⚠️ Long-video log unavailable, continuing without de-duplication: {exc}")
-    try:
-        stories = gather_stories(known, time.time() + 900)
-        if len(stories) < 3:
-            print(f"❌ Only {len(stories)} readable stories; a quiz needs at least 3.")
-            return 1
-        quiz = write_quiz(stories)
-        print(f"🧠 Quiz: {quiz['title']} ({len(quiz['questions'])} questions)")
         scenes, extras = build_scenes(quiz)
         scenes = longform.voice_all(scenes, extras)
     except (LLMUnavailableError, ContentFailed, ContentRejected) as exc:
         print(f"❌ {exc}")
         return 1
-
     props = longform.assemble("quiz", quiz["title"], scenes, ee.pick_hue(quiz["title"]), "upbeat")
     longform.write_props(props)
     print(f"🧾 {props['total_seconds']:.0f} s")
-    if args.skip_render:
+    if skip_render:
         return 0
     try:
         longform.render()
@@ -298,7 +280,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     video_url, uploaded = None, False
-    if not args.skip_upload:
+    if not skip_upload:
         try:
             video_url = youtube_upload.upload_video(LONG_PATH, quiz["title"], build_description(quiz, props), build_tags(quiz))
             uploaded = True
@@ -313,15 +295,15 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:  # noqa: BLE001
             print(f"❌ YouTube upload failed: {exc}")
 
-    if not args.skip_telegram:
-        text = f"❓ <b>MahaSpark क्विझ: {quiz['title']}</b>\n" + (video_url or "(YouTube अपलोड झाला नाही; व्हिडिओ GitHub Actions artifact मध्ये आहे.)")
+    if not skip_telegram:
+        text = f"❓ <b>MahaSpark क्विझ: {quiz['title']}</b>\n" + (video_url or "(YouTube अपलोड झाला नाही; व्हिडिओ out/ फोल्डरमध्ये आहे.)")
         try:
             send_telegram.send_message(text)
         except Exception as exc:  # noqa: BLE001
             print(f"⚠️ Telegram notification failed: {exc}")
-    if queue is not None and (uploaded or args.skip_upload):
+    if queue is not None and (uploaded or skip_upload):
         try:
-            queue.record_longform("quiz", quiz["title"], "\n".join(quiz["sources"]), video_url or "")
+            queue.record_longform("quiz", quiz["title"], "\n".join(quiz.get("sources", [])), video_url or "")
         except Exception as exc:  # noqa: BLE001
             print(f"⚠️ Could not record the quiz in the Sheet: {exc}")
     try:
@@ -329,7 +311,87 @@ def main(argv: list[str] | None = None) -> int:
         configured = True
     except youtube_upload.YouTubeUnavailable:
         configured = False
-    return 0 if (uploaded or args.skip_upload or not configured) else 1
+    return 0 if (uploaded or skip_upload or not configured) else 1
+
+
+def _connect_log():
+    from sheet_queue import SheetQueue
+
+    try:
+        queue = SheetQueue.connect()
+        return queue, queue.longform_known_keys()
+    except Exception as exc:  # noqa: BLE001
+        print(f"⚠️ Long-video log unavailable, continuing without de-duplication: {exc}")
+        return None, set()
+
+
+def draft_main(argv: list[str]) -> int:
+    """Write the 10 questions to drafts/quiz-<time>.txt for you to edit (today's news, or your own --topic)."""
+    parser = argparse.ArgumentParser(prog="quiz.py draft", description="Write the quiz questions as a .txt for approval.")
+    parser.add_argument("--topic", help="quiz on this topic instead of today's news")
+    parser.add_argument("--url", action="append", default=[], help="a source article for --topic (repeat for more)")
+    args = parser.parse_args(argv)
+    try:
+        if args.topic:
+            reports = drafts.topic_reports(args.topic, args.url, limit=MAX_STORIES)
+            stories = [{"title": args.topic, "url": url, "text": text} for _host, url, text in reports if len(text) >= MIN_STORY_CHARS]
+        else:
+            stories = gather_stories(_connect_log()[1], time.time() + 900)
+        if not stories or (not args.topic and len(stories) < 3):
+            print("❌ Not enough readable news text for a quiz. Add article links with --topic and --url.")
+            return 1
+        quiz_data = write_quiz(stories)
+    except (LLMUnavailableError, ContentFailed, ContentRejected, ValueError) as exc:
+        print(f"❌ {exc}")
+        return 1
+    path = drafts.new_draft_path("quiz")
+    path.write_text(drafts.quiz_to_text(quiz_data, quiz_data["sources"]), encoding="utf-8")
+    print(f"📝 Questions ready: {path}\n   Edit it, save, then run: python scripts/quiz.py produce {path}")
+    return 0
+
+
+def produce_main(argv: list[str]) -> int:
+    """Produce the video from an approved (or self-written) questions .txt."""
+    parser = argparse.ArgumentParser(prog="quiz.py produce", description="Make the quiz video from an approved questions file.")
+    parser.add_argument("file", type=Path)
+    parser.add_argument("--skip-render", action="store_true")
+    parser.add_argument("--skip-upload", action="store_true")
+    parser.add_argument("--skip-telegram", action="store_true")
+    args = parser.parse_args(argv)
+    try:
+        quiz_data = drafts.parse_quiz(args.file.read_text(encoding="utf-8"))
+    except drafts.DraftError as exc:
+        print("❌ Fix these lines in the file and run again:\n" + "\n".join(f"  • {p}" for p in exc.problems))
+        return 1
+    print(f"✅ Questions accepted: {quiz_data['title']} ({len(quiz_data['questions'])} questions)")
+    return finish(quiz_data, _connect_log()[0], args.skip_render, args.skip_upload, args.skip_telegram)
+
+
+def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "draft":
+        return draft_main(argv[1:])
+    if argv and argv[0] == "produce":
+        return produce_main(argv[1:])
+
+    parser = argparse.ArgumentParser(description="Build and publish the MahaSpark daily news quiz (automatic; use 'draft' / 'produce' for approval).")
+    parser.add_argument("--skip-render", action="store_true")
+    parser.add_argument("--skip-upload", action="store_true")
+    parser.add_argument("--skip-telegram", action="store_true")
+    args = parser.parse_args(argv)
+
+    queue, known = _connect_log()
+    try:
+        stories = gather_stories(known, time.time() + 900)
+        if len(stories) < 3:
+            print(f"❌ Only {len(stories)} readable stories; a quiz needs at least 3.")
+            return 1
+        quiz_data = write_quiz(stories)
+        print(f"🧠 Quiz: {quiz_data['title']} ({len(quiz_data['questions'])} questions)")
+    except (LLMUnavailableError, ContentFailed, ContentRejected) as exc:
+        print(f"❌ {exc}")
+        return 1
+    return finish(quiz_data, queue, args.skip_render, args.skip_upload, args.skip_telegram)
 
 
 if __name__ == "__main__":
