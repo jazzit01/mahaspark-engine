@@ -143,9 +143,20 @@ def test_rich_source_that_still_comes_out_short_falls_back_to_a_short(monkeypatc
     assert calls == [False, True] and story["format"] == "portrait"
 
 
-def test_other_errors_are_not_swallowed(monkeypatch):
-    _capture(monkeypatch, [ValueError("Expected 2 to 8 scenes, got 1.")])
-    with pytest.raises(ValueError):
+def test_all_models_failing_the_long_checks_falls_back_to_a_short(monkeypatch):
+    from llm_providers import ContentFailed
+
+    failure = ContentFailed("Content generation failed on every configured provider.", ["Scene 1 description has 111 characters"])
+    calls = _capture(monkeypatch, [failure, {"scenes": []}])
+    story = ee.write_story("पुणे महापालिकेची मोठी घोषणा आज झाली", "तपशील", "म " * 1500, "https://x")
+    assert calls == [False, True] and story["format"] == "portrait"
+
+
+def test_unavailable_providers_are_not_swallowed(monkeypatch):
+    from llm_providers import LLMUnavailableError
+
+    _capture(monkeypatch, [LLMUnavailableError("no key")])
+    with pytest.raises(LLMUnavailableError):
         ee.write_story("पुणे महापालिकेची मोठी घोषणा आज झाली", "तपशील", "म " * 1500, "https://x")
 
 
