@@ -59,6 +59,33 @@ def strip_html(text: str) -> str:
     return " ".join(BeautifulSoup(text, "html.parser").get_text(" ").split())
 
 
+MAX_NEWS_AGE_HOURS = 36  # older RSS items are never queued (a stale story must not air as today's news)
+
+
+def max_news_age_hours() -> float:
+    try:
+        return float(get_env_value("MAX_NEWS_AGE_HOURS") or MAX_NEWS_AGE_HOURS)
+    except ValueError:
+        return float(MAX_NEWS_AGE_HOURS)
+
+
+def is_stale(entry, now=None, max_hours: float | None = None) -> bool:
+    """True when the feed entry carries a publish/update time older than the age limit. Undated entries pass."""
+    import calendar
+    import time as _time
+
+    stamp = entry.get("published_parsed") or entry.get("updated_parsed")
+    if not stamp:
+        return False
+    try:
+        published = calendar.timegm(stamp)
+    except (TypeError, ValueError, OverflowError):
+        return False
+    now = _time.time() if now is None else now
+    limit = (max_news_age_hours() if max_hours is None else max_hours) * 3600
+    return now - published > limit
+
+
 def iter_candidates(feeds: list[str] | None = None, per_feed: int = 5):
     """Yield candidates feed by feed, newest first. Feed errors are reported and skipped."""
     import feedparser  # imported lazily so the other helpers are testable without it
@@ -72,6 +99,9 @@ def iter_candidates(feeds: list[str] | None = None, per_feed: int = 5):
         for entry in parsed.entries[:per_feed]:
             title = strip_html(entry.get("title", ""))
             if not title:
+                continue
+            if is_stale(entry):
+                print(f"ℹ️ Skipped old story: {title[:70]}")
                 continue
             yield Candidate(
                 title=title,
@@ -222,7 +252,7 @@ def related_sources(title: str, source_url: str, limit: int = MAX_EXTRA_SOURCES)
         if len(found) >= limit:
             break
         other = strip_html(entry.get("title", ""))
-        if not other or difflib.SequenceMatcher(None, _headline_query(other), query).ratio() < 0.3:
+        if not other or is_stale(entry) or difflib.SequenceMatcher(None, _headline_query(other), query).ratio() < 0.3:
             continue  # a different story that merely shares a word
         url = resolve_article_url((entry.get("link") or "").strip())
         host = urlparse(url).netloc.lower()

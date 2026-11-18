@@ -168,3 +168,15 @@ def test_every_queued_story_is_processed_until_the_limit_and_the_time_budget(mon
     monkeypatch.setattr(pipeline, "RUN_BUDGET_SECONDS", -1)  # budget already used after the first story
     pipeline.run_scheduled()
     assert len(done) == 1
+
+
+def test_stale_entries_are_detected():
+    import calendar
+    import time
+
+    now = 1_800_000_000
+    fresh = {"published_parsed": time.gmtime(now - 3600)}
+    old = {"published_parsed": time.gmtime(now - 18 * 86400)}
+    assert not fetch_news.is_stale(fresh, now=now, max_hours=36)
+    assert fetch_news.is_stale(old, now=now, max_hours=36)
+    assert not fetch_news.is_stale({}, now=now, max_hours=36)  # undated entries pass
