@@ -19,9 +19,16 @@ BULLETIN_PATH = OUT_DIR / "mahaspark_bulletin.mp4"
 THUMB_JSON = PUBLIC_DIR / "bulletin_thumb.json"
 THUMB_PATH = OUT_DIR / "bulletin_thumbnail.jpg"
 
+LONG_DIR = PUBLIC_DIR / "long"  # per-scene voiceovers of the explainer / quiz (git-ignored)
+LONG_JSON = PUBLIC_DIR / "long.json"
+LONG_PATH = OUT_DIR / "mahaspark_long.mp4"
+LONG_THUMB_JSON = PUBLIC_DIR / "long_thumb.json"
+LONG_THUMB_PATH = OUT_DIR / "mahaspark_long_thumbnail.jpg"
+
 COMPOSITION_ID = "MahaSparkReel"
 SHORT_COMPOSITION_ID = "MahaSparkShort"
 BULLETIN_COMPOSITION_ID = "MahaSparkBulletin"
+LONG_COMPOSITION_ID = "MahaSparkLong"
 
 
 def load_env_file(env_path: str | os.PathLike[str] | None = None) -> None:
