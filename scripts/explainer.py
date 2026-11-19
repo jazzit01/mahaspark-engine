@@ -1,11 +1,12 @@
-"""MahaSpark explainer: ONE fresh news story explained in about three minutes, 16:9, with graphics that appear on the
-exact word the anchor says (points, steps, timeline, comparison, key figure, quote).
+"""MahaSpark explainer: ONE evergreen topic (Maharashtra history, geography, culture, institutions, civics, science,
+India) explained in about three minutes, 16:9, with graphics that appear on the exact word the anchor says. It is NOT
+about today's news.
 
-    RSS -> a story with a rich source -> explainer script (Gemini) -> one Gemini TTS clip per scene -> Whisper word times
-        -> remotion/public/long.json -> Remotion "MahaSparkLong" -> YouTube -> Telegram link
+    topic bank -> Wikipedia (Marathi + English reference text) -> explainer script (Gemini) -> one Gemini TTS clip per
+        scene -> Whisper word times -> remotion/public/long.json -> Remotion "MahaSparkLong" -> YouTube -> Telegram link
 
-``python scripts/explainer.py [--text "<title>\\n<article>" --url ...] [--skip-render] [--skip-upload] [--skip-telegram]``
-Facts only: every figure, date and quote on screen must be in the source text; the spoken text follows the same
+``python scripts/explainer.py [--text "<title>\\n<reference text>" --url ...] [--skip-render] [--skip-upload] [--skip-telegram]``
+Facts only: every figure, date and quote on screen must be in the reference text; the spoken text follows the same
 phonetic rules as the reels.
 """
 
@@ -22,9 +23,10 @@ from pydantic import BaseModel, Field
 
 import drafts
 import editorial_engine as ee
-import fetch_news
 import longform
 import send_telegram
+import topic_bank
+import wiki_sources
 import youtube_upload
 from bulletin_editorial import FACT_RULES, PHONETIC_RULES
 from config import LONG_PATH
@@ -48,7 +50,7 @@ EXPLAINER_THUMB_TAG = "समजून घ्या"
 _MOODS = "\n".join(f"  - {n}: {u}" for n, u in AUDIO_MOODS.items())
 
 EXPLAINER_INSTRUCTION = f"""
-You are the explainer editor of MahaSpark, a No. 1 Marathi news channel. You turn ONE verified news story into a
+You are the explainer editor of MahaSpark, a No. 1 Marathi news channel. You turn ONE evergreen topic (not today's news) into a
 calm, clear explainer of about three minutes (16:9) that a senior anchor reads aloud while graphics appear on screen
 at the exact word that names them. Your output is machine-read: return exactly one JSON object that follows the
 supplied schema, nothing else.
@@ -60,14 +62,14 @@ Write 6 to 9 scenes. Each scene has a "kind", an on-screen "headline", optional 
 "tts_text" (25 to 70 words, short active sentences). Total spoken text: 260 to 560 words.
 - Scene 1 is kind "title": the headline is the question or the story in one line (the viewer's reason to stay), tts_text is a
   3 to 4 second hook plus what this video explains. No items.
-- Then a logical story: what happened, who is involved, the numbers, how it works or what changes, what happens next
-  (only what the source states). Use a variety of kinds:
+- Then a logical lesson: what it is, where and when it began, who is involved, the key numbers, how it works, why it
+  matters for Maharashtra or India today (only what the reference text states). Use a variety of kinds:
   "points"   2-4 key facts. items: {{"label": short fact line}}
   "steps"    3-4 stages in order (process, procedure, sequence). items: {{"label": step}}
   "compare"  EXACTLY 2 items, two sides (before/after, claim/response). items: {{"label": heading, "value": text}}
   "timeline" 3-5 dated events in order. items: {{"label": date or time, "value": the event}}
   "stat"     ONE key figure. items: [{{"label": what it measures, "value": the figure, e.g. ₹१,२०० कोटी}}]
-  "quote"    ONE statement quoted word for word from the source. items: [{{"label": speaker and role, "value": the quote}}]
+  "quote"    ONE statement quoted word for word from the source (only if the reference text contains a quotation). items: [{{"label": speaker and role, "value": the quote}}]
   "summary"  the LAST scene: 2-4 takeaways. items: {{"label": takeaway}}
 - Every item has a "cue": ONE word copied EXACTLY from that scene's tts_text (not a number) that the anchor speaks at the
   moment the item should appear on screen. Cues must follow the order in which the words are spoken.
@@ -80,7 +82,8 @@ Write 6 to 9 scenes. Each scene has a "kind", an on-screen "headline", optional 
 - "title" (the video title, at most 95 characters, keyword first, a complete line), "social_caption" (2-3 sentences),
   "seo_keywords" (8-12, Marathi and English), "audio_mood" one of
 {_MOODS}
-- Neutral, factual, no opinion and no speculation. Allegations are attributed to the named person or institution.
+- A timeless explainer: no "today", "this week", "recently" or news framing. Use the Marathi names and terms of the
+  Marathi reference text when it is given. Neutral, factual, no opinion and no speculation. Allegations are attributed to the named person or institution.
   No sign-off line, no "like and subscribe".
 
 {PHONETIC_RULES}
@@ -114,12 +117,12 @@ class Explainer(BaseModel):
 
 def build_prompt(title: str, summary: str, article_text: str, source_url: str) -> str:
     return (
-        "SOURCE MATERIAL (the only facts you may use)\n"
-        f"Source URL: {source_url or 'not available'}\n"
-        f"Source title: {title.strip()}\n"
-        f"Source summary: {summary.strip() or 'not available'}\n"
-        f'Full article text:\n"""\n{(article_text or "").strip()[:9000]}\n"""\n\n'
-        "Write the explainer now. Set approved to false only for a rumour, an unattributed leak or an opinion piece."
+        "REFERENCE MATERIAL (the only facts you may use)\n"
+        f"Reference URL: {source_url or 'not available'}\n"
+        f"Topic: {title.strip()}\n"
+        f"Category: {summary.strip() or 'not available'}\n"
+        f'Reference text:\n"""\n{(article_text or "").strip()[:12000]}\n"""\n\n'
+        "Write the evergreen explainer now. Set approved to false only if the reference text is not about the topic."
     )
 
 
@@ -237,7 +240,10 @@ def build_description(ex: dict, props: dict) -> str:
     summary = next((s for s in ex["scenes"] if s["kind"] == "summary"), None)
     if summary:
         lines += ["📌 मुख्य मुद्दे", *[f"• {it['label']}" for it in summary["items"]], ""]
-    lines += [youtube_upload.AI_NOTE, "", "🔔 MahaSpark ला फॉलो आणि सबस्क्राईब करा, रोज ताज्या बातम्या आणि समजून घ्यायला सोपी माहिती मिळवा.",
+    urls = (ex.get("source") or {}).get("urls") or []
+    if urls:
+        lines += [wiki_sources.credit_line(urls), ""]
+    lines += [youtube_upload.AI_NOTE, "", "🔔 MahaSpark ला फॉलो आणि सबस्क्राईब करा, रोज नवीन माहिती सोप्या भाषेत मिळवा.",
               "▶️ @MahaSparkOfficial", "", CHANNEL_HASHTAGS]
     return "\n".join(lines)
 
@@ -255,25 +261,23 @@ def key_figure(ex: dict) -> str:
 
 
 def pick_story(known: set[str], deadline: float):
-    """First fresh story whose sources (publisher article plus other reports) are rich enough to explain."""
-    import bulletin
-
-    for cand in bulletin.gather_candidates():
+    """First unused topic of the bank (Maharashtra and general knowledge, categories rotating) whose Wikipedia text is
+    rich enough to explain."""
+    for _group, category, en_title in topic_bank.pick(None, known):
         if time.time() > deadline:
             break
-        if bulletin.is_duplicate(cand.title, [], known):
-            continue
-        url = fetch_news.resolve_article_url(cand.link)
-        if url and url.lower() in known:
-            continue
-        article = fetch_news.enrich_thin_source(cand.title, cand.summary, fetch_news.fetch_article_text(url), url)
-        if len(cand.title) + len(cand.summary) + len(article) < MIN_SOURCE_CHARS:
-            print(f"⏭️ Too little text to explain: {cand.title[:60]}")
+        ref = wiki_sources.fetch_topic(en_title)
+        if not ref or len(ref["text"]) < MIN_SOURCE_CHARS:
+            print(f"⏭️ Too little reference text: {en_title}")
             continue
         try:
-            return write_explainer(cand.title, cand.summary, article, url)
+            ex = write_explainer(ref["title"], category, ref["text"], ref["url"])
         except (ContentRejected, ValueError, ContentFailed) as exc:
-            print(f"⏭️ Not used ({str(exc)[:90]}): {cand.title[:60]}")
+            print(f"⏭️ Not used ({str(exc)[:90]}): {en_title}")
+            continue
+        ex["source"]["urls"] = ref["urls"]
+        ex["source"]["url"] = wiki_sources.page_url("en", en_title)  # the bank key, so a redirect never repeats a topic
+        return ex
     return None
 
 
@@ -345,7 +349,7 @@ def draft_main(argv: list[str]) -> int:
     args = parser.parse_args(argv)
     text, urls = drafts.topic_sources(args.topic, args.url)
     if len(text) < MIN_SOURCE_CHARS // 2:
-        print(f"❌ Found only {len(text)} characters of readable news about this topic. Add article links with --url.")
+        print(f"❌ Found only {len(text)} characters of reference text about this topic. Add article links with --url.")
         return 1
     try:
         ex = write_explainer(args.topic, "", text, "\n".join(urls))

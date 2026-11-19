@@ -1,8 +1,10 @@
-"""MahaSpark daily news quiz: ten multiple-choice questions about today's verified stories, 16:9, about five minutes.
+"""MahaSpark daily quiz: ten multiple-choice questions of general knowledge and Maharashtra (history, geography, culture,
+institutions, civics, science, India), 16:9, about five minutes. NOT about today's news.
 
-    RSS -> a handful of fresh stories (with article text) -> ONE Gemini call writes the quiz (every correct answer is a
-    fact in the sources) -> per-scene Gemini TTS (the question and its four options are read; a silent five second
-    countdown follows) -> Whisper word times -> remotion/public/long.json -> Remotion "MahaSparkLong" -> YouTube -> Telegram
+    topic bank (about 4 Maharashtra + 2 general topics) -> Wikipedia reference text -> ONE Gemini call writes the quiz
+    (every correct answer is a fact in the reference text) -> per-scene Gemini TTS (the question and its four options are
+    read; a silent five second countdown follows) -> Whisper word times -> remotion/public/long.json -> Remotion
+    "MahaSparkLong" -> YouTube -> Telegram
 
 Scenes: intro, then for every question a QUESTION scene (voice + countdown) and an ANSWER scene (reveal + one-line
 explanation), then the closing scene. ``python scripts/quiz.py [--skip-render] [--skip-upload] [--skip-telegram]``.
@@ -20,9 +22,10 @@ from pydantic import BaseModel, Field
 
 import drafts
 import editorial_engine as ee
-import fetch_news
 import longform
 import send_telegram
+import topic_bank
+import wiki_sources
 import youtube_upload
 from bulletin_editorial import FACT_RULES, PHONETIC_RULES
 from config import LONG_PATH
@@ -35,33 +38,33 @@ MAX_QUESTION, MAX_OPTION, MAX_EXPLAIN = 96, 38, 110
 LETTERS = ["अ", "ब", "क", "ड"]
 SPOKEN_LETTERS = ["अ", "ब", "क", "ड"]
 MAX_STORIES, MIN_STORY_CHARS = 6, 700
+MH_TOPICS, GK_TOPICS = 4, 2  # topics per quiz: Maharashtra and general knowledge
 CHANNEL_HASHTAGS = "#MahaSpark #मराठीबातम्या #क्विझ #MarathiQuiz #महाराष्ट्र"
 QUIZ_THUMB_TAG = "आजची क्विझ"
 
 QUIZ_INSTRUCTION = f"""
-You are the quiz editor of MahaSpark, a No. 1 Marathi news channel. From the verified STORIES you are given you write a
-daily news quiz of exactly {TARGET_QUESTIONS} multiple-choice questions that a composed anchor reads aloud. Your output is
+You are the quiz editor of MahaSpark, a No. 1 Marathi news channel. From the REFERENCE TEXTS you are given you write a
+general-knowledge quiz about Maharashtra and India (not about today's news) of exactly {TARGET_QUESTIONS} multiple-choice questions that a composed anchor reads aloud. Your output is
 machine-read: return exactly one JSON object that follows the supplied schema, nothing else.
 
 {FACT_RULES}
 
 ══════════ QUIZ FORMAT ══════════
-- Every question is about ONE story ("story" = its number) and its correct answer is a fact stated in that story's text.
-  Ask about who, what, where, how many, which institution. Never ask for an opinion, a prediction or a guilt
-  verdict. Never a question whose answer is about a victim's or accused person's identity.
-- Spread the questions over different stories where possible. Easy to medium; a regular viewer must be able to reason out
-  or know the answer. The question must be complete on its own (name the place or institution; no "this story").
+- Every question is about ONE reference text ("story" = its number) and its correct answer is a fact stated in that text.
+  Ask about who, what, where, when, how many, which institution. Never ask for an opinion or a prediction. No question
+  about the news of a particular day; ask timeless facts.
+- Spread the questions over different reference texts (about 4 questions on Maharashtra topics, the rest general). Easy to medium; a regular viewer must be able to reason out
+  or know the answer; mix easy and medium. The question must be complete on its own (name the place or institution; no "this story").
 - "question": at most {MAX_QUESTION} characters. "options": exactly 4 short answers (at most {MAX_OPTION} characters each), one
-  correct and three plausible but wrong, all of the same kind (all names, all places, all numbers...). Wrong options must not
-  be a claim about a real person or crime; prefer other institutions, places, or numbers of a similar size.
+  correct and three plausible but wrong, all of the same kind (all names, all places, all numbers...). Wrong options are plausible other persons, places, institutions or numbers of a similar size.
   "correct": the index 0 to 3 of the right option. Spread the correct index over 0, 1, 2 and 3.
-- "explanation": ONE sentence of at most {MAX_EXPLAIN} characters that states the fact from the story that proves the answer.
+- "explanation": ONE sentence of at most {MAX_EXPLAIN} characters that states the fact from the reference text that proves the answer.
 - On-screen text (question, options, explanation) uses DEVANAGARI digits and symbols (१२, ८५%, ₹१,२०० कोटी), never
   spelled-out numbers, no emoji, no English words, no quotation marks. Numbers must be in the source.
 - Spoken versions: "question_tts" (the question, one or two short sentences), "options_tts" (the 4 options, each a short
   phrase read aloud; same order), "explanation_tts" (the explanation as speech). All three follow the PHONETIC RULES below.
   Do not say the option letter, the question number or "the correct answer is": the system adds them.
-- "title": the video title (at most 95 characters), for example a line that names the day's biggest topic and the quiz.
+- "title": the video title (at most 95 characters), a catchy line such as a Maharashtra GK quiz, with the quiz word in it.
 - "social_caption": 2 sentences. "seo_keywords": 8 to 12, Marathi and English.
 
 {PHONETIC_RULES}
@@ -90,10 +93,10 @@ class Quiz(BaseModel):
 
 def build_prompt(stories: list[dict]) -> str:
     blocks = [
-        f"STORY {i}\nSource URL: {s['url']}\nTitle: {s['title']}\nText:\n\"\"\"\n{s['text'][:3000]}\n\"\"\""
+        f"STORY {i}\nSource URL: {s['url']}\nTitle: {s['title']}\nText:\n\"\"\"\n{s['text'][:2600]}\n\"\"\""
         for i, s in enumerate(stories, 1)
     ]
-    return "SOURCE STORIES (the only facts you may use)\n\n" + "\n\n".join(blocks) + f"\n\nWrite the {TARGET_QUESTIONS} question quiz now."
+    return "REFERENCE TEXTS (the only facts you may use)\n\n" + "\n\n".join(blocks) + f"\n\nWrite the {TARGET_QUESTIONS} question quiz now."
 
 
 def _clean(text) -> str:
@@ -121,7 +124,7 @@ def check_question(raw: dict, stories: list[dict]) -> dict:
     allowed = ee.source_numbers(source)
     for number in ee.source_numbers(f"{question} {options[correct]} {explanation}"):
         if number not in allowed:
-            raise ValueError(f"The number {number} is not in story {n}.")
+            raise ValueError(f"The number {number} is not in reference text {n}.")
     spoken = {}
     for key, text in (("question_tts", raw.get("question_tts")), ("explanation_tts", raw.get("explanation_tts"))):
         spoken[key] = ee.clean_tts_text(numbers_to_words(text))
@@ -173,6 +176,7 @@ def write_quiz(stories: list[dict]) -> dict:
         validate=lambda d: validate_quiz(d, stories),
     )
     quiz["sources"] = [s["url"] for s in stories]
+    quiz["credit_urls"] = [u for s in stories for u in s.get("urls", [s["url"]])]
     return quiz
 
 
@@ -185,9 +189,9 @@ def build_scenes(quiz: dict) -> tuple[list[dict], list[float]]:
     total = len(questions)
     scenes = [{
         "kind": "quiz_intro",
-        "headline": "आजची न्यूज क्विझ",
+        "headline": "आजची क्विझ",
         "subtitle": f"{total} प्रश्न • तुमचे किती बरोबर?",
-        "tts_text": longform.speakable(f"आजची न्यूज क्विझ. {total} प्रश्न, प्रत्येक प्रश्नासाठी पाच सेकंद. तुमचे किती उत्तरे बरोबर येतात ते पाहा."),
+        "tts_text": longform.speakable(f"आजची क्विझ. {total} प्रश्न, प्रत्येक प्रश्नासाठी पाच सेकंद. तुमचे किती उत्तरे बरोबर येतात ते पाहा."),
         "items": [],
     }]
     extras = [0.0]
@@ -212,7 +216,7 @@ def build_scenes(quiz: dict) -> tuple[list[dict], list[float]]:
         "kind": "quiz_end",
         "headline": "तुम्हाला किती गुण मिळाले?",
         "subtitle": f"{total} पैकी तुमचा स्कोअर कमेंटमध्ये सांगा",
-        "tts_text": longform.speakable(f"क्विझ संपली. {total} पैकी तुम्हाला किती गुण मिळाले, ते कमेंटमध्ये सांगा. उद्या नव्या बातम्यांवर नवी क्विझ घेऊन पुन्हा भेटू."),
+        "tts_text": longform.speakable(f"क्विझ संपली. {total} पैकी तुम्हाला किती गुण मिळाले, ते कमेंटमध्ये सांगा. उद्या नवीन विषयांवर नवी क्विझ घेऊन पुन्हा भेटू."),
         "items": [],
     })
     extras.append(0.0)
@@ -222,41 +226,38 @@ def build_scenes(quiz: dict) -> tuple[list[dict], list[float]]:
 def build_description(quiz: dict, props: dict) -> str:
     labels = []
     for s in props["scenes"]:
-        labels.append("आजची न्यूज क्विझ" if s["kind"] == "quiz_intro" else f"प्रश्न {s['q_index']}" if s["kind"] in ("question", "answer") else "तुमचा स्कोअर")
+        labels.append("आजची क्विझ" if s["kind"] == "quiz_intro" else f"प्रश्न {s['q_index']}" if s["kind"] in ("question", "answer") else "तुमचा स्कोअर")
     marks = [(t, label) for t, label in longform.chapters(props, labels)]
     lines = [quiz["social_caption"] or quiz["title"], ""]
     if marks:
         lines += ["⏱️ प्रश्न (Chapters)", *[f"{longform.timestamp(t)} {label}" for t, label in marks], ""]
-    lines += ["💬 तुम्हाला किती गुण मिळाले? कमेंटमध्ये सांगा!", "",
-              youtube_upload.AI_NOTE, "", "🔔 MahaSpark ला फॉलो आणि सबस्क्राईब करा, रोज नवी क्विझ आणि ताज्या बातम्या मिळवा.", "▶️ @MahaSparkOfficial", "", CHANNEL_HASHTAGS]
+    credit = wiki_sources.credit_line(quiz.get("credit_urls") or [])
+    lines += ["💬 तुम्हाला किती गुण मिळाले? कमेंटमध्ये सांगा!", "", *([credit, ""] if credit else []),
+              youtube_upload.AI_NOTE, "", "🔔 MahaSpark ला फॉलो आणि सबस्क्राईब करा, रोज नवी क्विझ मिळवा.", "▶️ @MahaSparkOfficial", "", CHANNEL_HASHTAGS]
     return "\n".join(lines)
 
 
 def build_tags(quiz: dict) -> list[str]:
-    return youtube_upload.clean_tags(["MahaSpark", "मराठी क्विझ", "Marathi Quiz", "न्यूज क्विझ", "Daily Quiz", *quiz["seo_keywords"]])
+    return youtube_upload.clean_tags(["MahaSpark", "मराठी क्विझ", "Marathi Quiz", "GK Quiz", "Maharashtra GK", "Daily Quiz", *quiz["seo_keywords"]])
 
 
 # ----- run ---------------------------------------------------------------------------------------
 
 
 def gather_stories(known: set[str], deadline: float) -> list[dict]:
-    import bulletin
-
-    stories, seen = [], []
-    for cand in bulletin.gather_candidates():
-        if len(stories) >= MAX_STORIES or time.time() > deadline:
-            break
-        if bulletin.is_duplicate(cand.title, seen, known):
-            continue
-        url = fetch_news.resolve_article_url(cand.link)
-        if url and url.lower() in known:
-            continue
-        text = fetch_news.fetch_article_text(url)
-        seen.append(cand.title)
-        if len(text) < MIN_STORY_CHARS:
-            continue
-        stories.append({"title": cand.title, "url": url, "text": text})
-        print(f"📰 {len(stories)}/{MAX_STORIES}: {cand.title[:70]}")
+    """Reference texts for one quiz: MH_TOPICS Maharashtra topics (different categories) and GK_TOPICS general ones."""
+    stories = []
+    for group, want in (("mh", MH_TOPICS), ("gk", GK_TOPICS)):
+        got = 0
+        for _g, _category, en_title in topic_bank.pick(group, known):
+            if got >= want or time.time() > deadline:
+                break
+            ref = wiki_sources.fetch_topic(en_title)
+            if not ref or len(ref["text"]) < MIN_STORY_CHARS:
+                continue
+            got += 1
+            stories.append({"title": ref["title"], "url": wiki_sources.page_url("en", en_title), "urls": ref["urls"], "text": ref["text"]})
+            print(f"📚 {len(stories)}/{MH_TOPICS + GK_TOPICS}: {ref['title'][:70]}")
     return stories
 
 
@@ -327,19 +328,19 @@ def _connect_log():
 
 
 def draft_main(argv: list[str]) -> int:
-    """Write the 10 questions to drafts/quiz-<time>.txt for you to edit (today's news, or your own --topic)."""
+    """Write the 10 questions to drafts/quiz-<time>.txt for you to edit (a general-knowledge/Maharashtra quiz, or your own --topic)."""
     parser = argparse.ArgumentParser(prog="quiz.py draft", description="Write the quiz questions as a .txt for approval.")
-    parser.add_argument("--topic", help="quiz on this topic instead of today's news")
+    parser.add_argument("--topic", help="quiz on this topic (Wikipedia is read first) instead of the automatic topics")
     parser.add_argument("--url", action="append", default=[], help="a source article for --topic (repeat for more)")
     args = parser.parse_args(argv)
     try:
         if args.topic:
-            reports = drafts.topic_reports(args.topic, args.url, limit=MAX_STORIES)
-            stories = [{"title": args.topic, "url": url, "text": text} for _host, url, text in reports if len(text) >= MIN_STORY_CHARS]
+            text, urls = drafts.topic_sources(args.topic, args.url, limit=MAX_STORIES)
+            stories = [{"title": args.topic, "url": urls[0] if urls else "", "urls": urls, "text": text}] if len(text) >= MIN_STORY_CHARS else []
         else:
             stories = gather_stories(_connect_log()[1], time.time() + 900)
         if not stories or (not args.topic and len(stories) < 3):
-            print("❌ Not enough readable news text for a quiz. Add article links with --topic and --url.")
+            print("❌ Not enough reference text for a quiz. Add article links with --topic and --url.")
             return 1
         quiz_data = write_quiz(stories)
     except (LLMUnavailableError, ContentFailed, ContentRejected, ValueError) as exc:
@@ -375,7 +376,7 @@ def main(argv: list[str] | None = None) -> int:
     if argv and argv[0] == "produce":
         return produce_main(argv[1:])
 
-    parser = argparse.ArgumentParser(description="Build and publish the MahaSpark daily news quiz (automatic; use 'draft' / 'produce' for approval).")
+    parser = argparse.ArgumentParser(description="Build and publish the MahaSpark daily GK / Maharashtra quiz (automatic; use 'draft' / 'produce' for approval).")
     parser.add_argument("--skip-render", action="store_true")
     parser.add_argument("--skip-upload", action="store_true")
     parser.add_argument("--skip-telegram", action="store_true")
