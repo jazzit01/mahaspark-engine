@@ -177,7 +177,7 @@ def test_good_question_passes():
     [
         ({"options": ["अ", "अ", "ब", "क"]}, "4 different"),
         ({"correct": 5}, "index"),
-        ({"explanation": "योजना ९९९ कोटींची आहे."}, "not in story"),
+        ({"explanation": "योजना ९९९ कोटींची आहे."}, "not in reference text"),
         ({"question_tts": "प्रश्न 5 आहे?"}, "question_tts"),
         ({"story": 4}, "story"),
         ({"options_tts": ["अ", "ब"]}, "4 entries"),
@@ -189,7 +189,7 @@ def test_bad_questions_are_caught(over, message):
 
 
 def test_quiz_drops_bad_questions_but_needs_enough_good_ones():
-    data = {"title": "आजची न्यूज क्विझ: पुणे पाणी योजना", "social_caption": "x", "seo_keywords": ["a"], "questions": [good_question() for _ in range(7)] + [good_question(correct=9)]}
+    data = {"title": "आजची क्विझ: पुणे पाणी योजना", "social_caption": "x", "seo_keywords": ["a"], "questions": [good_question() for _ in range(7)] + [good_question(correct=9)]}
     assert len(quiz.validate_quiz(data, STORIES)["questions"]) == 7
     data["questions"] = [good_question() for _ in range(3)]
     with pytest.raises(ValueError, match="valid questions"):
@@ -197,7 +197,7 @@ def test_quiz_drops_bad_questions_but_needs_enough_good_ones():
 
 
 def test_quiz_scenes_have_intro_question_answer_pairs_and_an_end():
-    qz = quiz.validate_quiz({"title": "आजची न्यूज क्विझ: पुणे पाणी योजना", "questions": [good_question() for _ in range(6)]}, STORIES)
+    qz = quiz.validate_quiz({"title": "आजची क्विझ: पुणे पाणी योजना", "questions": [good_question() for _ in range(6)]}, STORIES)
     scenes, extras = quiz.build_scenes(qz)
     kinds = [s["kind"] for s in scenes]
     assert kinds[0] == "quiz_intro" and kinds[-1] == "quiz_end" and kinds.count("question") == 6 and kinds.count("answer") == 6
@@ -271,7 +271,7 @@ def test_script_problems_name_the_scene_and_what_to_fix():
 
 
 def test_quiz_draft_round_trips_and_accepts_hand_edits():
-    qz = quiz.validate_quiz({"title": "आजची न्यूज क्विझ: पुणे पाणी योजना", "questions": [good_question() for _ in range(6)]}, STORIES)
+    qz = quiz.validate_quiz({"title": "आजची क्विझ: पुणे पाणी योजना", "questions": [good_question() for _ in range(6)]}, STORIES)
     text = drafts.quiz_to_text(qz, ["https://x/1"])
     back = drafts.parse_quiz(text)
     assert len(back["questions"]) == 6 and back["questions"][0]["correct"] == 0
@@ -283,7 +283,7 @@ def test_quiz_draft_round_trips_and_accepts_hand_edits():
 
 
 def test_quiz_file_errors_are_listed():
-    text = "TITLE: आजची न्यूज क्विझ चाचणी\n=== Q1 ===\nQ: पुणे महापालिकेने कोणती योजना मंजूर केली?\nA) एक\nB) एक\nC) तीन\nD) चार\nANSWER: E\nWHY: कारण असे आहे.\n"
+    text = "TITLE: आजची क्विझ चाचणी\n=== Q1 ===\nQ: पुणे महापालिकेने कोणती योजना मंजूर केली?\nA) एक\nB) एक\nC) तीन\nD) चार\nANSWER: E\nWHY: कारण असे आहे.\n"
     with pytest.raises(drafts.DraftError) as err:
         drafts.parse_quiz(text)
     joined = " ".join(err.value.problems)

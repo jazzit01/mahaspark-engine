@@ -78,10 +78,23 @@ def topic_reports(topic: str, urls: list[str] | None = None, limit: int = 4) -> 
 
 
 def topic_sources(topic: str, urls: list[str] | None = None, limit: int = 4) -> tuple[str, list[str]]:
-    """The reports of ``topic_reports`` as one labelled text for the writer, and the urls used."""
-    found = topic_reports(topic, urls, limit)
-    combined = "\n\n".join(f"[Report {i} from {host}]\n{text}" for i, (host, _url, text) in enumerate(found, 1))
-    return combined[: fetch_news.MAX_COMBINED_CHARS], [url for _h, url, _t in found]
+    """The reference text for ``topic`` as one labelled text for the writer, and the urls used: Wikipedia first (Marathi and
+    English), then the person's own article links; a news search only when that is still too little."""
+    import wiki_sources
+
+    parts: list[str] = []
+    used: list[str] = []
+    wiki = wiki_sources.fetch_topic(topic)
+    if wiki:
+        parts.append(wiki["text"])
+        used += wiki["urls"]
+    own = [r for r in topic_reports(topic, urls, limit) if r[1] in (urls or [])] if urls else []
+    if not wiki and not own:
+        own = topic_reports(topic, urls, limit)  # no Wikipedia page and no links: fall back to a news search
+    for i, (host, url, text) in enumerate(own, 1):
+        parts.append(f"[Report {i} from {host}]\n{text}")
+        used.append(url)
+    return "\n\n".join(parts)[: fetch_news.MAX_COMBINED_CHARS], used
 
 
 # ----- files -------------------------------------------------------------------------------------
