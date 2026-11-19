@@ -18,13 +18,12 @@ from pathlib import Path
 
 import align_timings
 import editorial_engine
+import voices
 from config import (
     LONG_COMPOSITION_ID,
     LONG_DIR,
     LONG_JSON,
     LONG_PATH,
-    LONG_THUMB_JSON,
-    LONG_THUMB_PATH,
     OUT_DIR,
     REMOTION_DIR,
 )
@@ -86,11 +85,12 @@ def cue_times(items: list[dict], words: list[dict], duration: float, lead: float
     return out
 
 
-def voice_scene(text: str, index: int, tts=editorial_engine.synthesize_voiceover, out_dir: Path = LONG_DIR) -> tuple[str, float]:
-    """Voice one scene. Returns (path under public/, seconds)."""
+def voice_scene(text: str, index: int, tts=editorial_engine.synthesize_voiceover, out_dir: Path = LONG_DIR,
+                kind: str = "") -> tuple[str, float]:
+    """Voice one scene in the voice role of its kind (voices.py). Returns (path under public/, seconds)."""
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"scene-{index}.wav"
-    tts(text, path)
+    tts(text, path, **voices.role_kwargs(voices.role_for_scene(kind)))
     return f"long/{path.name}", align_timings.audio_duration(path)
 
 
@@ -98,7 +98,7 @@ def build_scene(scene: dict, index: int, tts=editorial_engine.synthesize_voiceov
                 out_dir: Path = LONG_DIR, extra_seconds: float = 0.0) -> dict:
     """Voice and time one scene dict (it needs ``tts_text``; ``items`` may carry ``cue`` words). ``extra_seconds`` is
     silent time after the voice (the quiz countdown)."""
-    rel, seconds = voice_scene(scene["tts_text"], index, tts, out_dir)
+    rel, seconds = voice_scene(scene["tts_text"], index, tts, out_dir, scene.get("kind", ""))
     wav = out_dir / Path(rel).name
     words = time_words(scene["tts_text"], wav, seconds, whisper)
     for w in words:
@@ -194,18 +194,12 @@ def render(output: Path = LONG_PATH, crf: int = 24) -> None:
         raise RuntimeError(f"Remotion render failed with exit code {result.returncode}")
 
 
-def render_thumbnail(headline: str, tag: str, figure: str = "") -> bool:
-    """1280x720 thumbnail from the BulletinThumbnail composition (headline + red tag). Best effort."""
-    try:
-        write_props({"headline": headline, "tag": tag, "figure": figure or None, "photo": None}, LONG_THUMB_JSON)
-        cmd = [
-            "npx", "remotion", "still", "src/index.ts", "BulletinThumbnail", str(LONG_THUMB_PATH),
-            "--props=public/long_thumb.json", "--image-format=jpeg", "--jpeg-quality=88",
-        ]
-        return subprocess.run(cmd, cwd=REMOTION_DIR).returncode == 0 and LONG_THUMB_PATH.exists()
-    except Exception as exc:  # noqa: BLE001
-        print(f"⚠️ Thumbnail render failed: {exc}")
-        return False
+def render_thumbnail(kind: str, text: str, tag: str, figure: str = "", hue: int = 0) -> Path | None:
+    """Thumbnail variants (see thumbnails.py). Returns the one to upload (the first), or None. Best effort."""
+    import thumbnails
+
+    made = thumbnails.render_variants(kind, text, tag, figure, base_hue=hue, name=f"long-{kind}")
+    return made[0] if made else None
 
 
 def speakable(text: str) -> str:

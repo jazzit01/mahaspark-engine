@@ -29,6 +29,8 @@ RSS -> Sheet queue -> article text -> 5W1H + phonetic script (Gemini) -> Gemini 
 | `scripts/explainer.py` | ~3 min 16:9 explainer of ONE fresh story (scene kinds title/points/steps/compare/timeline/stat/quote/summary). Facts, numbers and quotes validated against the source. `python scripts/explainer.py [--text ... --url ...]`. |
 | `scripts/quiz.py` | ~5 min daily news quiz: 10 questions from fresh stories, 4 options, 5 s silent countdown, answer + explanation. A bad question is dropped; fewer than 6 good ones = model repair. |
 | `scripts/drafts.py` | Script approval for the explainer and quiz: `draft` writes an editable `.txt` in `drafts/` (git-ignored) from the person's topic/URLs, `produce` reads the approved (or self-written) `.txt`. Parsers refuse only what would break the voice/layout (non-Devanagari speech, bad kinds, missing items) and list every line to fix; approved text is not fact-checked again. |
+| `scripts/voices.py` | Voice roles of the long videos (explainer, quote, quiz_read, quiz_cheer): voice + delivery style per scene kind, env-overridable (`EXPLAINER_TTS_VOICE`, `QUOTE_TTS_VOICE`, `QUIZ_TTS_VOICE`, `*_TTS_STYLE`). Reels and bulletins keep the plain anchor. `scripts/voice_samples.py` writes samples to `out/voices/` to choose by ear. |
+| `scripts/thumbnails.py` | YouTube thumbnails: 2-3 variants per video from composition `MahaSparkThumbnail` (styles bold / question / figure / alert; one short punchy line, one focal element, red tag). The first is uploaded, all are kept in `out/thumbs/` for a manual swap or YouTube Studio's Test & compare. Used by reels, bulletin, explainer and quiz. |
 | `remotion/` | Remotion v4 TypeScript project (see Broadcast design). `src/bulletin/` is the 16:9 bulletin. |
 | `assets/archive/` | Retired static backgrounds (`bg1-6`). Not used by the pipeline. |
 | `tests/` | `python -m pytest -q`. No network or API keys needed. |
@@ -212,3 +214,8 @@ Two more long videos on the shared engine `longform.py` and ONE composition, `Ma
 ### Your own topic and script approval (laptop)
 
 `python scripts/explainer.py draft --topic "..." [--url ...]` and `python scripts/quiz.py draft [--topic "..." --url ...]` write `drafts/<kind>-<time>.txt` (the quiz without `--topic` uses today's news). Edit it, save, then `python scripts/explainer.py produce drafts/<file>.txt` / `python scripts/quiz.py produce drafts/<file>.txt` (same `--skip-render/--skip-upload/--skip-telegram`). A script written from scratch in the same format works too. With no sub-command both scripts stay fully automatic (what `explainer.yml` / `quiz.yml` run). Format and rules: the comment block at the top of every draft, `drafts.py`.
+
+### Voices and thumbnails
+
+- Long videos voice each scene in the role of its kind (`voices.role_for_scene`): explainer = default voice with a warm explaining style, `quote` scenes = a second (deeper) voice, quiz questions = a host voice reading clearly, quiz intro/answer/closing = the same voice livelier. `synthesize_voiceover(..., voice=, style=)`; the style only ever travels in the style field (never the spoken text). Not verified here: how each voice sounds in Marathi; run `voice_samples.py` and listen.
+- Thumbnails: the explainer model also writes `thumb_text` (3-5 words, a question or the hook; dropped silently if long or if a number is not in the source; editable as `THUMB:` in the draft file). Other videos shorten their headline (`thumbnails.short_text`). Not verified here: the real still render of `MahaSparkThumbnail`.

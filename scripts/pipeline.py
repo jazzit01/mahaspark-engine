@@ -169,18 +169,17 @@ def reel_thumbnail_props(story: dict) -> dict:
     return {"headline": scenes[0].get("headline", ""), "tag": tag, "figure": figure, "photo": None}
 
 
-def render_reel_thumbnail(story: dict) -> bool:
-    """1280x720 YouTube thumbnail for the video. Failure never stops the story."""
+def render_reel_thumbnail(story: dict) -> Path | None:
+    """Thumbnail variants for the video (thumbnails.py); returns the one to upload, or None. Failure never stops the story."""
     try:
-        REEL_THUMB_JSON.write_text(json.dumps(reel_thumbnail_props(story), ensure_ascii=False), encoding="utf-8")
-        cmd = [
-            "npx", "remotion", "still", "src/index.ts", "BulletinThumbnail", str(REEL_THUMB_PATH),
-            "--props=public/reel_thumb.json", "--image-format=jpeg", "--jpeg-quality=88",
-        ]
-        return subprocess.run(cmd, cwd=REMOTION_DIR).returncode == 0 and REEL_THUMB_PATH.exists()
+        import thumbnails
+
+        props = reel_thumbnail_props(story)
+        made = thumbnails.render_variants("reel", props["headline"], props["tag"], props["figure"], None, story.get("bg_hue", 0), name="reel")
+        return made[0] if made else None
     except Exception as exc:  # noqa: BLE001
         print(f"⚠️ Reel thumbnail render failed: {exc}")
-        return False
+        return None
 
 
 def upload_reel_to_youtube(queue, story: dict) -> str:
@@ -204,9 +203,10 @@ def upload_reel_to_youtube(queue, story: dict) -> str:
             list(story.get("seo_keywords") or []) + ["MahaSpark", "मराठी बातम्या"],
         )
         print(f"▶️ Uploaded to YouTube: {url}")
-        if render_reel_thumbnail(story):
+        thumb = render_reel_thumbnail(story)
+        if thumb:
             try:
-                youtube_upload.set_thumbnail(url, REEL_THUMB_PATH)
+                youtube_upload.set_thumbnail(url, thumb)
             except Exception as exc:  # noqa: BLE001
                 print(f"⚠️ Thumbnail upload failed: {exc}")
         return f" - YouTube: OK {day} {url}"

@@ -25,7 +25,7 @@ import longform
 import send_telegram
 import youtube_upload
 from bulletin_editorial import FACT_RULES, PHONETIC_RULES
-from config import LONG_PATH, LONG_THUMB_PATH
+from config import LONG_PATH
 from llm_providers import ContentFailed, ContentRejected, LLMUnavailableError, generate_json
 from marathi_numbers import numbers_to_words, words_to_digits
 
@@ -285,9 +285,10 @@ def finish(quiz: dict, queue, skip_render: bool, skip_upload: bool, skip_telegra
             video_url = youtube_upload.upload_video(LONG_PATH, quiz["title"], build_description(quiz, props), build_tags(quiz))
             uploaded = True
             print(f"▶️ Uploaded: {video_url}")
-            if longform.render_thumbnail(quiz["questions"][0]["question"], QUIZ_THUMB_TAG):
+            thumb = longform.render_thumbnail("quiz", quiz["questions"][0]["question"], QUIZ_THUMB_TAG, "", props["bg_hue"])
+            if thumb:
                 try:
-                    youtube_upload.set_thumbnail(video_url, LONG_THUMB_PATH)
+                    youtube_upload.set_thumbnail(video_url, thumb)
                 except Exception as exc:  # noqa: BLE001
                     print(f"⚠️ Thumbnail upload failed: {exc}")
         except youtube_upload.YouTubeUnavailable as exc:
