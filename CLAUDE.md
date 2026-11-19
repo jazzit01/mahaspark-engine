@@ -66,7 +66,7 @@ A model slip is caught and the model gets one repair attempt with the exact erro
   `seo_keywords` (8-12, Marathi + English), `hashtags` (10-15, always starting `#MahaSpark`).
 - **Gemini keys.** `GEMINI_API_KEY` plus optional `GEMINI_API_KEYS` (comma separated, keys from different Google Cloud projects). Text: every model is tried with every key (`gemini`, `gemini-key2`, ...); a spent or rejected key is skipped alone. Voice: model-major over keys, spent (model, key) pairs are remembered for the run (`_TTS_SPENT`).
 - **Sampling.** `temperature=0.15`, structured JSON output through the `Story` pydantic schema.
-  Models: `GEMINI_MODELS` (default `gemini-2.5-pro,gemini-2.5-flash`).
+  Models: `GEMINI_MODELS` when set; otherwise `discover_gemini_models` asks Google which text models the key can use (newest first, up to 6; `GEMINI_AUTO_MODELS=0` turns it off) and `gemini-2.5-pro,gemini-2.5-flash` are appended as a last resort.
 
 ## Phonetic TTS engineering (dual-text output)
 

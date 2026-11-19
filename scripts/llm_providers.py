@@ -96,9 +96,56 @@ def normalize_gemini_model(name: str) -> str:
     return re.sub(r"\s+", "-", name).lower()
 
 
+_SKIP_MODEL_WORDS = ("tts", "image", "embed", "live", "audio", "veo", "imagen", "aqa", "robotics", "computer", "vision",
+                     "native", "learnlm", "gemma", "exp", "customtools")
+_DISCOVERED: list | None = None
+
+
+def rank_text_models(models: list) -> list:
+    """Usable text models, newest version first; within a version pro, then flash, then flash-lite."""
+    def key(name: str):
+        match = re.search(r"gemini-(\d+(?:\.\d+)?)", name)
+        version = float(match.group(1)) if match else 0.0
+        tier = 0 if "pro" in name else 2 if "lite" in name else 1
+        return (-version, tier, name)
+
+    good = [m for m in models if m.startswith("gemini-") and not any(w in m for w in _SKIP_MODEL_WORDS)]
+    return sorted(dict.fromkeys(good), key=key)
+
+
+def discover_gemini_models(limit: int = 6) -> list:
+    """Ask Google which text models the first API key can use (generateContent), best first. [] on any problem."""
+    global _DISCOVERED
+    if _DISCOVERED is not None:
+        return _DISCOVERED
+    _DISCOVERED = []
+    key = (split_models(get_env_value("GEMINI_API_KEYS")) or [get_env_value("GEMINI_API_KEY")])[0]
+    if not key or get_env_value("GEMINI_AUTO_MODELS") == "0":
+        return _DISCOVERED
+    try:
+        import requests
+
+        resp = requests.get("https://generativelanguage.googleapis.com/v1beta/models", params={"pageSize": 1000},
+                            headers={"x-goog-api-key": key}, timeout=15)
+        if resp.status_code != 200:
+            print(f"⚠️ Could not list Gemini models (HTTP {resp.status_code}); using the built-in list.")
+            return _DISCOVERED
+        names = [str(m.get("name", "")).removeprefix("models/") for m in resp.json().get("models", [])
+                 if "generateContent" in (m.get("supportedGenerationMethods") or [])]
+    except Exception as exc:  # noqa: BLE001
+        print(f"⚠️ Could not list Gemini models ({exc}); using the built-in list.")
+        return _DISCOVERED
+    _DISCOVERED = rank_text_models(names)[:limit]
+    print(f"🔎 Gemini text models this key can use: {', '.join(_DISCOVERED) or '(none)'}")
+    return _DISCOVERED
+
+
 def candidate_gemini_models() -> list:
-    raw = get_env_value("GEMINI_MODELS") or DEFAULT_GEMINI_MODELS
-    return list(dict.fromkeys(normalize_gemini_model(m) for m in split_models(raw)))
+    """GEMINI_MODELS when set; otherwise the models Google says this key can use, then the built-in names."""
+    raw = get_env_value("GEMINI_MODELS")
+    if raw:
+        return list(dict.fromkeys(normalize_gemini_model(m) for m in split_models(raw)))
+    return list(dict.fromkeys(discover_gemini_models() + split_models(DEFAULT_GEMINI_MODELS)))
 
 
 def parse_json(text: str) -> dict:
