@@ -27,7 +27,7 @@ import longform
 import send_telegram
 import youtube_upload
 from bulletin_editorial import FACT_RULES, PHONETIC_RULES
-from config import LONG_PATH, LONG_THUMB_PATH
+from config import LONG_PATH
 from editorial_prompts import AUDIO_MOODS
 from llm_providers import ContentFailed, ContentRejected, LLMUnavailableError, generate_json
 from marathi_numbers import numbers_to_words, words_to_digits
@@ -75,6 +75,8 @@ Write 6 to 9 scenes. Each scene has a "kind", an on-screen "headline", optional 
   never spelled-out numbers, no emoji, no English words, no quotation marks except inside a quote value.
   Headline at most {MAX_HEADLINE} characters, subtitle at most {MAX_SUBTITLE}, label at most {MAX_LABEL}, value at most {MAX_VALUE}.
   Every number, date and quote must be in the source.
+- "thumb_text": 3 to 5 words, at most 30 characters, for the YouTube thumbnail: a curious question or the hook of the story
+  (for example "पाणी योजना खरंच मंजूर?"); any number in it must be in the source.
 - "title" (the video title, at most 95 characters, keyword first, a complete line), "social_caption" (2-3 sentences),
   "seo_keywords" (8-12, Marathi and English), "audio_mood" one of
 {_MOODS}
@@ -103,6 +105,7 @@ class Explainer(BaseModel):
     approved: bool = True
     rejection_reason: str = ""
     title: str = ""
+    thumb_text: str = ""
     social_caption: str = ""
     seo_keywords: list[str] = Field(default_factory=list)
     audio_mood: str = "neutral"
@@ -195,8 +198,12 @@ def validate_explainer(data: dict, source_text: str) -> dict:
     if not 20 <= len(title) <= 95:
         raise ValueError(f"title has {len(title)} characters; it must be 20 to 95.")
     mood = data.get("audio_mood") if data.get("audio_mood") in AUDIO_MOODS else "neutral"
+    thumb = words_to_digits(_clean(data.get("thumb_text")))
+    if len(thumb) > 34 or any(n not in allowed for n in ee.source_numbers(thumb)):
+        thumb = ""  # not worth a repair attempt: the thumbnail falls back to the hook headline
     return {
         "title": title,
+        "thumb_text": thumb,
         "social_caption": _clean(data.get("social_caption"))[:400],
         "seo_keywords": ee.clean_keywords(data.get("seo_keywords", [])),
         "audio_mood": mood,
@@ -294,9 +301,10 @@ def finish(ex: dict, queue, skip_render: bool, skip_upload: bool, skip_telegram:
             video_url = youtube_upload.upload_video(LONG_PATH, ex["title"], build_description(ex, props), build_tags(ex))
             uploaded = True
             print(f"▶️ Uploaded: {video_url}")
-            if longform.render_thumbnail(scenes[0]["headline"], EXPLAINER_THUMB_TAG, key_figure(ex)):
+            thumb = longform.render_thumbnail("explainer", ex.get("thumb_text") or scenes[0]["headline"], EXPLAINER_THUMB_TAG, key_figure(ex), props["bg_hue"])
+            if thumb:
                 try:
-                    youtube_upload.set_thumbnail(video_url, LONG_THUMB_PATH)
+                    youtube_upload.set_thumbnail(video_url, thumb)
                 except Exception as exc:  # noqa: BLE001
                     print(f"⚠️ Thumbnail upload failed: {exc}")
         except youtube_upload.YouTubeUnavailable as exc:

@@ -45,7 +45,7 @@ def test_cue_index_beats_cue_word_and_missing_cue_is_spread():
 
 
 def test_build_scene_times_words_cues_and_length(tmp_path):
-    def tts(text, path):
+    def tts(text, path, **kw):
         write_wav(path, 2.0)
 
     scene = {"kind": "points", "headline": "मुद्दे", "tts_text": "पुणे योजना मंजूर केली.", "items": [{"label": "योजना", "cue": "योजना"}]}
@@ -57,7 +57,7 @@ def test_build_scene_times_words_cues_and_length(tmp_path):
 
 
 def test_build_scene_turns_word_indexes_into_seconds(tmp_path):
-    def tts(text, path):
+    def tts(text, path, **kw):
         write_wav(path, 3.0)
 
     scene = {"kind": "answer", "headline": "x", "tts_text": "बरोबर उत्तर ब, पुणे. कारण असे.", "reveal_index": 2, "explain_index": 4, "items": []}
@@ -297,3 +297,103 @@ def test_cli_dispatch_keeps_the_automatic_mode(monkeypatch):
     explainer.main(["draft", "--topic", "x"])
     explainer.main(["produce", "f.txt"])
     assert called == {"draft": ["--topic", "x"], "produce": ["f.txt"]}
+
+
+# ----- voices and thumbnails ---------------------------------------------------------------------
+
+import thumbnails  # noqa: E402
+import voices  # noqa: E402
+
+
+def test_each_scene_kind_gets_its_voice_role_and_style():
+    assert voices.role_for_scene("question") == "quiz_read" and voices.role_for_scene("answer") == "quiz_cheer"
+    assert voices.role_for_scene("quote") == "quote" and voices.role_for_scene("points") == "explainer"
+    quote, quiz_read, explainer_kw = voices.role_kwargs("quote"), voices.role_kwargs("quiz_read"), voices.role_kwargs("explainer")
+    assert quote["voice"] != quiz_read["voice"] and explainer_kw["voice"] is None  # the explainer keeps the default voice
+    assert "quote" in quote["style"].lower() and "quiz" in quiz_read["style"].lower()
+
+
+def test_voice_and_style_overrides_come_from_the_environment(monkeypatch):
+    monkeypatch.setenv("QUIZ_TTS_VOICE", "Zephyr")
+    monkeypatch.setenv("QUOTE_TTS_STYLE", "Read it slowly.")
+    assert voices.role_kwargs("quiz_cheer")["voice"] == "Zephyr" and voices.role_kwargs("quote")["style"] == "Read it slowly."
+
+
+def test_scene_voice_is_requested_with_the_role(tmp_path):
+    seen = {}
+
+    def tts(text, path, **kw):
+        seen.update(kw)
+        write_wav(path, 1.0)
+
+    longform.build_scene({"kind": "quote", "headline": "x", "tts_text": "आयुक्त म्हणाले योजना मंजूर आहे.", "items": []}, 0, tts=tts, whisper=lambda p: [], out_dir=tmp_path)
+    assert seen["voice"] == voices.role_kwargs("quote")["voice"] and seen["style"]
+
+
+def test_style_only_travels_in_the_style_field_never_in_the_spoken_text(monkeypatch):
+    captured = {}
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        captured.update(json)
+
+        class R:
+            status_code = 200
+            text = ""
+
+            def json(self):
+                import base64
+
+                return {"candidates": [{"content": {"parts": [{"inlineData": {"data": base64.b64encode(b"\0\0" * 3000).decode(), "mimeType": "audio/L16;rate=24000"}}]}}]}
+
+        return R()
+
+    import editorial_engine as ee
+
+    monkeypatch.setattr(ee.requests, "post", fake_post)
+    ee._tts_generate_content("m", "पुणे योजना.", "Puck", "k", "Quiz host style")
+    assert captured["contents"][0]["parts"][0]["text"] == "पुणे योजना."
+    assert captured["systemInstruction"]["parts"][0]["text"] == "Quiz host style"
+    assert captured["generationConfig"]["speechConfig"]["voiceConfig"]["prebuiltVoiceConfig"]["voiceName"] == "Puck"
+
+
+def test_thumbnail_text_is_short_and_variants_differ():
+    assert len(thumbnails.short_text("पुणे महापालिकेने शहरातील पाणीपुरवठा योजना मंजूर केली आहे").split()) <= thumbnails.MAX_WORDS
+    assert thumbnails.short_text("पाणी योजना मंजूर?") == "पाणी योजना मंजूर?"
+    assert not thumbnails.short_text("पुणे, महापालिका, ").endswith(",")
+    a = thumbnails.variant_props("question", "पाणी योजना?", "आजची क्विझ", "", None, 0)
+    b = thumbnails.variant_props("bold", "पाणी योजना?", "आजची क्विझ", "₹१,२०० कोटी", "media/p.jpg", 35)
+    assert a["style"] != b["style"] and b["photo"] == {"src": "media/p.jpg"} and a["photo"] is None
+    assert all(len(v) == len(set(v)) for v in thumbnails.STYLES.values())
+
+
+def test_render_variants_returns_the_files_it_made_and_never_raises(monkeypatch, tmp_path):
+    monkeypatch.setattr(thumbnails, "THUMB_DIR", tmp_path / "t")
+    monkeypatch.setattr(thumbnails, "PUBLIC_DIR", tmp_path)
+
+    def fake_run(cmd, cwd=None):
+        out = [c for c in cmd if str(c).endswith(".jpg")][0]
+        if "alert" in out:
+            class Bad:
+                returncode = 1
+
+            return Bad()
+        open(out, "wb").write(b"x")
+
+        class Ok:
+            returncode = 0
+
+        return Ok()
+
+    monkeypatch.setattr(thumbnails.subprocess, "run", fake_run)
+    made = thumbnails.render_variants("quiz", "पाणी योजना?", "आजची क्विझ")
+    assert [p.stem.split("-")[-1] for p in made] == ["question", "bold"]  # the failed 'alert' variant is skipped
+
+
+def test_explainer_thumb_text_is_kept_only_when_short_and_backed_by_the_source():
+    data = good_explainer()
+    data["thumb_text"] = "पाणी योजना खरंच मंजूर?"
+    assert explainer.validate_explainer(data, SOURCE)["thumb_text"] == "पाणी योजना खरंच मंजूर?"
+    data["thumb_text"] = "९९९ कोटींची योजना?"
+    assert explainer.validate_explainer(data, SOURCE)["thumb_text"] == ""
+    text = drafts.explainer_to_text({**explainer.validate_explainer(good_explainer(), SOURCE), "thumb_text": "पाणी योजना?"}, [])
+    assert drafts.parse_explainer(text)["thumb_text"] == "पाणी योजना?"

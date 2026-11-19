@@ -330,18 +330,20 @@ def thumbnail_props(props: dict) -> dict:
     return {"headline": items[0]["headline"], "count": len(items), "photo": pick.get("photo")}
 
 
-def render_thumbnail(props: dict) -> bool:
-    """Render the 1280x720 YouTube thumbnail. Failure never stops the bulletin."""
+def render_thumbnail(props: dict) -> Path | None:
+    """Thumbnail variants for the bulletin (thumbnails.py); returns the one to upload, or None. Failure never stops it."""
+    import thumbnails
+
     try:
-        write_props(thumbnail_props(props), THUMB_JSON)
-        cmd = [
-            "npx", "remotion", "still", "src/index.ts", "BulletinThumbnail", str(THUMB_PATH),
-            "--props=public/bulletin_thumb.json", "--image-format=jpeg", "--jpeg-quality=88",
-        ]
-        return subprocess.run(cmd, cwd=REMOTION_DIR).returncode == 0 and THUMB_PATH.exists()
+        pick = thumbnail_props(props)
+        photo = (pick.get("photo") or {}).get("src") if pick.get("photo") else None
+        made = thumbnails.render_variants(
+            "bulletin", pick["headline"], f"आजच्या {pick['count']} मोठ्या बातम्या", "", photo, props.get("bg_hue", 0), name="bulletin"
+        )
+        return made[0] if made else None
     except Exception as exc:  # noqa: BLE001
         print(f"⚠️ Thumbnail render failed: {exc}")
-        return False
+        return None
 
 
 # ----- main ------------------------------------------------------------------------------------
@@ -399,9 +401,10 @@ def main(argv: list[str] | None = None) -> int:
             )
             uploaded = True
             print(f"▶️ Uploaded: {video_url}")
-            if render_thumbnail(props):
+            thumb = render_thumbnail(props)
+            if thumb:
                 try:
-                    youtube_upload.set_thumbnail(video_url, THUMB_PATH)
+                    youtube_upload.set_thumbnail(video_url, thumb)
                 except Exception as exc:  # noqa: BLE001
                     print(f"⚠️ Thumbnail upload failed: {exc}")
         except youtube_upload.YouTubeUnavailable as exc:

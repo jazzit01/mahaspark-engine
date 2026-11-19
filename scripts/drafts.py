@@ -105,6 +105,7 @@ def _header(text: str) -> dict:
     mood = _meta(text, "MOOD").lower()
     return {
         "title": _meta(text, "TITLE"),
+        "thumb_text": words_to_digits(_meta(text, "THUMB")),
         "social_caption": _meta(text, "CAPTION")[:400],
         "seo_keywords": [k.strip() for k in re.split(r"[,،]", _meta(text, "KEYWORDS")) if k.strip()],
         "audio_mood": mood if mood in MOODS else "neutral",
@@ -125,6 +126,7 @@ def _speech(text: str, label: str, problems: list[str]) -> str:
 EXPLAINER_HELP = """# MahaSpark explainer script. Edit anything, save, then run:
 #   python scripts/explainer.py produce <this file>
 # Lines starting with # are ignored. Each scene:
+#   THUMB (top of file): 3-5 punchy words for the YouTube thumbnail, for example a question
 #   HEADLINE: big text on screen        SUBTITLE: small line under it (optional)
 #   SPEECH: what the anchor says (digits are fine; the voice spells them in Marathi)
 #   ITEMS: one per line:  - text on screen | value (optional) | word to appear on (optional)
@@ -134,7 +136,7 @@ EXPLAINER_HELP = """# MahaSpark explainer script. Edit anything, save, then run:
 
 
 def explainer_to_text(ex: dict, sources: list[str]) -> str:
-    out = [EXPLAINER_HELP, "", f"TITLE: {ex['title']}", f"CAPTION: {ex.get('social_caption', '')}",
+    out = [EXPLAINER_HELP, "", f"TITLE: {ex['title']}", f"THUMB: {ex.get('thumb_text', '')}", f"CAPTION: {ex.get('social_caption', '')}",
            f"KEYWORDS: {', '.join(ex.get('seo_keywords', []))}", f"MOOD: {ex.get('audio_mood', 'neutral')}",
            f"SOURCES: {' | '.join(sources)}", ""]
     for n, scene in enumerate(ex["scenes"], 1):

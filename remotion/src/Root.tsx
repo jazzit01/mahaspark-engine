@@ -10,6 +10,7 @@ import {BulletinReel, bulletinFrames} from './bulletin/BulletinReel';
 import {BULLETIN_HEIGHT, BULLETIN_WIDTH} from './bulletin/constants';
 import {sampleBulletin} from './bulletin/sampleBulletin';
 import {BulletinProps} from './bulletin/types';
+import {MahaSparkThumbnail, THUMB_H, THUMB_W} from './Thumb';
 import {LongVideo, longFrames} from './long/LongVideo';
 import {LongProps} from './long/types';
 import {BulletinThumbnail, THUMB_HEIGHT, THUMB_WIDTH} from './bulletin/Thumbnail';
@@ -111,6 +112,17 @@ export const RemotionRoot: React.FC = () => {
         durationInFrames={FPS * 14}
         defaultProps={sampleLong}
         calculateMetadata={calculateLongMetadata}
+      />
+
+      {/* YouTube thumbnail variants (style: bold | question | figure | alert): rendered with --props=public/thumb_<style>.json. */}
+      <Composition
+        id="MahaSparkThumbnail"
+        component={MahaSparkThumbnail}
+        width={THUMB_W}
+        height={THUMB_H}
+        fps={FPS}
+        durationInFrames={1}
+        defaultProps={{text: 'पाणी योजना मंजूर?', tag: 'समजून घ्या', figure: '₹१,२०० कोटी', photo: null, style: 'bold' as const, hue: 0}}
       />
 
       {/* YouTube thumbnail still for the bulletin: rendered with --props=public/bulletin_thumb.json. */}

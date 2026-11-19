@@ -538,7 +538,7 @@ def _is_bad_key(exc: Exception) -> bool:
     return any(t in text for t in ("API KEY NOT VALID", "API_KEY_INVALID", "INVALID API KEY", "UNAUTHENTICATED", "HTTP 401"))
 
 
-def _tts_interactions(model: str, script: str, voice: str, api_key: str) -> bytes:
+def _tts_interactions(model: str, script: str, voice: str, api_key: str, style: str | None = None) -> bytes:
     """Route 1: Interactions API (documented for the Gemini 3.x TTS models)."""
     from google import genai  # imported lazily so script-only tests need no SDK
 
@@ -552,7 +552,7 @@ def _tts_interactions(model: str, script: str, voice: str, api_key: str) -> byte
                     {
                         "type": "text",
                         "text": script,
-                        "annotations": [{"type": "speech_metadata", "style": ANCHOR_STYLE}],
+                        "annotations": [{"type": "speech_metadata", "style": style or ANCHOR_STYLE}],
                     }
                 ],
             }
@@ -565,7 +565,7 @@ def _tts_interactions(model: str, script: str, voice: str, api_key: str) -> byte
     return audio if audio[:4] == b"RIFF" else _wav_from_pcm(audio)
 
 
-def _tts_generate_content(model: str, script: str, voice: str, api_key: str) -> bytes:
+def _tts_generate_content(model: str, script: str, voice: str, api_key: str, style: str | None = None) -> bytes:
     """Route 2: classic generateContent TTS over plain REST.
 
     The ``text`` part is ONLY the script: anything placed there is read aloud by the voice. The anchor
@@ -587,7 +587,7 @@ def _tts_generate_content(model: str, script: str, voice: str, api_key: str) -> 
             timeout=180,
         )
 
-    resp = post({**body, "systemInstruction": {"parts": [{"text": ANCHOR_STYLE}]}})
+    resp = post({**body, "systemInstruction": {"parts": [{"text": style or ANCHOR_STYLE}]}})
     if resp.status_code == 400:
         print(f"ℹ️ {model} does not accept a style instruction; sending the script alone.")
         resp = post(body)
@@ -613,17 +613,17 @@ def reset_tts_state() -> None:
     _TTS_BAD_KEYS.clear()
 
 
-def _request_tts_audio(script: str, model: str, api_key: str | None = None) -> bytes:
+def _request_tts_audio(script: str, model: str, api_key: str | None = None, voice: str | None = None, style: str | None = None) -> bytes:
     """Try both call routes for one model with one key. Quota, key and transient errors are left to the caller."""
     api_key = api_key or (gemini_keys() or [""])[0]
     if not api_key:
         raise LLMUnavailableError("GEMINI_API_KEY is not set; the Gemini voice cannot be used.")
-    voice = get_env_value("GEMINI_TTS_VOICE", TTS_VOICE_DEFAULT)
+    voice = voice or get_env_value("GEMINI_TTS_VOICE", TTS_VOICE_DEFAULT)
 
     errors = []
     for name, route in (("interactions", _tts_interactions), ("generateContent", _tts_generate_content)):
         try:
-            audio = route(model, script, voice, api_key)
+            audio = route(model, script, voice, api_key) if style is None else route(model, script, voice, api_key, style)
             print(f"🎙️ {model} voiced via {name}.")
             return audio
         except Exception as exc:  # noqa: BLE001
@@ -633,7 +633,8 @@ def _request_tts_audio(script: str, model: str, api_key: str | None = None) -> b
     raise RuntimeError(" | ".join(errors))
 
 
-def synthesize_voiceover(script: str, out_path: Path = VOICEOVER_PATH, attempts: int = TTS_ATTEMPTS_PER_MODEL) -> Path:
+def synthesize_voiceover(script: str, out_path: Path = VOICEOVER_PATH, attempts: int = TTS_ATTEMPTS_PER_MODEL,
+                         voice: str | None = None, style: str | None = None) -> Path:
     """Render ``script`` (the phonetic ``tts_narration_script``) to a WAV file.
 
     Walks the model chain. A missing model, a request error or an exhausted per-model quota moves on to
@@ -663,7 +664,8 @@ def synthesize_voiceover(script: str, out_path: Path = VOICEOVER_PATH, attempts:
             label = f"{model} (key {number})" if len(keys) > 1 else model
             for attempt in range(1, attempts + 1):
                 try:
-                    wav = _request_tts_audio(script, model, key)
+                    wav = (_request_tts_audio(script, model, key) if voice is None and style is None
+                           else _request_tts_audio(script, model, key, voice=voice, style=style))
                     if len(wav) < 4000:
                         raise RuntimeError("TTS returned an empty or truncated audio file.")
                     out_path.parent.mkdir(parents=True, exist_ok=True)
