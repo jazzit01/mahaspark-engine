@@ -105,3 +105,19 @@ def test_each_key_gets_its_own_attempt(monkeypatch):
     monkeypatch.setattr(lp, "genai", object())
     gem = [(p, m) for p, m, _ in lp.build_attempts("s", None) if p.startswith("gemini")]
     assert gem == [("gemini", "m1"), ("gemini-key2", "m1")]
+
+
+def test_rank_text_models_newest_first_and_skips_non_text():
+    from llm_providers import rank_text_models
+
+    got = rank_text_models(["gemini-2.5-flash", "gemini-3.1-flash-lite", "gemini-3.5-pro", "gemini-3.5-flash",
+                            "gemini-3.1-flash-tts-preview", "gemini-2.5-flash-image", "gemma-3-27b", "embedding-001"])
+    assert got == ["gemini-3.5-pro", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"]
+
+
+def test_explicit_models_skip_discovery(monkeypatch):
+    import llm_providers
+
+    monkeypatch.setenv("GEMINI_MODELS", "Gemini 3.1 Flash Lite")
+    monkeypatch.setattr(llm_providers, "discover_gemini_models", lambda *a, **k: (_ for _ in ()).throw(AssertionError("listed")))
+    assert llm_providers.candidate_gemini_models() == ["gemini-3.1-flash-lite"]
