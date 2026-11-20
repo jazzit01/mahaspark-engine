@@ -27,6 +27,7 @@ from config import (
     OUT_DIR,
     REMOTION_DIR,
 )
+from content_rules import plain_names
 from llm_providers import LLMUnavailableError
 from marathi_numbers import caption_words
 
@@ -210,4 +211,4 @@ def speakable(text: str) -> str:
 
 
 def squash(text: str) -> str:
-    return re.sub(r"[\s\"'“”‘’]+", "", str(text or ""))
+    return re.sub(r"[\s\"'“”‘’]+", "", plain_names(str(text or "")))

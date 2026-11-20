@@ -57,7 +57,8 @@ class YouTubeUnavailable(RuntimeError):
 
 
 def credentials() -> tuple[str, str, str]:
-    values = [get_env_value(k) for k in ("YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN")]
+    # a pasted secret often carries a trailing newline, spaces or quotes; any of them makes Google answer invalid_grant
+    values = [get_env_value(k).strip().strip("\"'").strip() for k in ("YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN")]
     if not all(values):
         raise YouTubeUnavailable("YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET / YOUTUBE_REFRESH_TOKEN are not all set.")
     return values[0], values[1], values[2]
@@ -114,9 +115,28 @@ def access_token(client_id: str, client_secret: str, refresh_token: str) -> str:
         },
         timeout=30,
     )
-    if resp.status_code != 200 or "access_token" not in resp.json():
-        raise RuntimeError(f"YouTube token refresh failed: HTTP {resp.status_code} {resp.text[:200]}")
-    return resp.json()["access_token"]
+    try:
+        body = resp.json()
+    except ValueError:
+        body = {}
+    if resp.status_code != 200 or "access_token" not in body:
+        raise RuntimeError(refresh_error_message(resp.status_code, body, resp.text))
+    return body["access_token"]
+
+
+def refresh_error_message(status: int, body: dict, raw: str = "") -> str:
+    """The Google error plus, for the usual causes, what to do about it."""
+    code = str(body.get("error", ""))
+    text = f"YouTube token refresh failed: HTTP {status} {code} {body.get('error_description', raw[:120])}".strip()
+    hints = {
+        "invalid_grant": " Causes: (1) the Google Auth consent screen is still in 'Testing' (refresh tokens then die after 7 days): "
+                         "set it to 'In production' and create a NEW refresh token; (2) the refresh token was created with a "
+                         "different client ID/secret than the ones saved in the secrets; (3) the token was revoked or has stray "
+                         "spaces/quotes; (4) the Google account changed its password.",
+        "invalid_client": " The YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET secrets do not match any OAuth client (copy them again).",
+        "unauthorized_client": " The OAuth client may not be allowed to use this scope; create a 'Desktop app' client.",
+    }
+    return text + hints.get(code, "")
 
 
 def upload_video(video_path: Path, title: str, description: str, tags: list[str], max_retries: int = 4) -> str:
