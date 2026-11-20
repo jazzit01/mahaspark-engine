@@ -13,17 +13,19 @@ Devanagari digits.
 
 from __future__ import annotations
 
+import os
 import re
 from datetime import datetime
 from pathlib import Path
 
+import content_rules
 import editorial_engine as ee
 import fetch_news
 import longform
 from config import ROOT
 from marathi_numbers import numbers_to_words, words_to_digits
 
-DRAFT_DIR = ROOT / "drafts"
+DRAFT_DIR = ROOT / (os.getenv("DRAFT_DIR") or "drafts")  # the workflows set DRAFT_DIR=approvals so the file can be edited on GitHub
 MOODS = ("neutral", "serious", "crime", "breaking", "upbeat")
 EXPLAINER_KINDS = {  # kind -> (min items, max items)
     "title": (0, 0), "points": (0, 5), "steps": (0, 5), "compare": (0, 3), "timeline": (0, 6),
@@ -149,7 +151,8 @@ EXPLAINER_HELP = """# MahaSpark explainer script. Edit anything, save, then run:
 
 
 def explainer_to_text(ex: dict, sources: list[str]) -> str:
-    out = [EXPLAINER_HELP, "", f"TITLE: {ex['title']}", f"THUMB: {ex.get('thumb_text', '')}", f"CAPTION: {ex.get('social_caption', '')}",
+    notes = [f"# FACT-CHECK NOTE (check this, then delete the line): {n}" for n in ex.get("fact_notes", [])]
+    out = [EXPLAINER_HELP, *notes, "", f"TITLE: {ex['title']}", f"THUMB: {ex.get('thumb_text', '')}", f"CAPTION: {ex.get('social_caption', '')}",
            f"KEYWORDS: {', '.join(ex.get('seo_keywords', []))}", f"MOOD: {ex.get('audio_mood', 'neutral')}",
            f"SOURCES: {' | '.join(sources)}", ""]
     for n, scene in enumerate(ex["scenes"], 1):
@@ -175,6 +178,7 @@ def _auto_cue(label: str, speech: str) -> str:
 
 
 def parse_explainer(text: str) -> dict:
+    text = content_rules.plain_names(text)
     problems: list[str] = []
     head = _header(text)
     title = words_to_digits(head["title"])
@@ -237,7 +241,7 @@ def parse_explainer(text: str) -> dict:
     if problems:
         raise DraftError(problems)
     return {**{k: v for k, v in head.items() if k != "sources"}, "title": ee.polish_title(title), "scenes": scenes,
-            "source": {"title": title, "url": "\n".join(head["sources"])}}
+            "source": {"title": title, "url": "\n".join(head["sources"]), "urls": head["sources"]}}
 
 
 # ----- quiz --------------------------------------------------------------------------------------
@@ -264,6 +268,8 @@ def quiz_to_text(quiz: dict, sources: list[str]) -> str:
             if _clean(q["options_tts"][k]) != _clean(ee.clean_tts_text(numbers_to_words(q["options"][k])).rstrip(".")):
                 out.append(f"{LETTERS[k]}SPEECH: {q['options_tts'][k]}")
         out += [f"ANSWER: {LETTERS[q['correct']]}", f"WHY: {q['explanation']}"]
+        if q.get("evidence"):
+            out.append(f"# PROOF in the reference text (check it before you approve): {q['evidence']}")
         if _clean(q["explanation_tts"]) != _clean(ee.clean_tts_text(numbers_to_words(q["explanation"]))):
             out.append(f"WHYSPEECH: {q['explanation_tts']}")
         out.append("")
@@ -271,6 +277,7 @@ def quiz_to_text(quiz: dict, sources: list[str]) -> str:
 
 
 def parse_quiz(text: str) -> dict:
+    text = content_rules.plain_names(text)
     problems: list[str] = []
     head = _header(text)
     title = words_to_digits(head["title"])
@@ -312,4 +319,41 @@ def parse_quiz(text: str) -> dict:
     if problems:
         raise DraftError(problems)
     return {"title": ee.polish_title(title), "social_caption": head["social_caption"], "seo_keywords": head["seo_keywords"],
-            "questions": questions, "sources": head["sources"]}
+            "questions": questions, "sources": head["sources"], "credit_urls": head["sources"]}
+
+
+# ----- review notice -----------------------------------------------------------------------------
+
+
+def review_links(path: Path) -> dict:
+    """GitHub links to read/edit a draft that lives in the repository (empty outside GitHub Actions)."""
+    repo = os.getenv("GITHUB_REPOSITORY", "")
+    if not repo:
+        return {}
+    try:
+        rel = Path(path).resolve().relative_to(ROOT.resolve()).as_posix()
+    except ValueError:
+        return {}
+    base = f"https://github.com/{repo}"
+    return {"path": rel, "view": f"{base}/blob/main/{rel}", "edit": f"{base}/edit/main/{rel}",
+            "run": f"{base}/actions"}
+
+
+def announce(kind: str, path: Path, title: str) -> None:
+    """Tell the owner where the draft is (Telegram + log). Best effort."""
+    import send_telegram
+
+    links = review_links(path)
+    label = "explainer" if kind == "explainer" else "quiz"
+    lines = [f"📝 <b>MahaSpark {label}: script ready for your approval</b>", title, ""]
+    if links:
+        lines += [f"1) Read / edit: {links['edit']}", "   (change anything, then press 'Commit changes')",
+                  f"2) Then run the {label} workflow again with step = produce and file = {links['path']}"]
+    else:
+        lines += [f"File: {path}", f"Edit it, then run: python scripts/{label}.py produce {path}"]
+    print("\n".join(l.replace("<b>", "").replace("</b>", "") for l in lines))
+    try:
+        send_telegram.send_message("\n".join(lines))
+        send_telegram.send_document(Path(path), f"{label} script: {title}"[:200])
+    except Exception as exc:  # noqa: BLE001
+        print(f"⚠️ Could not notify Telegram: {exc}")

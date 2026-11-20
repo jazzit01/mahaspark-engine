@@ -70,7 +70,7 @@ export const LongVideo: React.FC<LongProps> = (props) => {
               <FadeOut frames={frames}>
                 <SceneBody scene={scene} />
               </FadeOut>
-              <LongCaptions words={scene.words} />
+              {scene.kind === 'question' || scene.kind === 'answer' ? null : <LongCaptions words={scene.words} />}
             </AbsoluteFill>
             <Sequence from={Math.round(scene.lead_seconds * fps)} layout="none">
               <Audio src={staticFile(scene.audio)} />

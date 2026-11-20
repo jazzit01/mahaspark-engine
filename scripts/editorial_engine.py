@@ -25,6 +25,7 @@ import requests
 from pydantic import BaseModel, Field
 
 from config import STORY_PATH, VOICEOVER_PATH, get_env_value
+from content_rules import plain_names
 from fetch_news import THIN_SOURCE_CHARS
 from marathi_numbers import numbers_to_words, words_to_digits
 from editorial_prompts import AUDIO_MOODS, SYSTEM_INSTRUCTION, THEMES, build_user_prompt
@@ -142,7 +143,7 @@ def tts_problems(text: str) -> list[str]:
 
 def clean_tts_text(text: str) -> str:
     """Normalise spacing and punctuation of one scene's speech text."""
-    text = str(text or "").replace("।", ".").replace("\n", " ")
+    text = plain_names(str(text or "")).replace("।", ".").replace("\n", " ")
     text = re.sub(r"\s+", " ", text).strip()
     text = re.sub(r"\s+([,.])", r"\1", text)
     text = re.sub(r"([,.])(?=\S)", r"\1 ", text).strip()

@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 
 import drafts
 import editorial_engine as ee
+import factcheck
 import longform
 import send_telegram
 import topic_bank
@@ -215,17 +216,36 @@ def validate_explainer(data: dict, source_text: str) -> dict:
 
 
 def write_explainer(title: str, summary: str, article_text: str, source_url: str) -> dict:
+    """Write the script, then let an independent checker flag statements the reference text does not state.
+    Flagged statements trigger ONE rewrite; anything still flagged is kept in ``fact_notes`` for the editor."""
     title, summary, article_text = (title or "").strip(), (summary or "").strip(), (article_text or "").strip()
     source_text = f"{title}\n{summary}\n{article_text}"
     if len(source_text) < MIN_SOURCE_CHARS:
         raise ContentRejected(f"Source has {len(source_text)} characters; an explainer needs {MIN_SOURCE_CHARS}.")
-    data = generate_json(
-        system_instruction=EXPLAINER_INSTRUCTION,
-        prompt=build_prompt(title, summary, article_text, source_url),
-        response_model=Explainer,
-        validate=lambda d: validate_explainer(d, source_text),
-    )
+    prompt = build_prompt(title, summary, article_text, source_url)
+    notes: list[str] = []
+    for attempt in (1, 2):
+        data = generate_json(
+            system_instruction=EXPLAINER_INSTRUCTION,
+            prompt=prompt,
+            response_model=Explainer,
+            validate=lambda d: validate_explainer(d, source_text),
+        )
+        try:
+            notes = factcheck.unsupported_statements(data["scenes"], source_text)
+        except (LLMUnavailableError, ContentFailed) as exc:
+            print(f"⚠️ Fact-check pass unavailable ({str(exc)[:80]}); the script is unchecked.")
+            notes = ["(the independent fact-check could not run; read every fact yourself)"]
+            break
+        if not notes:
+            break
+        print(f"🔎 Fact-check flagged {len(notes)} statement(s) (attempt {attempt}).")
+        prompt = build_prompt(title, summary, article_text, source_url) + (
+            "\n\nA fact-checker found these statements that the reference text does NOT support. Do not use them; "
+            "write the scenes again using only what the reference text states:\n- " + "\n- ".join(notes[:8])
+        )
     data["source"] = {"title": title, "url": source_url}
+    data["fact_notes"] = notes
     return data
 
 
@@ -274,6 +294,9 @@ def pick_story(known: set[str], deadline: float):
             ex = write_explainer(ref["title"], category, ref["text"], ref["url"])
         except (ContentRejected, ValueError, ContentFailed) as exc:
             print(f"⏭️ Not used ({str(exc)[:90]}): {en_title}")
+            continue
+        if ex.get("fact_notes"):
+            print(f"⏭️ Not used (fact-check still flags: {ex['fact_notes'][0][:90]}): {en_title}")
             continue
         ex["source"]["urls"] = ref["urls"]
         ex["source"]["url"] = wiki_sources.page_url("en", en_title)  # the bank key, so a redirect never repeats a topic
@@ -342,23 +365,47 @@ def _connect_log():
 
 
 def draft_main(argv: list[str]) -> int:
-    """Write the script for YOUR topic to drafts/explainer-<time>.txt for you to edit."""
+    """Write the script (for YOUR topic, or the next unused bank topic) to a .txt for you to edit and approve."""
     parser = argparse.ArgumentParser(prog="explainer.py draft", description="Write an explainer script as a .txt for approval.")
-    parser.add_argument("--topic", required=True, help="the topic in your words, e.g. 'पुणे मेट्रो विस्तार'")
+    parser.add_argument("--topic", default="", help="the topic in your words, e.g. 'पुणे मेट्रो विस्तार' (empty = next topic from the bank)")
     parser.add_argument("--url", action="append", default=[], help="a source article to use (repeat for more)")
     args = parser.parse_args(argv)
-    text, urls = drafts.topic_sources(args.topic, args.url)
-    if len(text) < MIN_SOURCE_CHARS // 2:
-        print(f"❌ Found only {len(text)} characters of reference text about this topic. Add article links with --url.")
-        return 1
+    topic = args.topic.strip()
+    key_url = ""
     try:
-        ex = write_explainer(args.topic, "", text, "\n".join(urls))
+        if topic:
+            text, urls = drafts.topic_sources(topic, [u for u in args.url if u])
+            if len(text) < MIN_SOURCE_CHARS // 2:
+                print(f"❌ Found only {len(text)} characters of reference text about this topic. Add article links with --url.")
+                return 1
+            ex = write_explainer(topic, "", text, "\n".join(urls))
+        else:
+            known = _connect_log()[1]
+            ex = None
+            for _group, category, en_title in topic_bank.pick(None, known):
+                ref = wiki_sources.fetch_topic(en_title)
+                if not ref or len(ref["text"]) < MIN_SOURCE_CHARS:
+                    continue
+                try:
+                    ex = write_explainer(ref["title"], category, ref["text"], ref["url"])
+                except (ContentRejected, ValueError, ContentFailed) as exc:
+                    print(f"⏭️ Not used ({str(exc)[:90]}): {en_title}")
+                    continue
+                key_url, urls = wiki_sources.page_url("en", en_title), ref["urls"]
+                break
+            if not ex:
+                print("❌ No topic could be written right now. Run it again or give a --topic.")
+                return 1
     except (LLMUnavailableError, ContentFailed, ContentRejected, ValueError) as exc:
         print(f"❌ {exc}")
         return 1
+    sources = list(dict.fromkeys(([key_url] if key_url else []) + urls))
     path = drafts.new_draft_path("explainer")
-    path.write_text(drafts.explainer_to_text(ex, urls), encoding="utf-8")
-    print(f"📝 Script ready: {path}\n   Edit it, save, then run: python scripts/explainer.py produce {path}")
+    path.write_text(drafts.explainer_to_text(ex, sources), encoding="utf-8")
+    print(f"📝 Script ready: {path}")
+    if ex.get("fact_notes"):
+        print("🔎 The fact-checker still flags these (they are marked in the file):\n  - " + "\n  - ".join(ex["fact_notes"]))
+    drafts.announce("explainer", path, ex["title"])
     return 0
 
 
@@ -390,10 +437,14 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build and publish one MahaSpark explainer video (automatic; use 'draft' / 'produce' for your own topic and approval).")
     parser.add_argument("--text", help='"<title>\\n<article>" for a local one-off (no Sheet, no RSS)')
     parser.add_argument("--url", default="")
+    parser.add_argument("--auto", action="store_true", help="publish WITHOUT your approval (not recommended)")
     parser.add_argument("--skip-render", action="store_true")
     parser.add_argument("--skip-upload", action="store_true")
     parser.add_argument("--skip-telegram", action="store_true")
     args = parser.parse_args(argv)
+    if not args.auto and not args.text:
+        print("ℹ️ No video is made without your approval: writing the script for you to check (use --auto to skip this).")
+        return draft_main([])
 
     queue, known = (None, set()) if args.text else _connect_log()
     try:

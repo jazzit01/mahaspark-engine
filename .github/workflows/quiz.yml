@@ -1,13 +1,37 @@
-name: MahaSpark Quiz (16:9, YouTube)
+name: MahaSpark Quiz (16:9, YouTube, script approval)
 
-# Started by cron-job.org (POST .../actions/workflows/quiz.yml/dispatches, body {"ref":"main"}) because GitHub's own
-# schedule runs hours late. One job: story, voice, one Remotion render, YouTube upload, Telegram link.
+# Two manual steps (you approve the script before any video is made):
+#   1) Run workflow with step = draft (optionally your own topic): the script is written to approvals/, sent to Telegram,
+#      and you can read and edit it on GitHub (the link is in the Telegram message).
+#   2) Run workflow with step = produce and file = the approvals/... path: voice, render, YouTube upload, Telegram.
+# A cron-job.org trigger without inputs can only draft (step defaults to draft), never publish.
 concurrency:
   group: mahaspark-quiz
   cancel-in-progress: false
 
+permissions:
+  contents: write
+
 on:
   workflow_dispatch:
+    inputs:
+      step:
+        description: "draft = write the script for you to check, produce = make the video from the approved file"
+        type: choice
+        options: [draft, produce]
+        default: draft
+      topic:
+        description: "(draft) your topic, e.g. शिवनेरी किल्ला. Empty = the next unused topic from the list"
+        required: false
+        default: ""
+      url:
+        description: "(draft) optional article link to use as reference"
+        required: false
+        default: ""
+      file:
+        description: "(produce) the approved file, e.g. approvals/quiz-20261120-103000.txt"
+        required: false
+        default: ""
 
 jobs:
   produce-quiz:
@@ -15,8 +39,22 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - name: Checkout Code
+      - name: Checkout Code (latest main, so your edits are included)
         uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Check the inputs
+        env:
+          STEP: ${{ inputs.step }}
+          FILE_INPUT: ${{ inputs.file }}
+        run: |
+          if [ "$STEP" = "produce" ]; then
+            if [ -z "$FILE_INPUT" ] || [ ! -f "$FILE_INPUT" ]; then
+              echo "::error::step = produce needs file = the approved script path (for example approvals/quiz-20261120-103000.txt). It must exist in the repository."
+              exit 1
+            fi
+          fi
 
       - name: Set up Python 3.12 (pip cache)
         uses: actions/setup-python@v5
@@ -26,11 +64,13 @@ jobs:
           cache-dependency-path: requirements.txt
 
       - name: Set up Node 22
+        if: inputs.step == 'produce'
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
       - name: Cache npm dependencies
+        if: inputs.step == 'produce'
         uses: actions/cache@v4
         with:
           path: ~/.npm
@@ -38,12 +78,14 @@ jobs:
           restore-keys: npm-${{ runner.os }}-
 
       - name: Cache Remotion browser (Chrome Headless Shell)
+        if: inputs.step == 'produce'
         uses: actions/cache@v4
         with:
           path: remotion/node_modules/.remotion
           key: remotion-chrome-${{ runner.os }}-${{ hashFiles('remotion/package.json', 'remotion/package-lock.json') }}
 
       - name: Cache Playwright browsers
+        if: inputs.step == 'produce'
         # Kept as requested. The pipeline no longer uses Playwright, so this stays empty unless it is added back.
         uses: actions/cache@v4
         with:
@@ -51,6 +93,7 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
 
       - name: Install system libraries (Chrome dependencies)
+        if: inputs.step == 'produce'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -64,6 +107,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Install Remotion dependencies and browser
+        if: inputs.step == 'produce'
         working-directory: remotion
         run: |
           npm install --no-audit --no-fund
@@ -79,8 +123,12 @@ jobs:
           echo "$GCP_CREDS" > credentials.json
           mkdir -p out
 
-      - name: Run Quiz (RSS, Gemini, TTS, Remotion render, YouTube, Telegram)
+      - name: Draft the script (Gemini, Wikipedia) and notify Telegram
+        if: inputs.step == 'draft'
         env:
+          DRAFT_DIR: approvals
+          TOPIC: ${{ inputs.topic }}
+          URL_INPUT: ${{ inputs.url }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           # Extra keys from OTHER Google Cloud projects (comma separated); used when one key's quota is spent.
           GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
@@ -98,10 +146,43 @@ jobs:
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
           YOUTUBE_PRIVACY: ${{ vars.YOUTUBE_PRIVACY }}
-        run: python scripts/quiz.py
+        run: python scripts/quiz.py draft --topic "$TOPIC" --url "$URL_INPUT"
+
+      - name: Save the draft to the repository (you edit it there)
+        if: inputs.step == 'draft'
+        run: |
+          git config user.name "mahaspark-bot"
+          git config user.email "mahaspark-bot@users.noreply.github.com"
+          git add approvals
+          git commit -m "Quiz script draft for approval" || { echo "Nothing to save"; exit 1; }
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Make the video from the approved script (voice, render, YouTube, Telegram)
+        if: inputs.step == 'produce'
+        env:
+          FILE_INPUT: ${{ inputs.file }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Extra keys from OTHER Google Cloud projects (comma separated); used when one key's quota is spent.
+          GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
+          GEMINI_MODELS: ${{ vars.GEMINI_MODELS }}
+          GEMINI_TTS_MODEL: ${{ vars.GEMINI_TTS_MODEL }}
+          GEMINI_TTS_VOICE: ${{ vars.GEMINI_TTS_VOICE }}
+          GROQ_MODEL: ${{ vars.GROQ_MODEL }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # YouTube upload (OAuth refresh token with the youtube.upload scope). Unset = render only, video kept as artifact.
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          YOUTUBE_PRIVACY: ${{ vars.YOUTUBE_PRIVACY }}
+        run: python scripts/quiz.py produce "$FILE_INPUT"
 
       - name: Keep the video (2 days)
-        if: always()
+        if: always() && inputs.step == 'produce'
         uses: actions/upload-artifact@v4
         with:
           name: quiz

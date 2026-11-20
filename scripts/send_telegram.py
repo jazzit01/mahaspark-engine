@@ -86,6 +86,25 @@ def send_message(text: str) -> bool:
     return resp.status_code == 200
 
 
+def send_document(path: Path, caption: str = "") -> bool:
+    """Send a file (for example a script to review) to the configured chat."""
+    token, chat_id = _credentials()
+    try:
+        with open(path, "rb") as handle:
+            resp = requests.post(
+                f"https://api.telegram.org/bot{token}/sendDocument",
+                data={"chat_id": chat_id, "caption": caption[:1000]},
+                files={"document": (Path(path).name, handle, "text/plain")},
+                timeout=60,
+            )
+    except (requests.RequestException, OSError) as exc:
+        print(f"⚠️ Telegram document failed: {exc}")
+        return False
+    if resp.status_code != 200:
+        print(f"⚠️ Telegram document HTTP {resp.status_code}: {resp.text[:200]}")
+    return resp.status_code == 200
+
+
 def send_reel(video_path: Path, story: dict, source_url: str, max_retries: int = 3) -> bool:
     """Send the video, then the summary message. Returns True when the video was delivered."""
     token, chat_id = _credentials()

@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 import requests
 from bs4 import BeautifulSoup
 
+import content_rules
 from config import get_env_value
 
 DEFAULT_RSS_FEEDS = [
@@ -103,9 +104,13 @@ def iter_candidates(feeds: list[str] | None = None, per_feed: int = 5):
             if is_stale(entry):
                 print(f"ℹ️ Skipped old story: {title[:70]}")
                 continue
+            summary = strip_html(entry.get("summary", ""))
+            if content_rules.skip_news(title, summary):
+                print(f"ℹ️ Skipped (owner rule, names Savarkar): {title[:70]}")
+                continue
             yield Candidate(
                 title=title,
-                summary=strip_html(entry.get("summary", "")),
+                summary=summary,
                 link=(entry.get("link") or "").strip(),
             )
 

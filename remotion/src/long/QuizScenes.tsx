@@ -49,9 +49,9 @@ const OPTION_H = 142;
 
 const Option: React.FC<{letter: string; text: string; cue: number; state: 'idle' | 'correct' | 'wrong'}> = ({letter, text, cue, state}) => {
   const p = Math.min(1, useReveal(cue, 16));
-  const color = state === 'correct' ? GREEN : state === 'wrong' ? 'rgba(255,255,255,0.35)' : COLORS.white;
+  const color = state === 'correct' ? GREEN : state === 'wrong' ? 'rgba(255,255,255,0.72)' : COLORS.white;
   return (
-    <div style={{...CARD, width: OPTION_W, height: OPTION_H, display: 'flex', alignItems: 'center', gap: 26, padding: '0 30px', opacity: state === 'wrong' ? 0.55 : p, transform: `translateY(${(1 - p) * 30}px) scale(${state === 'correct' ? 1.03 : 1})`, borderColor: state === 'correct' ? GREEN : 'rgba(245,196,81,0.42)', background: state === 'correct' ? 'rgba(20,83,45,0.9)' : CARD.background, borderWidth: state === 'correct' ? 5 : 2}}>
+    <div style={{...CARD, width: OPTION_W, height: OPTION_H, display: 'flex', alignItems: 'center', gap: 26, padding: '0 30px', opacity: state === 'wrong' ? 0.8 : p, transform: `translateY(${(1 - p) * 30}px) scale(${state === 'correct' ? 1.03 : 1})`, borderColor: state === 'correct' ? GREEN : 'rgba(245,196,81,0.42)', background: state === 'correct' ? 'rgba(20,83,45,0.9)' : CARD.background, borderWidth: state === 'correct' ? 5 : 2}}>
       <div style={{width: 84, height: 84, borderRadius: 20, background: state === 'correct' ? GREEN : COLORS.gold, color: '#0a1736', fontWeight: 800, fontSize: 56, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0}}>{state === 'correct' ? '✓' : letter}</div>
       <div style={{color, fontWeight: 700, fontSize: text.length > 24 ? 44 : 52, lineHeight: 1.15}}>{text}</div>
     </div>
@@ -67,18 +67,18 @@ export const QuestionScene: React.FC<{scene: LongScene}> = ({scene}) => {
   const head = useReveal(0.1);
   return (
     <>
-      <div style={{position: 'absolute', left: CONTENT_LEFT, width: CONTENT_WIDTH - 200, top: 205, fontFamily, opacity: head}}>
-        <div style={{color: COLORS.gold, fontWeight: 800, fontSize: 40, marginBottom: 8}}>प्रश्न {devanagari(scene.q_index ?? 1)} / {devanagari(scene.total ?? 10)}</div>
+      <div style={{position: 'absolute', left: CONTENT_LEFT, width: CONTENT_WIDTH - 200, top: 196, fontFamily, opacity: head}}>
+        <div style={{color: COLORS.gold, fontWeight: 800, fontSize: 40, marginBottom: 30}}>प्रश्न {devanagari(scene.q_index ?? 1)} / {devanagari(scene.total ?? 10)}</div>
         <div style={{color: COLORS.white, fontWeight: 800, fontSize: scene.headline.length <= 50 ? 70 : 60, lineHeight: 1.2, textShadow: '0 4px 22px rgba(0,0,0,0.55)'}}>{scene.headline}</div>
       </div>
       {isAnswer ? null : <Timer scene={scene} />}
-      <div style={{position: 'absolute', left: CONTENT_LEFT, width: CONTENT_WIDTH, top: 470, display: 'flex', flexWrap: 'wrap', gap: 28, justifyContent: 'space-between', fontFamily}}>
+      <div style={{position: 'absolute', left: CONTENT_LEFT, width: CONTENT_WIDTH, top: 490, display: 'flex', flexWrap: 'wrap', gap: 28, justifyContent: 'space-between', fontFamily}}>
         {scene.items.map((item, i) => (
           <Option key={i} letter={item.value ?? ''} text={item.label} cue={isAnswer ? 0.05 : item.cue} state={!revealed ? 'idle' : i === scene.correct ? 'correct' : 'wrong'} />
         ))}
       </div>
       {isAnswer && scene.subtitle ? (
-        <div style={{position: 'absolute', left: CONTENT_LEFT, width: CONTENT_WIDTH, top: 790, fontFamily, color: COLORS.gold, fontWeight: 700, fontSize: 38, opacity: explain, textAlign: 'center'}}>{scene.subtitle}</div>
+        <div style={{position: 'absolute', left: CONTENT_LEFT + 80, width: CONTENT_WIDTH - 160, top: 842, minHeight: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '14px 36px', boxSizing: 'border-box', borderRadius: 24, background: 'rgba(8,16,40,0.82)', border: '2px solid rgba(34,197,94,0.55)', fontFamily, color: COLORS.white, fontWeight: 700, fontSize: 42, lineHeight: 1.3, opacity: explain, textAlign: 'center', transform: `translateY(${(1 - explain) * 20}px)`}}>{scene.subtitle}</div>
       ) : null}
     </>
   );

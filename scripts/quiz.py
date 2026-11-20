@@ -21,7 +21,9 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 import drafts
+import content_rules
 import editorial_engine as ee
+import factcheck
 import longform
 import send_telegram
 import topic_bank
@@ -58,6 +60,11 @@ machine-read: return exactly one JSON object that follows the supplied schema, n
 - "question": at most {MAX_QUESTION} characters. "options": exactly 4 short answers (at most {MAX_OPTION} characters each), one
   correct and three plausible but wrong, all of the same kind (all names, all places, all numbers...). Wrong options are plausible other persons, places, institutions or numbers of a similar size.
   "correct": the index 0 to 3 of the right option. Spread the correct index over 0, 1, 2 and 3.
+- "evidence": a phrase of 12 to 140 characters copied EXACTLY (same words, same spelling) from the reference text that states the
+  correct answer. The answer must be stated outright in the text: no inference, no outside knowledge. Do not write a question
+  whose wording claims more than the text says (for example "original name", "first" or "only" unless the text says exactly
+  that), and none where the text only hedges ("believed", "according to some"). Exactly ONE option may be correct.
+- Never write a question about Savarkar, the RSS or Godse, and never use them as an option.
 - "explanation": ONE sentence of at most {MAX_EXPLAIN} characters that states the fact from the reference text that proves the answer.
 - On-screen text (question, options, explanation) uses DEVANAGARI digits and symbols (१२, ८५%, ₹१,२०० कोटी), never
   spelled-out numbers, no emoji, no English words, no quotation marks. Numbers must be in the source.
@@ -80,6 +87,7 @@ class QuizQuestion(BaseModel):
     correct: int = 0
     explanation: str = ""
     explanation_tts: str = ""
+    evidence: str = ""
 
 
 class Quiz(BaseModel):
@@ -121,6 +129,12 @@ def check_question(raw: dict, stories: list[dict]) -> dict:
         raise ValueError("correct must be an index from 0 to 3.")
     if not 10 <= len(explanation) <= MAX_EXPLAIN:
         raise ValueError(f"explanation has {len(explanation)} characters; it must be 10 to {MAX_EXPLAIN}.")
+    evidence = _clean(raw.get("evidence"))
+    if len(evidence) < 12 or longform.squash(evidence) not in longform.squash(source):
+        raise ValueError("evidence must be copied word for word from the reference text (12+ characters).")
+    blocked = content_rules.blocked_in_quiz(question, *options, explanation, evidence, raw.get("question_tts"), raw.get("explanation_tts"), *(raw.get("options_tts") or []))
+    if blocked:
+        raise ValueError(f"'{blocked}' is not allowed in the quiz (owner rule).")
     allowed = ee.source_numbers(source)
     for number in ee.source_numbers(f"{question} {options[correct]} {explanation}"):
         if number not in allowed:
@@ -131,7 +145,12 @@ def check_question(raw: dict, stories: list[dict]) -> dict:
     opts_tts = raw.get("options_tts") or []
     if len(opts_tts) != 4:
         raise ValueError("options_tts must have 4 entries.")
-    spoken["options_tts"] = [ee.clean_tts_text(numbers_to_words(o)).rstrip(".") for o in opts_tts]
+    # The voice reads each option from the SAME text that is shown on screen whenever that is readable as it is, so the
+    # spoken option can never differ from the highlighted one; the model's phonetic version is only the fallback.
+    spoken["options_tts"] = []
+    for shown_raw, model_tts in zip(raw.get("options") or [], opts_tts):
+        derived = ee.clean_tts_text(numbers_to_words(shown_raw)).rstrip(".")
+        spoken["options_tts"].append(derived if not ee.tts_problems(derived + ".") else ee.clean_tts_text(numbers_to_words(model_tts)).rstrip("."))
     for key, value in spoken.items():
         for text in value if isinstance(value, list) else [value]:
             if not text.strip(" ."):
@@ -142,7 +161,7 @@ def check_question(raw: dict, stories: list[dict]) -> dict:
     banned = ee.find_forbidden(f"{question} {explanation} {spoken['question_tts']} {spoken['explanation_tts']}")
     if banned:
         raise ValueError(f"The phrase '{banned}' is banned.")
-    return {"story": n, "question": question, "options": options, "correct": correct, "explanation": explanation, **spoken}
+    return {"story": n, "question": question, "options": options, "correct": correct, "explanation": explanation, "evidence": evidence, **spoken}
 
 
 def validate_quiz(data: dict, stories: list[dict]) -> dict:
@@ -169,12 +188,23 @@ def validate_quiz(data: dict, stories: list[dict]) -> dict:
 
 
 def write_quiz(stories: list[dict]) -> dict:
-    quiz = generate_json(
-        system_instruction=QUIZ_INSTRUCTION,
-        prompt=build_prompt(stories),
-        response_model=Quiz,
-        validate=lambda d: validate_quiz(d, stories),
-    )
+    """Write the quiz, then let an independent checker answer every question blind; only confirmed questions stay."""
+    for attempt in (1, 2):
+        quiz = generate_json(
+            system_instruction=QUIZ_INSTRUCTION,
+            prompt=build_prompt(stories),
+            response_model=Quiz,
+            validate=lambda d: validate_quiz(d, stories),
+        )
+        kept, dropped = factcheck.verify_questions(quiz["questions"], stories)
+        for line in dropped:
+            print(f"🔎 {line}")
+        if len(kept) >= MIN_QUESTIONS:
+            quiz["questions"] = kept[:TARGET_QUESTIONS]
+            break
+        print(f"⚠️ Only {len(kept)} questions survived the answer check (attempt {attempt}).")
+    else:
+        raise ContentFailed(f"Fewer than {MIN_QUESTIONS} quiz questions passed the independent answer check. Run it again.")
     quiz["sources"] = [s["url"] for s in stories]
     quiz["credit_urls"] = [u for s in stories for u in s.get("urls", [s["url"]])]
     return quiz
@@ -333,6 +363,8 @@ def draft_main(argv: list[str]) -> int:
     parser.add_argument("--topic", help="quiz on this topic (Wikipedia is read first) instead of the automatic topics")
     parser.add_argument("--url", action="append", default=[], help="a source article for --topic (repeat for more)")
     args = parser.parse_args(argv)
+    args.topic = (args.topic or "").strip()
+    args.url = [u for u in args.url if u]
     try:
         if args.topic:
             text, urls = drafts.topic_sources(args.topic, args.url, limit=MAX_STORIES)
@@ -348,7 +380,8 @@ def draft_main(argv: list[str]) -> int:
         return 1
     path = drafts.new_draft_path("quiz")
     path.write_text(drafts.quiz_to_text(quiz_data, quiz_data["sources"]), encoding="utf-8")
-    print(f"📝 Questions ready: {path}\n   Edit it, save, then run: python scripts/quiz.py produce {path}")
+    print(f"📝 Questions ready: {path}")
+    drafts.announce("quiz", path, quiz_data["title"])
     return 0
 
 
@@ -366,6 +399,10 @@ def produce_main(argv: list[str]) -> int:
         print("❌ Fix these lines in the file and run again:\n" + "\n".join(f"  • {p}" for p in exc.problems))
         return 1
     print(f"✅ Questions accepted: {quiz_data['title']} ({len(quiz_data['questions'])} questions)")
+    for n, q in enumerate(quiz_data["questions"], 1):
+        hit = content_rules.blocked_in_quiz(q["question"], *q["options"], q["explanation"])
+        if hit:
+            print(f"⚠️ Q{n} mentions '{hit}', which the automatic quiz never uses. Kept because you approved the file.")
     return finish(quiz_data, _connect_log()[0], args.skip_render, args.skip_upload, args.skip_telegram)
 
 
@@ -377,10 +414,14 @@ def main(argv: list[str] | None = None) -> int:
         return produce_main(argv[1:])
 
     parser = argparse.ArgumentParser(description="Build and publish the MahaSpark daily GK / Maharashtra quiz (automatic; use 'draft' / 'produce' for approval).")
+    parser.add_argument("--auto", action="store_true", help="publish WITHOUT your approval (not recommended)")
     parser.add_argument("--skip-render", action="store_true")
     parser.add_argument("--skip-upload", action="store_true")
     parser.add_argument("--skip-telegram", action="store_true")
     args = parser.parse_args(argv)
+    if not args.auto:
+        print("ℹ️ No video is made without your approval: writing the script for you to check (use --auto to skip this).")
+        return draft_main([])
 
     queue, known = _connect_log()
     try:

@@ -15,6 +15,7 @@ from typing import Callable
 import requests
 
 from config import get_env_value
+from content_rules import plain_names_deep
 
 try:  # google-genai is optional so the engine can also run on the fallback providers alone.
     from google import genai
@@ -332,7 +333,7 @@ def generate_json(
 
         while True:
             try:
-                data = validate(parse_json(call(current_prompt)))
+                data = validate(plain_names_deep(parse_json(call(current_prompt))))
                 print(f"✅ Content written by {provider}/{model_name}")
                 return data
 

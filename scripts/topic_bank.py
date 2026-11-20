@@ -7,6 +7,7 @@ wrong title still finds its article. Add topics freely: one line each.
 
 from __future__ import annotations
 
+import content_rules
 import random
 from datetime import date
 
@@ -31,7 +32,7 @@ BANK: list[tuple[str, str, str]] = [
     *[("mh", "थोर व्यक्ती", t) for t in (
         "Jyotirao Phule", "Savitribai Phule", "Bal Gangadhar Tilak", "Gopal Krishna Gokhale", "B. R. Ambedkar", "Vinoba Bhave",
         "Dnyaneshwar", "Tukaram", "Eknath", "Namdev", "Samarth Ramdas", "Dhondo Keshav Karve", "Vasudev Balwant Phadke",
-        "Anna Hazare", "Lata Mangeshkar", "P. L. Deshpande", "V. D. Savarkar", "Sant Gadge Baba")],
+        "Anna Hazare", "Lata Mangeshkar", "P. L. Deshpande", "Sant Gadge Baba")],
     # Maharashtra: culture, food, language
     *[("mh", "संस्कृती", t) for t in (
         "Ganesh Chaturthi", "Gudi Padwa", "Pandharpur Wari", "Lavani", "Warli painting", "Paithani", "Vada pav", "Puran poli",
@@ -95,5 +96,7 @@ def ordered(group: str | None = None, today: date | None = None, bank: list | No
 def pick(group: str | None, known: set[str], today: date | None = None, bank: list | None = None):
     """Yield unused topics (not in ``known``, a set of lower-cased Wikipedia urls) in today's order."""
     for entry in ordered(group, today, bank):
+        if content_rules.blocked_topic(entry[2]):  # owner rule: never Savarkar, the RSS or Godse
+            continue
         if wiki_key(entry[2]) not in known:
             yield entry
