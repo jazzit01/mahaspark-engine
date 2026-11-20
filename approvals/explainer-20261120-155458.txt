@@ -1,0 +1,60 @@
+# MahaSpark explainer script. Edit anything, save, then run:
+#   python scripts/explainer.py produce <this file>
+# Lines starting with # are ignored. Each scene:
+#   THUMB (top of file): 3-5 punchy words for the YouTube thumbnail, for example a question
+#   HEADLINE: big text on screen        SUBTITLE: small line under it (optional)
+#   SPEECH: what the anchor says (digits are fine; the voice spells them in Marathi)
+#   ITEMS: one per line:  - text on screen | value (optional) | word to appear on (optional)
+# Scene kinds: title, points, steps, compare, timeline, stat, quote, summary.
+#   stat and quote need exactly one item with a value. timeline/compare items use the value for the event/detail.
+# Delete a whole scene (from === to its last line) to drop it, or copy one to add one.
+# FACT-CHECK NOTE (check this, then delete the line): Scene 3 claims the fort is 25 km from Pune, while the reference text states it is 25 km from Pune but also mentions it is at an altitude of 1,400 meters, which is factually incorrect as the actual altitude is significantly lower (the reference text contains this error, but the script repeats it as a fact).
+# FACT-CHECK NOTE (check this, then delete the line): Scene 5 claims 'या घटनेनंतर सिंहगड हे नाव प्रसिद्ध झाले' (After this event, the name Sinhagad became famous), whereas the reference text states 'आणि सिंहगड हे नाव आधीपासून नव्हते' (And the name Sinhagad did not exist from before), implying the name was given after the battle, not just 'became famous'.
+
+TITLE: सिंहगडाची लढाई आणि तानाजी मालुसरे यांचे बलिदान | MahaSpark मराठी बातम्या
+THUMB: गड आला पण सिंह गेला
+CAPTION: मराठा इतिहासातील एक अत्यंत रोमांचक आणि महत्त्वाचा अध्याय म्हणजे सिंहगडाची लढाई. तानाजी मालुसरे यांच्या बलिदानाने पावन झालेल्या या लढाईचा इतिहास जाणून घेऊया.
+KEYWORDS: सिंहगड, तानाजी मालुसरे, शिवाजी महाराज, कोंढाणा, मराठा इतिहास, गड आला पण सिंह गेला, Sinhagad, Tanaji Malusare, Shivaji Maharaj, Maratha History
+MOOD: neutral
+SOURCES: https://en.wikipedia.org/wiki/Battle_of_Sinhagad | https://mr.wikipedia.org/wiki/%E0%A4%B8%E0%A4%BF%E0%A4%82%E0%A4%B9%E0%A4%97%E0%A4%A1%E0%A4%BE%E0%A4%9A%E0%A5%80_%E0%A4%B2%E0%A4%A2%E0%A4%BE%E0%A4%88
+
+=== SCENE 1 | title ===
+HEADLINE: सिंहगडाची लढाई: एक ऐतिहासिक पराक्रम
+SPEECH: मराठा साम्राज्याच्या इतिहासात सिंहगडाची लढाई ही एक अत्यंत महत्त्वाची घटना मानली जाते. शिवाजी महाराजांनी मुघलांकडून हा किल्ला परत मिळवण्यासाठी मोहीम आखली होती. या लढाईत तानाजी मालुसरे यांनी दिलेल्या बलिदानाची गाथा आजही सांगितली जाते. या व्हिडिओमध्ये आपण या ऐतिहासिक लढाईचा प्रवास पाहणार आहोत.
+
+=== SCENE 2 | points ===
+HEADLINE: लढाईची पार्श्वभूमी
+SPEECH: पुरंदरच्या तहात शिवाजी महाराजांना तेवीस किल्ले मुघलांना द्यावे लागले होते. त्यात कोंढाणा हा किल्ला प्रमुख होता. राजगड ही शिवाजी महाराजांची राजधानी खूप जवळ असल्याने, मुघलांचे तिथे असणे धोकादायक होते. मुघल सरदार उदयभान राठोड याच्याकडे या किल्ल्याची जबाबदारी होती. त्यामुळे हा किल्ला पुन्हा मिळवणे अत्यंत गरजेचे होते.
+ITEMS:
+- पुरंदरच्या तहात २३ किल्ले मुघलांना दिले |  | तहात
+- राजगड जवळ असल्याने कोंढाणा महत्त्वाचा |  | राजगड
+- उदयभान राठोड हा मुघल किल्लेदार होता |  | उदयभान
+
+=== SCENE 3 | steps ===
+HEADLINE: लढाईची रणनीती
+SPEECH: सिंहगड हा किल्ला पुण्याच्या पश्चिमेला पंचवीस किमी अंतरावर आहे. सरळ युद्ध केल्यास मराठ्यांचे नुकसान झाले असते, म्हणून तानाजी मालुसरे यांनी कड्याची सर्वात कठीण बाजू निवडली. तानाजी आणि काही मावळे नव्वद अंशाचा कडा चढून वर पोहोचले. तिथे तानाजी आणि उदयभान यांच्यात जोरदार द्वंद्व झाले.
+ITEMS:
+- कठीण कड्याची बाजू निवडली |  | कड्याची
+- ९० अंशाचा कडा चढून गेले |  | अंशाचा
+- तानाजी आणि उदयभान यांच्यात द्वंद्व |  | द्वंद्व
+
+=== SCENE 4 | points ===
+HEADLINE: लढाईचा शेवट
+SPEECH: लढता लढता तानाजीची ढाल तुटली, तरीही ते लढत राहिले. अखेर जखमी तानाजी यांना वीरमरण आले. तानाजी पडल्याने मावळ्यांचा धीर सुटला होता, पण उपसेनानी सूर्याजींनी सूत्रे हाती घेतली. त्यांनी परतीचे मार्ग बंद करून मावळ्यांना जिंका किंवा मरा असा आदेश दिला. त्यानंतर मावळ्यांनी किल्ला सर केला.
+ITEMS:
+- तानाजी मालुसरे यांना वीरमरण |  | वीरमरण
+- सूर्याजींनी सूत्रे हाती घेतली |  | सूर्याजींनी
+- किल्ला मराठ्यांच्या ताब्यात
+
+=== SCENE 5 | quote ===
+HEADLINE: ऐतिहासिक उद्गार
+SPEECH: किल्ला जिंकल्याचा संकेत राजगडावर पाठवण्यात आला. जेव्हा शिवाजी महाराजांना समजले की तानाजी मालुसरे या युद्धात कामी आले, तेव्हा त्यांना खूप दुःख झाले. त्यांच्या तोंडातून गड आला पण सिंह गेला हे ऐतिहासिक उद्गार बाहेर पडले. या घटनेनंतर सिंहगड हे नाव प्रसिद्ध झाले.
+ITEMS:
+- शिवाजी महाराज | गड आला पण सिंह गेला | उद्गार
+
+=== SCENE 6 | summary ===
+HEADLINE: लढाईचे महत्त्व
+SPEECH: या लढाईनंतर शिवाजी महाराजांचे मावळ प्रांतावरील वर्चस्व पुन्हा प्रस्थापित झाले. तानाजी मालुसरे यांचे बलिदान आणि या लढाईचा पराक्रम आजही मराठी इतिहासात आदराने घेतला जातो. या लढाईवर अनेक नाटके आणि चित्रपट देखील बनवण्यात आले आहेत.
+ITEMS:
+- मावळ प्रांतावर वर्चस्व प्रस्थापित |  | वर्चस्व
+- तानाजी मालुसरे यांचे बलिदान |  | बलिदान
