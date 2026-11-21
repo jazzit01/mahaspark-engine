@@ -3,14 +3,16 @@ import {AbsoluteFill, Audio, Img, Sequence, interpolate, staticFile, useCurrentF
 import {BED_DUCK, BED_VOLUME, WHOOSH_VOLUME} from '../constants';
 import {COLORS, WHOOSH_FRAMES_EARLY} from '../bulletin/constants';
 import {Outro} from '../bulletin/Outro';
-import {PrimeGridStudio} from '../studios/PrimeGridStudio';
+import {getStudio} from '../studios';
 import {ExplainerScene} from './ExplainerScenes';
 import {LongCaptions} from './LongCaptions';
 import {QuestionScene, QuizEnd, QuizIntro} from './QuizScenes';
+import {LongBackdrop} from './LongBackdrop';
 import {LongProps, LongScene} from './types';
 
 const FPS = 30;
 const EXIT_FRAMES = 8;
+const BACKDROP_FADE = 12;
 
 export const longFrames = (props: LongProps, fps = FPS): number =>
   props.scenes.reduce((sum, s) => sum + Math.max(1, Math.round(s.seconds * fps)), 0) + Math.round(props.outro_seconds * fps);
@@ -38,6 +40,7 @@ export const LongVideo: React.FC<LongProps> = (props) => {
     starts.push(cursor);
     cursor += Math.max(1, Math.round(s.seconds * fps));
   });
+  const Studio = getStudio(props.studio ?? 'PrimeGridStudio');
   const outroStart = cursor;
   const outroFrames = Math.round(props.outro_seconds * fps);
 
@@ -59,8 +62,20 @@ export const LongVideo: React.FC<LongProps> = (props) => {
   return (
     <AbsoluteFill style={{background: COLORS.bgBottom}}>
       <AbsoluteFill style={props.bg_hue ? {filter: `hue-rotate(${props.bg_hue}deg)`} : undefined}>
-        <PrimeGridStudio />
+        <Studio />
       </AbsoluteFill>
+
+      {/* real photos of the topic: each fades in over the previous one (the overlap), slow Ken Burns push, dark scrim */}
+      {props.scenes.map((scene, i) => {
+        if (!scene.media) return null;
+        const frames = Math.max(1, Math.round(scene.seconds * fps));
+        const lead = i > 0 ? BACKDROP_FADE : 0;
+        return (
+          <Sequence key={`bd${i}`} from={Math.max(0, starts[i] - lead)} durationInFrames={frames + lead} layout="none">
+            <LongBackdrop media={scene.media} frames={frames + lead} index={i} fadeIn={lead} />
+          </Sequence>
+        );
+      })}
 
       {props.scenes.map((scene, i) => {
         const frames = Math.max(1, Math.round(scene.seconds * fps));

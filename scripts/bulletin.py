@@ -26,6 +26,7 @@ import editorial_engine
 import fetch_news
 import media_fetch
 import send_telegram
+import manual_kit
 import youtube_upload
 from config import (
     BULLETIN_COMPOSITION_ID,
@@ -393,7 +394,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"❌ {exc}")
         return 1
 
-    video_url, uploaded = None, False
+    video_url, uploaded, fail_reason = None, False, ""
     if not args.skip_upload:
         try:
             video_url = youtube_upload.upload_video(
@@ -409,8 +410,13 @@ def main(argv: list[str] | None = None) -> int:
                     print(f"⚠️ Thumbnail upload failed: {exc}")
         except youtube_upload.YouTubeUnavailable as exc:
             print(f"⏭️ YouTube upload skipped: {exc}")
+            fail_reason = str(exc)
         except Exception as exc:  # noqa: BLE001
             print(f"❌ YouTube upload failed: {exc}")
+            fail_reason = str(exc)
+
+    if not uploaded and not args.skip_upload:
+        manual_kit.deliver("बुलेटिन", BULLETIN_PATH, build_title(items, slot_label), build_description(items, props, slot_label), build_tags(items), fail_reason or "YouTube is not set up", send=not args.skip_telegram)
 
     if not args.skip_telegram:
         try:
