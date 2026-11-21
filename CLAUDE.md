@@ -239,3 +239,7 @@ Two more long videos on the shared engine `longform.py` and ONE composition, `Ma
 - Approval workflows: `produce` with an empty `file` uses the newest `approvals/<kind>-*.txt`; the Telegram notice lists STEP 1 (edit link) and STEP 2 (what to run).
 - Not verified here: live Wikipedia image lookups and the real render of the photo backdrops; check the first explainer video.
 
+### YouTube refresh token on your computer
+
+`python scripts/get_youtube_token.py <CLIENT_ID> <CLIENT_SECRET>` opens the Google sign-in page (loopback redirect, works with a "Desktop app" client) and prints the refresh token. The token only works with the client id/secret it was made with (a mismatch gives `unauthorized_client`), so put all three in the GitHub secrets together.
+
