@@ -36,6 +36,9 @@ export type LongScene = {
   explain_at?: number;
 };
 
+/** A place shown as a pulsing pin on the Maharashtra map (explainer title scene). */
+export type GeoPin = {lat: number; lon: number; label: string};
+
 export type LongProps = {
   kind: 'explainer' | 'quiz';
   title: string;
@@ -44,6 +47,10 @@ export type LongProps = {
   /** Which animated studio runs behind the video (one per video). */
   studio?: string;
   credits?: string[];
+  /** Where the topic is, when it is a place in Maharashtra (from scripts/geo.py). */
+  map?: GeoPin;
+  /** Shorts cut: only this part (seconds) of the video is shown, vertical, no outro. */
+  clip?: {start: number; end: number};
   scenes: LongScene[];
   outro_seconds: number;
   outro_start: number;

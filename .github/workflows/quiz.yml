@@ -193,6 +193,7 @@ jobs:
           name: quiz
           path: |
             out/mahaspark_long.mp4
+            out/mahaspark_long_short.mp4
             remotion/public/long.json
             out/youtube_metadata.txt
           if-no-files-found: ignore

@@ -27,6 +27,7 @@ import factcheck
 import longform
 import manual_kit
 import send_telegram
+import shorts
 import topic_bank
 import wiki_sources
 import youtube_upload
@@ -339,6 +340,7 @@ def finish(quiz: dict, queue, skip_render: bool, skip_upload: bool, skip_telegra
             send_telegram.send_message(text)
         except Exception as exc:  # noqa: BLE001
             print(f"⚠️ Telegram notification failed: {exc}")
+    shorts.run(props, quiz["title"], "क्विझ", send=not skip_telegram)  # 9:16 clip for Telegram (LONG_SHORTS=0 turns it off)
     if queue is not None and (uploaded or skip_upload):
         try:
             queue.record_longform("quiz", quiz["title"], "\n".join(quiz.get("sources", [])), video_url or "")

@@ -17,7 +17,7 @@ const BACKDROP_FADE = 12;
 export const longFrames = (props: LongProps, fps = FPS): number =>
   props.scenes.reduce((sum, s) => sum + Math.max(1, Math.round(s.seconds * fps)), 0) + Math.round(props.outro_seconds * fps);
 
-const SceneBody: React.FC<{scene: LongScene}> = ({scene}) => {
+const SceneBody: React.FC<{scene: LongScene; pin?: LongProps['map']}> = ({scene, pin}) => {
   switch (scene.kind) {
     case 'quiz_intro':
       return <QuizIntro scene={scene} />;
@@ -27,7 +27,7 @@ const SceneBody: React.FC<{scene: LongScene}> = ({scene}) => {
     case 'quiz_end':
       return <QuizEnd scene={scene} />;
     default:
-      return <ExplainerScene scene={scene} />;
+      return <ExplainerScene scene={scene} pin={pin} />;
   }
 };
 
@@ -56,8 +56,11 @@ export const LongVideo: React.FC<LongProps> = (props) => {
     }
     return interpolate(nearest, [0, 0.45], [BED_DUCK, 1], {extrapolateRight: 'clamp'});
   };
+  // a Shorts cut fades the bed in and out around its own window instead of the whole video
+  const winStart = props.clip ? Math.round(props.clip.start * fps) : 0;
+  const winEnd = props.clip ? Math.round(props.clip.end * fps) : durationInFrames;
   const bedVolume = (f: number) =>
-    BED_VOLUME * duck(f) * interpolate(f, [0, fps * 0.5, durationInFrames - fps, durationInFrames], [0, 1, 1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
+    BED_VOLUME * duck(f) * interpolate(f, [winStart, winStart + fps * 0.5, winEnd - fps, winEnd], [0, 1, 1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
 
   return (
     <AbsoluteFill style={{background: COLORS.bgBottom}}>
@@ -83,9 +86,9 @@ export const LongVideo: React.FC<LongProps> = (props) => {
           <Sequence key={i} from={starts[i]} durationInFrames={frames}>
             <AbsoluteFill>
               <FadeOut frames={frames}>
-                <SceneBody scene={scene} />
+                <SceneBody scene={scene} pin={props.map} />
               </FadeOut>
-              {scene.kind === 'question' || scene.kind === 'answer' ? null : <LongCaptions words={scene.words} />}
+              {props.clip || scene.kind === 'question' || scene.kind === 'answer' ? null : <LongCaptions words={scene.words} />}
             </AbsoluteFill>
             <Sequence from={Math.round(scene.lead_seconds * fps)} layout="none">
               <Audio src={staticFile(scene.audio)} />
@@ -100,9 +103,11 @@ export const LongVideo: React.FC<LongProps> = (props) => {
         <Img src={staticFile('logo.png')} style={{position: 'absolute', left: 72, top: 20, height: 190}} />
       </Sequence>
 
-      <Sequence from={outroStart} durationInFrames={outroFrames}>
-        <Outro />
-      </Sequence>
+      {props.clip ? null : (
+        <Sequence from={outroStart} durationInFrames={outroFrames}>
+          <Outro />
+        </Sequence>
+      )}
 
       {starts.slice(1).concat(outroStart).map((from) => (
         <Sequence key={`w${from}`} from={Math.max(0, from - WHOOSH_FRAMES_EARLY)} layout="none">
