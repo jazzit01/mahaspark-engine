@@ -1,0 +1,100 @@
+# MahaSpark quiz script. Edit anything, save, then run:
+#   python scripts/quiz.py produce <this file>
+# Each question:  Q: question   A) B) C) D) four options   ANSWER: A, B, C or D   WHY: one-line explanation
+# Optional, only when the voice must say something different from the screen (for example an acronym spelled
+# out): QSPEECH:, ASPEECH: BSPEECH: CSPEECH: DSPEECH:, WHYSPEECH:   (Devanagari words only)
+# Lines starting with # are ignored. Delete a whole question block to drop it.
+
+TITLE: महाराष्ट्र आणि भारत सामान्य ज्ञान क्विझ | MahaSpark मराठी बातम्या
+CAPTION: मराठा साम्राज्य, मुंबई उपनगरी रेल्वे आणि महात्मा फुले यांच्याबद्दलच्या रंजक गोष्टी जाणून घ्या. या क्विझमध्ये सहभागी होऊन तुमचे ज्ञान तपासा.
+KEYWORDS: Maharashtra GK, Marathi Quiz, Maratha Empire, Mumbai Local, Jyotirao Phule, Indian History, General Knowledge, मराठी क्विझ, महाराष्ट्र इतिहास, सामान्य ज्ञान
+SOURCES: https://en.wikipedia.org/wiki/Maratha_Empire | https://en.wikipedia.org/wiki/Mumbai_Suburban_Railway | https://en.wikipedia.org/wiki/Jyotirao_Phule | https://en.wikipedia.org/wiki/Vada_pav | https://en.wikipedia.org/wiki/Indian_Premier_League | https://en.wikipedia.org/wiki/Solar_System
+
+=== Q1 ===
+Q: छत्रपती शिवाजी महाराजांनी कोणता किल्ला जिंकून मराठा साम्राज्याची स्थापना केली?
+QSPEECH: छत्रपती शिवाजी महाराजांनी कोणता किल्ला जिंकून मराठा साम्राज्याची स्थापना केली.
+A) रायगड
+B) तोरणा
+C) प्रतापगड
+D) सिंहगड
+ANSWER: B
+WHY: छत्रपती शिवाजी महाराजांनी इ.स. १६४५ मध्ये पुण्याजवळील तोरणा किल्ला जिंकून मराठा साम्राज्याची स्थापना केली.
+# PROOF in the reference text (check it before you approve): हे साम्राज्य छत्रपती शिवाजी महाराजांनी इ.स. १६४५ मध्ये विजापूर राज्यातून पुण्याजवळील तोरणा किल्ला जिंकून स्थापन केले.
+
+=== Q2 ===
+Q: मुंबई उपनगरी रेल्वेची पहिली गाडी कोणत्या स्थानकापर्यंत धावली?
+QSPEECH: मुंबई उपनगरी रेल्वेची पहिली गाडी कोणत्या स्थानकापर्यंत धावली.
+A) ठाणे
+B) कल्याण
+C) वसई
+D) पनवेल
+ANSWER: A
+WHY: मुंबई उपनगरी रेल्वेची पहिली आगगाडी मुंबई पासून ३४ कि.मी. अंतरावर असलेल्या ठाणे स्थानकापर्यंत धावली.
+# PROOF in the reference text (check it before you approve): या मार्गावर पहिली आगगाडी मुंबई पासून ३४ कि.मी. अंतरावर असलेल्या ठाणे स्थानकापर्यंत धावली.
+
+=== Q3 ===
+Q: महात्मा फुले यांनी मुलींसाठी पहिली शाळा कोठे सुरू केली?
+QSPEECH: महात्मा फुले यांनी मुलींसाठी पहिली शाळा कोठे सुरू केली.
+A) सातारा
+B) खानवडी
+C) पुणे
+D) कटगुण
+ANSWER: C
+WHY: जोतिरावांनी १८४८ मध्ये पुण्यात तात्यासाहेब भिडे यांच्या भिडेवाडा येथे मुलींसाठी पहिली शाळा सुरू केली.
+# PROOF in the reference text (check it before you approve): जोतिरावांनी १८४८ मध्ये पुण्यात तात्यासाहेब भिडे यांच्या भिडेवाडा येथे मुलींसाठी पहिली शाळा सुरू केली.
+
+=== Q4 ===
+Q: आय.पी.एल.चे पहिले विजेतेपद कोणत्या संघाने पटकावले?
+QSPEECH: आय पी एल चे पहिले विजेतेपद कोणत्या संघाने पटकावले.
+A) मुंबई इंडियन्स
+B) चेन्नई सुपर किंग्स
+C) राजस्थान रॉयल्स
+D) कोलकाता नाईट रायडर्स
+ANSWER: C
+WHY: सन २००८ मध्ये पहिल्यांदा ही स्पर्धा घेण्यात आली आणि राजस्थान रॉयल्स या संघाने पहिले विजेतेपद पटकावले.
+# PROOF in the reference text (check it before you approve): राजस्थान रॉयल्स या संघाने आय.पी.एल.चे पहिले विजेतेपद पटकावले.
+
+=== Q5 ===
+Q: मराठा साम्राज्याची अधिकृत भाषा कोणती होती?
+QSPEECH: मराठा साम्राज्याची अधिकृत भाषा कोणती होती.
+A) हिंदी
+B) संस्कृत
+C) मराठी
+D) फारसी
+ANSWER: C
+WHY: मराठा साम्राज्याची अधिकृत भाषा मराठी होती.
+# PROOF in the reference text (check it before you approve): या साम्राज्याची अधिकृत भाषा मराठी होती
+
+=== Q6 ===
+Q: महात्मा फुले यांना 'महात्मा' ही पदवी कोणी प्रदान केली?
+QSPEECH: महात्मा फुले यांना महात्मा ही पदवी कोणी प्रदान केली.
+A) विठ्ठलराव कृष्णाजी वंडेकर
+B) तात्यासाहेब भिडे
+C) सावित्रीबाई फुले
+D) गोविंदराव फुले
+ANSWER: A
+WHY: त्यांना १८८८ मध्ये महाराष्ट्रीय सामाजिक कार्यकर्ते विठ्ठलराव कृष्णाजी वंडेकर यांनी महात्मा पदवी दिली.
+# PROOF in the reference text (check it before you approve): त्यांना १८८८ मध्ये महाराष्ट्रीय सामाजिक कार्यकर्ते विठ्ठलराव कृष्णाजी वंडेकर यांनी सन्माननीय "महात्मा" (संस्कृत: "महान आत्मा", "पूज्य") पदवी प्रदान केली होती.
+
+=== Q7 ===
+Q: मुंबई उपनगरी रेल्वेच्या गाड्या किती व्होल्ट वीज पुरवठ्यावर चालतात?
+QSPEECH: मुंबई उपनगरी रेल्वेच्या गाड्या किती व्होल्ट वीज पुरवठ्यावर चालतात.
+A) १५,००० व्होल्ट
+B) २०,००० व्होल्ट
+C) २५,००० व्होल्ट
+D) ३०,००० व्होल्ट
+ANSWER: C
+WHY: उपनगरी रेल्वेच्या गाड्या २५,००० व्होल्ट ए.सी. वीज पुरवठ्यावर चालतात.
+# PROOF in the reference text (check it before you approve): उपनगरी रेल्वेच्या गाड्या या गाड्यांच्या वर असलेल्या विजेच्या तारांमधून मिळणाऱ्या २५,००० व्होल्ट ए.सी. वीज पुरवठ्यावर चालतात.
+WHYSPEECH: उपनगरी रेल्वेच्या गाड्या पंचवीस हजार व्होल्ट ए सी वीज पुरवठ्यावर चालतात.
+
+=== Q8 ===
+Q: इंडियन प्रीमियर लीगचे मुख्यालय कोठे आहे?
+QSPEECH: इंडियन प्रीमियर लीगचे मुख्यालय कोठे आहे.
+A) दिल्ली
+B) मुंबई
+C) पुणे
+D) कोलकाता
+ANSWER: B
+WHY: इंडियन प्रीमियर लीगचे मुख्यालय मुंबईत आहे.
+# PROOF in the reference text (check it before you approve): तिचे मुख्यालय मुंबईत आहे.
