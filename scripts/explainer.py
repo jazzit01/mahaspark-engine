@@ -25,9 +25,11 @@ from pydantic import BaseModel, Field
 import drafts
 import editorial_engine as ee
 import factcheck
+import geo
 import longform
 import manual_kit
 import send_telegram
+import shorts
 import topic_bank
 import topic_images
 import wiki_sources
@@ -320,6 +322,7 @@ def finish(ex: dict, queue, skip_render: bool, skip_upload: bool, skip_telegram:
     if os.getenv("EXPLAINER_PHOTOS", "1") != "0":  # real, freely licensed photos of the topic behind the graphics
         urls = (ex.get("source") or {}).get("urls") or [u for u in str((ex.get("source") or {}).get("url", "")).split("\n") if u]
         longform.attach_photos(props, topic_images.fetch_images(urls))
+    geo.attach_map(props, str((ex.get("source") or {}).get("url", "")))  # animated Maharashtra map for places
     longform.write_props(props)
     print(f"🧾 {props['total_seconds']:.0f} s")
     if skip_render:
@@ -358,6 +361,7 @@ def finish(ex: dict, queue, skip_render: bool, skip_upload: bool, skip_telegram:
             send_telegram.send_message(text)
         except Exception as exc:  # noqa: BLE001
             print(f"⚠️ Telegram notification failed: {exc}")
+    shorts.run(props, ex["title"], "समजून घ्या", send=not skip_telegram)  # 9:16 clip for Telegram (LONG_SHORTS=0 turns it off)
     if queue is not None and (uploaded or skip_upload):
         try:
             queue.record_longform("explainer", ex["title"], (ex.get("source") or {}).get("url", ""), video_url or "")

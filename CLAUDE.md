@@ -243,3 +243,10 @@ Two more long videos on the shared engine `longform.py` and ONE composition, `Ma
 
 `python scripts/get_youtube_token.py <CLIENT_ID> <CLIENT_SECRET>` opens the Google sign-in page (loopback redirect, works with a "Desktop app" client) and prints the refresh token. The token only works with the client id/secret it was made with (a mismatch gives `unauthorized_client`), so put all three in the GitHub secrets together.
 
+
+### Kinetic headlines, Maharashtra map, Shorts cuts
+
+- `kit.tsx` `KineticText`: headline words spring in one after another; the key word (first word with a figure, else the longest word of 3+ words, min 5 chars) is gold. Used by `Headline`, the title scene and the Shorts title.
+- `scripts/geo.py` (`PLACES`, keyed by lower-cased en.wikipedia title = topic-bank entries; `pin_for`, `attach_map`) adds `props.map` `{lat, lon, label}` for place topics. `GeoMap.tsx` draws the schematic Maharashtra outline (`MAHARASHTRA_OUTLINE`, hand-simplified, not survey data), a pulsing pin and Mumbai/Pune/Nagpur for orientation on the explainer TITLE scene (replaces the glowing ring). Topics not in `PLACES` keep the ring. Add a place = one line in `PLACES` (a test checks it is a bank topic and inside the map frame).
+- `scripts/shorts.py`: after the long video, `pick_clip` chooses a run of whole scenes of 28-58 s (explainer: prefers the hook, stat/quote/compare scenes; quiz: starts on a question, ends on its answer) and `make_short` renders `MahaSparkLongShort` (`LongShort.tsx`: 1080x1920, title on top, the 16:9 video scaled to full width via `LongVideo` with `props.clip`, big karaoke captions below, no outro) from `public/long_short.json`. Telegram only (the YouTube quota is used by the long videos). `LONG_SHORTS=0` turns it off; any failure is a warning only.
+- Not verified here (no real render): the look of the map, the kinetic words in Devanagari, the scaled-video Short and its audio offset (`Sequence from={-start}`); check the first explainer/quiz Short.

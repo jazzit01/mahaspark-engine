@@ -1,8 +1,9 @@
 import React from 'react';
 import {fontFamily} from '../fonts';
 import {COLORS} from '../bulletin/constants';
-import {LongItem, LongScene} from './types';
-import {BODY_BOTTOM, BODY_TOP, CARD, CONTENT_LEFT, CONTENT_WIDTH, Headline, devanagari, useReveal, useSeconds} from './kit';
+import {GeoPin, LongItem, LongScene} from './types';
+import {GeoMap} from './GeoMap';
+import {BODY_BOTTOM, BODY_TOP, CARD, CONTENT_LEFT, CONTENT_WIDTH, Headline, KineticText, devanagari, useReveal, useSeconds} from './kit';
 
 const LATIN = (text: string): string => text.replace(/[०-९]/g, (d) => String('०१२३४५६७८९'.indexOf(d)));
 
@@ -29,15 +30,19 @@ const Item: React.FC<{item: LongItem; render: (p: number) => React.ReactNode}> =
 };
 
 /** Cover scene: the hook line in huge type with a glowing ring. */
-const Title: React.FC<{scene: LongScene}> = ({scene}) => {
+const Title: React.FC<{scene: LongScene; pin?: GeoPin}> = ({scene, pin}) => {
   const p = useReveal(0.15);
   const t = useSeconds();
   return (
     <div style={{position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '120px 140px 220px', fontFamily}}>
-      <div style={{position: 'absolute', right: 130, top: 250, width: 430, height: 430, borderRadius: '50%', border: `10px solid ${COLORS.gold}`, opacity: 0.25 + 0.1 * Math.sin(t * 2), transform: `scale(${0.9 + 0.1 * p})`}} />
+      {pin ? (
+        <div style={{position: 'absolute', right: 110, top: 215}}><GeoMap pin={pin} scale={1} /></div>
+      ) : (
+        <div style={{position: 'absolute', right: 130, top: 250, width: 430, height: 430, borderRadius: '50%', border: `10px solid ${COLORS.gold}`, opacity: 0.25 + 0.1 * Math.sin(t * 2), transform: `scale(${0.9 + 0.1 * p})`}} />
+      )}
       <div style={{width: 220 * p, height: 14, background: COLORS.red, marginBottom: 30}} />
-      <div style={{color: COLORS.white, fontWeight: 800, fontSize: scene.headline.length <= 34 ? 132 : 108, lineHeight: 1.18, maxWidth: 1450, ...rise(p), textShadow: '0 6px 30px rgba(0,0,0,0.6)'}}>{scene.headline}</div>
-      {scene.subtitle ? <div style={{color: COLORS.gold, fontWeight: 700, fontSize: 56, marginTop: 28, maxWidth: 1450, opacity: useReveal(0.7)}}>{scene.subtitle}</div> : null}
+      <KineticText text={scene.headline} startSeconds={0.15} stagger={0.09} style={{color: COLORS.white, fontWeight: 800, fontSize: scene.headline.length <= 34 ? 132 : 108, lineHeight: 1.18, maxWidth: pin ? 1000 : 1450, textShadow: '0 6px 30px rgba(0,0,0,0.6)'}} />
+      {scene.subtitle ? <div style={{color: COLORS.gold, fontWeight: 700, fontSize: 56, marginTop: 28, maxWidth: pin ? 1000 : 1450, opacity: useReveal(0.7)}}>{scene.subtitle}</div> : null}
     </div>
   );
 };
@@ -139,8 +144,8 @@ const Quote: React.FC<{scene: LongScene}> = ({scene}) => {
 };
 
 /** One explainer scene: the headline in the header zone and the graphic for its kind in the body. */
-export const ExplainerScene: React.FC<{scene: LongScene}> = ({scene}) => {
-  if (scene.kind === 'title') return <Title scene={scene} />;
+export const ExplainerScene: React.FC<{scene: LongScene; pin?: GeoPin}> = ({scene, pin}) => {
+  if (scene.kind === 'title') return <Title scene={scene} pin={pin} />;
   return (
     <>
       <Headline text={scene.headline} subtitle={scene.subtitle} />

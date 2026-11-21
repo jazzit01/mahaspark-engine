@@ -34,14 +34,45 @@ export const useSeconds = (): number => {
 
 export const headlineFontSize = (text: string): number => (text.length <= 26 ? 96 : text.length <= 40 ? 84 : 74);
 
-/** The scene headline: big, white, with the animated gold accent bar. Sits in the header zone below the logo. */
+/** Index of the word to highlight in gold: the first word holding a figure, else the longest word (3+ words only). */
+export const keyWordIndex = (words: string[]): number => {
+  const digit = words.findIndex((w) => /[0-9०-९]/.test(w));
+  if (digit >= 0) return digit;
+  if (words.length < 3) return -1;
+  let best = 0;
+  words.forEach((w, i) => {
+    if (w.length > words[best].length) best = i;
+  });
+  return words[best].length >= 5 ? best : -1;
+};
+
+/** Headline text whose words spring in one after another; the key word turns gold. Words are never split. */
+export const KineticText: React.FC<{text: string; startSeconds?: number; stagger?: number; style?: React.CSSProperties}> = ({text, startSeconds = 0.1, stagger = 0.07, style}) => {
+  const frame = useCurrentFrame();
+  const {fps} = useVideoConfig();
+  const words = text.split(/\s+/).filter(Boolean);
+  const key = keyWordIndex(words);
+  return (
+    <div style={{display: 'flex', flexWrap: 'wrap', columnGap: '0.28em', rowGap: 0, ...style}}>
+      {words.map((w, i) => {
+        const p = spring({frame: frame - Math.round((startSeconds + i * stagger) * fps), fps, config: {damping: 14, stiffness: 150, mass: 0.7}});
+        const pc = Math.min(1, Math.max(0, p));
+        return (
+          <span key={i} style={{display: 'inline-block', opacity: pc, transform: `translateY(${(1 - p) * 46}px) scale(${0.86 + 0.14 * p})`, color: i === key ? COLORS.gold : style?.color, textShadow: i === key ? '0 4px 30px rgba(245,196,81,0.45)' : undefined}}>{w}</span>
+        );
+      })}
+    </div>
+  );
+};
+
+/** The scene headline: big, white, kinetic words, with the animated red accent bar. Sits in the header zone below the logo. */
 export const Headline: React.FC<{text: string; subtitle?: string}> = ({text, subtitle}) => {
   const enter = useReveal(0.1);
   return (
-    <div style={{position: 'absolute', left: CONTENT_LEFT, width: CONTENT_WIDTH, top: HEADER_TOP, fontFamily, opacity: enter, transform: `translateY(${(1 - enter) * 24}px)`}}>
+    <div style={{position: 'absolute', left: CONTENT_LEFT, width: CONTENT_WIDTH, top: HEADER_TOP, fontFamily}}>
       <div style={{width: 150 * enter, height: 10, background: COLORS.red, marginBottom: 16}} />
-      <div style={{color: COLORS.white, fontWeight: 800, fontSize: headlineFontSize(text), lineHeight: 1.18, textShadow: '0 4px 22px rgba(0,0,0,0.55)'}}>{text}</div>
-      {subtitle ? <div style={{color: COLORS.context, fontWeight: 600, fontSize: 44, marginTop: 8}}>{subtitle}</div> : null}
+      <KineticText text={text} style={{color: COLORS.white, fontWeight: 800, fontSize: headlineFontSize(text), lineHeight: 1.18, textShadow: '0 4px 22px rgba(0,0,0,0.55)'}} />
+      {subtitle ? <div style={{color: COLORS.context, fontWeight: 600, fontSize: 44, marginTop: 8, opacity: useReveal(0.1 + 0.07 * text.split(/\s+/).length)}}>{subtitle}</div> : null}
     </div>
   );
 };

@@ -29,6 +29,9 @@ COMPOSITION_ID = "MahaSparkReel"
 SHORT_COMPOSITION_ID = "MahaSparkShort"
 BULLETIN_COMPOSITION_ID = "MahaSparkBulletin"
 LONG_COMPOSITION_ID = "MahaSparkLong"
+LONG_SHORT_COMPOSITION_ID = "MahaSparkLongShort"
+LONG_SHORT_JSON = PUBLIC_DIR / "long_short.json"
+LONG_SHORT_PATH = OUT_DIR / "mahaspark_long_short.mp4"
 
 
 def load_env_file(env_path: str | os.PathLike[str] | None = None) -> None:

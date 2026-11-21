@@ -12,6 +12,7 @@ import {sampleBulletin} from './bulletin/sampleBulletin';
 import {BulletinProps} from './bulletin/types';
 import {MahaSparkThumbnail, THUMB_H, THUMB_W} from './Thumb';
 import {LongVideo, longFrames} from './long/LongVideo';
+import {LongShort, SHORT_H, SHORT_W} from './long/LongShort';
 import {LongProps} from './long/types';
 import {BulletinThumbnail, THUMB_HEIGHT, THUMB_WIDTH} from './bulletin/Thumbnail';
 
@@ -29,6 +30,14 @@ const calculateLongMetadata: CalculateMetadataFunction<LongProps> = ({props}) =>
   fps: FPS,
   width: BULLETIN_WIDTH,
   height: BULLETIN_HEIGHT,
+});
+
+/** A Shorts cut of a long video: the length of its clip window, vertical. */
+const calculateLongShortMetadata: CalculateMetadataFunction<LongProps> = ({props}) => ({
+  durationInFrames: Math.max(1, Math.round(((props.clip?.end ?? 30) - (props.clip?.start ?? 0)) * FPS)),
+  fps: FPS,
+  width: SHORT_W,
+  height: SHORT_H,
 });
 
 const sampleLong: LongProps = {
@@ -112,6 +121,18 @@ export const RemotionRoot: React.FC = () => {
         durationInFrames={FPS * 14}
         defaultProps={sampleLong}
         calculateMetadata={calculateLongMetadata}
+      />
+
+      {/* 9:16 Shorts cut of an explainer or quiz: rendered with --props=public/long_short.json (long.json + a `clip` window). */}
+      <Composition
+        id="MahaSparkLongShort"
+        component={LongShort}
+        width={SHORT_W}
+        height={SHORT_H}
+        fps={FPS}
+        durationInFrames={FPS * 30}
+        defaultProps={{...sampleLong, clip: {start: 0, end: 14}}}
+        calculateMetadata={calculateLongShortMetadata}
       />
 
       {/* YouTube thumbnail variants (style: bold | question | figure | alert): rendered with --props=public/thumb_<style>.json. */}
