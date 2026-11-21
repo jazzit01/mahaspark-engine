@@ -231,3 +231,11 @@ Two more long videos on the shared engine `longform.py` and ONE composition, `Ma
 - `scripts/check_setup.py` / workflow "Check my setup": tests the Gemini, Telegram, Google Sheet and YouTube secrets and says which one is wrong. YouTube `invalid_grant` ("expired or revoked") almost always means the OAuth consent screen is still in Testing (refresh tokens die after 7 days) or the refresh token was made with another client id/secret.
 - Not verified here: live Gemini behaviour of the checker, the real render of the changed quiz layout, the draft/produce workflows on GitHub.
 
+### Explainer visuals, manual YouTube kit, simpler approval
+
+- `scripts/topic_images.py`: freely licensed photos (CC / public domain, >= 900 px, no maps/logos/icons) from the topic's English Wikipedia article (lead image first), up to 6, downloaded to `remotion/public/long/photos/`; `longform.attach_photos` spreads them over the scenes (`scenes[i].media`, `props.credits`); `LongBackdrop.tsx` shows each with a slow Ken Burns move, a cross-fade over the previous photo and a dark brand-blue scrim. The description lists the credits. `EXPLAINER_PHOTOS=0` turns photos off; with none found the animated studio is used.
+- `longform.pick_studio` rotates the animated studio per video (`props.studio`: PrimeGrid / DataTelemetry / GlassNewsroom) for explainer and quiz. Stat scenes count their figure up (`countUp`, years stay still).
+- `scripts/manual_kit.py`: when the YouTube upload fails or is not configured (bulletin, explainer, quiz) the title, description and tags are written to `out/youtube_metadata.txt` (kept as an artifact) and sent to Telegram with the video when it fits the bot limit.
+- Approval workflows: `produce` with an empty `file` uses the newest `approvals/<kind>-*.txt`; the Telegram notice lists STEP 1 (edit link) and STEP 2 (what to run).
+- Not verified here: live Wikipedia image lookups and the real render of the photo backdrops; check the first explainer video.
+

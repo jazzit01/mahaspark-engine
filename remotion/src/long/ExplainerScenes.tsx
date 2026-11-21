@@ -4,6 +4,23 @@ import {COLORS} from '../bulletin/constants';
 import {LongItem, LongScene} from './types';
 import {BODY_BOTTOM, BODY_TOP, CARD, CONTENT_LEFT, CONTENT_WIDTH, Headline, devanagari, useReveal, useSeconds} from './kit';
 
+const LATIN = (text: string): string => text.replace(/[०-९]/g, (d) => String('०१२३४५६७८९'.indexOf(d)));
+
+/** A figure that counts up to its value as it appears (years and non-numeric text stay still). Returns Devanagari digits. */
+export const countUp = (value: string, t: number): string => {
+  const m = LATIN(value).match(/^([^\d]*)([\d,]*\.?\d+)(.*)$/);
+  if (!m || t >= 1) return value;
+  const raw = m[2];
+  const num = parseFloat(raw.replace(/,/g, ''));
+  const isYear = !raw.includes(',') && !raw.includes('.') && num >= 1000 && num <= 2100 && !m[1] && !m[3].trim();
+  if (!Number.isFinite(num) || isYear || num > 1e12) return value;
+  const decimals = (raw.split('.')[1] || '').length;
+  const eased = 1 - Math.pow(1 - Math.max(0, t), 3);
+  const now = num * eased;
+  const text = raw.includes(',') ? now.toLocaleString('en-IN', {minimumFractionDigits: decimals, maximumFractionDigits: decimals}) : now.toFixed(decimals);
+  return (m[1] + text + m[3]).replace(/\d/g, (d) => '०१२३४५६७८९'[Number(d)]);
+};
+
 const rise = (p: number) => ({opacity: p, transform: `translateY(${(1 - p) * 34}px)`});
 
 const Item: React.FC<{item: LongItem; render: (p: number) => React.ReactNode}> = ({item, render}) => {
@@ -96,10 +113,12 @@ const Stat: React.FC<{scene: LongScene}> = ({scene}) => {
   const item = scene.items[0];
   const p = useReveal(item.cue, 14);
   const label = useReveal(item.cue + 0.35);
-  const value = item.value ?? '';
+  const full = item.value ?? '';
+  const counting = useSeconds() - item.cue;
+  const value = countUp(full, counting / 1.1);
   return (
     <div style={{position: 'absolute', left: CONTENT_LEFT, width: CONTENT_WIDTH, top: BODY_TOP - 20, height: 400, fontFamily, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'}}>
-      <div style={{color: COLORS.gold, fontWeight: 800, fontSize: value.length <= 8 ? 250 : value.length <= 14 ? 180 : 128, lineHeight: 1.05, opacity: p, transform: `scale(${0.7 + 0.3 * p})`, textShadow: '0 8px 40px rgba(245,196,81,0.35)'}}>{value}</div>
+      <div style={{color: COLORS.gold, fontWeight: 800, fontSize: full.length <= 8 ? 250 : full.length <= 14 ? 180 : 128, lineHeight: 1.05, opacity: p, transform: `scale(${0.7 + 0.3 * p})`, textShadow: '0 8px 40px rgba(245,196,81,0.35)'}}>{value}</div>
       <div style={{width: 640 * label, height: 8, background: COLORS.red, margin: '20px 0'}} />
       <div style={{color: COLORS.white, fontWeight: 700, fontSize: 54, opacity: label, textAlign: 'center'}}>{item.label}</div>
     </div>

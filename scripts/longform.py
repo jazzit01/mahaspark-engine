@@ -142,6 +142,29 @@ def voice_all(scenes: list[dict], extras: list[float] | None = None, **kw) -> li
     return built
 
 
+STUDIOS = ("PrimeGridStudio", "DataTelemetryStudio", "GlassNewsroomDepth", "BreakingNewsStudio")
+
+
+def pick_studio(seed: str) -> str:
+    """One of the animated studios, chosen from the title so every video does not look the same."""
+    import zlib
+
+    pool = STUDIOS[:3]  # the crimson Breaking studio is for grave news only
+    return pool[zlib.crc32(("studio" + seed).encode("utf-8")) % len(pool)]
+
+
+def attach_photos(props: dict, photos: list[dict]) -> dict:
+    """Spread the topic photos over the scenes in order (scene i gets photo floor(i * n / scenes)), never the quiz scenes."""
+    if not photos:
+        return props
+    scenes = props["scenes"]
+    for i, scene in enumerate(scenes):
+        photo = photos[min(len(photos) - 1, i * len(photos) // len(scenes))]
+        scene["media"] = {"file": photo["file"], "width": photo["width"], "height": photo["height"]}
+    props["credits"] = list(dict.fromkeys(p["credit"] for p in photos))
+    return props
+
+
 def assemble(kind: str, title: str, scenes: list[dict], bg_hue: int, mood: str = "neutral") -> dict:
     cursor, out = 0.0, []
     for scene in scenes:
@@ -152,6 +175,7 @@ def assemble(kind: str, title: str, scenes: list[dict], bg_hue: int, mood: str =
         "title": title,
         "audio_mood": mood,
         "bg_hue": bg_hue,
+        "studio": pick_studio(title),
         "scenes": out,
         "outro_seconds": OUTRO_SECONDS,
         "outro_start": round(cursor, 2),

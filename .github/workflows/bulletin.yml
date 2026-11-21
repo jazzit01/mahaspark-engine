@@ -113,5 +113,6 @@ jobs:
           path: |
             out/mahaspark_bulletin.mp4
             remotion/public/bulletin.json
+            out/youtube_metadata.txt
           if-no-files-found: ignore
           retention-days: 2

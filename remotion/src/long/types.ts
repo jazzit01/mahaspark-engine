@@ -30,6 +30,8 @@ export type LongScene = {
   q_index?: number;
   total?: number;
   correct?: number;
+  /** A real photo of the topic behind this scene (explainer only), path inside remotion/public. */
+  media?: {file: string; width: number; height: number};
   reveal_at?: number;
   explain_at?: number;
 };
@@ -39,6 +41,9 @@ export type LongProps = {
   title: string;
   audio_mood: 'serious' | 'crime' | 'breaking' | 'upbeat' | 'neutral';
   bg_hue?: number;
+  /** Which animated studio runs behind the video (one per video). */
+  studio?: string;
+  credits?: string[];
   scenes: LongScene[];
   outro_seconds: number;
   outro_start: number;

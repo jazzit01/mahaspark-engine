@@ -29,7 +29,7 @@ on:
         required: false
         default: ""
       file:
-        description: "(produce) the approved file, e.g. approvals/quiz-20261120-103000.txt"
+        description: "(produce) leave EMPTY to use your newest approved script, or type its path e.g. approvals/quiz-20261120-103000.txt"
         required: false
         default: ""
 
@@ -44,16 +44,21 @@ jobs:
         with:
           ref: main
 
-      - name: Check the inputs
+      - name: Pick the script to produce (newest one unless you typed a path)
+        id: pick
         env:
           STEP: ${{ inputs.step }}
           FILE_INPUT: ${{ inputs.file }}
         run: |
           if [ "$STEP" = "produce" ]; then
-            if [ -z "$FILE_INPUT" ] || [ ! -f "$FILE_INPUT" ]; then
-              echo "::error::step = produce needs file = the approved script path (for example approvals/quiz-20261120-103000.txt). It must exist in the repository."
+            FILE="$FILE_INPUT"
+            if [ -z "$FILE" ]; then FILE=$(ls approvals/quiz-*.txt 2>/dev/null | sort | tail -1); fi
+            if [ -z "$FILE" ] || [ ! -f "$FILE" ]; then
+              echo "::error::No approved script found. First run this workflow with step = draft, edit the file on GitHub, then run again with step = produce."
               exit 1
             fi
+            echo "Producing from: $FILE"
+            echo "file=$FILE" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Set up Python 3.12 (pip cache)
@@ -161,7 +166,7 @@ jobs:
       - name: Make the video from the approved script (voice, render, YouTube, Telegram)
         if: inputs.step == 'produce'
         env:
-          FILE_INPUT: ${{ inputs.file }}
+          FILE_INPUT: ${{ steps.pick.outputs.file }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           # Extra keys from OTHER Google Cloud projects (comma separated); used when one key's quota is spent.
           GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
@@ -189,5 +194,6 @@ jobs:
           path: |
             out/mahaspark_long.mp4
             remotion/public/long.json
+            out/youtube_metadata.txt
           if-no-files-found: ignore
           retention-days: 2

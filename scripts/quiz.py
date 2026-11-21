@@ -25,6 +25,7 @@ import content_rules
 import editorial_engine as ee
 import factcheck
 import longform
+import manual_kit
 import send_telegram
 import topic_bank
 import wiki_sources
@@ -310,7 +311,7 @@ def finish(quiz: dict, queue, skip_render: bool, skip_upload: bool, skip_telegra
         print(f"❌ {exc}")
         return 1
 
-    video_url, uploaded = None, False
+    video_url, uploaded, fail_reason = None, False, ""
     if not skip_upload:
         try:
             video_url = youtube_upload.upload_video(LONG_PATH, quiz["title"], build_description(quiz, props), build_tags(quiz))
@@ -324,8 +325,13 @@ def finish(quiz: dict, queue, skip_render: bool, skip_upload: bool, skip_telegra
                     print(f"⚠️ Thumbnail upload failed: {exc}")
         except youtube_upload.YouTubeUnavailable as exc:
             print(f"⏭️ YouTube upload skipped: {exc}")
+            fail_reason = str(exc)
         except Exception as exc:  # noqa: BLE001
             print(f"❌ YouTube upload failed: {exc}")
+            fail_reason = str(exc)
+
+    if not uploaded and not skip_upload:
+        manual_kit.deliver("क्विझ", LONG_PATH, quiz["title"], build_description(quiz, props), build_tags(quiz), fail_reason or "YouTube is not set up", send=not skip_telegram)
 
     if not skip_telegram:
         text = f"❓ <b>MahaSpark क्विझ: {quiz['title']}</b>\n" + (video_url or "(YouTube अपलोड झाला नाही; व्हिडिओ out/ फोल्डरमध्ये आहे.)")

@@ -13,6 +13,7 @@ phonetic rules as the reels.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 import time
@@ -25,8 +26,10 @@ import drafts
 import editorial_engine as ee
 import factcheck
 import longform
+import manual_kit
 import send_telegram
 import topic_bank
+import topic_images
 import wiki_sources
 import youtube_upload
 from bulletin_editorial import FACT_RULES, PHONETIC_RULES
@@ -263,6 +266,8 @@ def build_description(ex: dict, props: dict) -> str:
     urls = (ex.get("source") or {}).get("urls") or []
     if urls:
         lines += [wiki_sources.credit_line(urls), ""]
+    if props.get("credits"):
+        lines += ["🖼️ चित्रे (Wikimedia Commons, मुक्त परवाना):", *props["credits"], ""]
     lines += [youtube_upload.AI_NOTE, "", "🔔 MahaSpark ला फॉलो आणि सबस्क्राईब करा, रोज नवीन माहिती सोप्या भाषेत मिळवा.",
               "▶️ @MahaSparkOfficial", "", CHANNEL_HASHTAGS]
     return "\n".join(lines)
@@ -312,6 +317,9 @@ def finish(ex: dict, queue, skip_render: bool, skip_upload: bool, skip_telegram:
         print(f"❌ {exc}")
         return 1
     props = longform.assemble("explainer", ex["title"], scenes, ee.pick_hue(ex["title"]), ex["audio_mood"])
+    if os.getenv("EXPLAINER_PHOTOS", "1") != "0":  # real, freely licensed photos of the topic behind the graphics
+        urls = (ex.get("source") or {}).get("urls") or [u for u in str((ex.get("source") or {}).get("url", "")).split("\n") if u]
+        longform.attach_photos(props, topic_images.fetch_images(urls))
     longform.write_props(props)
     print(f"🧾 {props['total_seconds']:.0f} s")
     if skip_render:
@@ -322,7 +330,7 @@ def finish(ex: dict, queue, skip_render: bool, skip_upload: bool, skip_telegram:
         print(f"❌ {exc}")
         return 1
 
-    video_url, uploaded = None, False
+    video_url, uploaded, fail_reason = None, False, ""
     if not skip_upload:
         try:
             video_url = youtube_upload.upload_video(LONG_PATH, ex["title"], build_description(ex, props), build_tags(ex))
@@ -336,8 +344,13 @@ def finish(ex: dict, queue, skip_render: bool, skip_upload: bool, skip_telegram:
                     print(f"⚠️ Thumbnail upload failed: {exc}")
         except youtube_upload.YouTubeUnavailable as exc:
             print(f"⏭️ YouTube upload skipped: {exc}")
+            fail_reason = str(exc)
         except Exception as exc:  # noqa: BLE001
             print(f"❌ YouTube upload failed: {exc}")
+            fail_reason = str(exc)
+
+    if not uploaded and not skip_upload:
+        manual_kit.deliver("समजून घ्या", LONG_PATH, ex["title"], build_description(ex, props), build_tags(ex), fail_reason or "YouTube is not set up", send=not skip_telegram)
 
     if not skip_telegram:
         text = f"🧠 <b>MahaSpark समजून घ्या: {ex['title']}</b>\n" + (video_url or "(YouTube अपलोड झाला नाही; व्हिडिओ out/ फोल्डरमध्ये आहे.)")

@@ -340,20 +340,30 @@ def review_links(path: Path) -> dict:
 
 
 def announce(kind: str, path: Path, title: str) -> None:
-    """Tell the owner where the draft is (Telegram + log). Best effort."""
+    """Tell the owner where the draft is and exactly what to do next (Telegram + log). Best effort."""
     import send_telegram
 
     links = review_links(path)
     label = "explainer" if kind == "explainer" else "quiz"
-    lines = [f"📝 <b>MahaSpark {label}: script ready for your approval</b>", title, ""]
+    noun = "script" if kind == "explainer" else "10 questions"
+    lines = [f"📝 <b>MahaSpark {label}: {noun} ready. Nothing is published yet.</b>", title, ""]
     if links:
-        lines += [f"1) Read / edit: {links['edit']}", "   (change anything, then press 'Commit changes')",
-                  f"2) Then run the {label} workflow again with step = produce and file = {links['path']}"]
+        lines += [
+            "STEP 1 - Read and fix it",
+            f"Open this link, change anything you like, then press the green 'Commit changes' button:\n{links['edit']}",
+            "(The same file is attached below if you prefer to read it here.)",
+            "",
+            "STEP 2 - Make the video",
+            f"GitHub -> Actions -> '{'MahaSpark Explainer (16:9, YouTube, script approval)' if kind == 'explainer' else 'MahaSpark Quiz (16:9, YouTube, script approval)'}' -> Run workflow -> choose step = produce -> leave 'file' EMPTY -> Run.",
+            "It uses your newest approved file.",
+            "",
+            f"Want a different topic instead? Run the workflow again with step = draft and type your topic ({'e.g. शिवनेरी किल्ला' if kind == 'explainer' else 'e.g. महाराष्ट्रातील नद्या'}).",
+        ]
     else:
         lines += [f"File: {path}", f"Edit it, then run: python scripts/{label}.py produce {path}"]
     print("\n".join(l.replace("<b>", "").replace("</b>", "") for l in lines))
     try:
         send_telegram.send_message("\n".join(lines))
-        send_telegram.send_document(Path(path), f"{label} script: {title}"[:200])
+        send_telegram.send_document(Path(path), f"{label} {noun}: {title}"[:200])
     except Exception as exc:  # noqa: BLE001
         print(f"⚠️ Could not notify Telegram: {exc}")
