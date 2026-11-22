@@ -168,6 +168,24 @@ def pick_studio(seed: str) -> str:
     return pool[zlib.crc32(("studio" + seed).encode("utf-8")) % len(pool)]
 
 
+PACKS = {"explainer": "knowledge", "quiz": "quiz"}  # brand style packs: colours per series (remotion/src/long/kit.tsx)
+LOOP_DIR = LONG_DIR.parent / "loops"  # optional looping background clips (for example made with lemo-opuscar)
+
+
+def pick_pack(kind: str) -> str:
+    return PACKS.get(kind, "news")
+
+
+def pick_loop(seed: str, folder: Path | None = None) -> str | None:
+    """A looping background clip from ``remotion/public/loops/*.mp4`` (chosen by the title), or None when there are none."""
+    import zlib
+
+    clips = sorted(Path(folder or LOOP_DIR).glob("*.mp4"))
+    if os.getenv("LONG_LOOPS", "1") == "0" or not clips:
+        return None
+    return f"loops/{clips[zlib.crc32(('loop' + seed).encode('utf-8')) % len(clips)].name}"
+
+
 def attach_photos(props: dict, photos: list[dict]) -> dict:
     """Spread the topic photos over the scenes in order (scene i gets photo floor(i * n / scenes)), never the quiz scenes."""
     if not photos:
@@ -191,6 +209,8 @@ def assemble(kind: str, title: str, scenes: list[dict], bg_hue: int, mood: str =
         "audio_mood": mood,
         "bg_hue": bg_hue,
         "studio": pick_studio(title),
+        "pack": pick_pack(kind),
+        "loop": pick_loop(title),
         "scenes": out,
         "outro_seconds": OUTRO_SECONDS,
         "outro_start": round(cursor, 2),

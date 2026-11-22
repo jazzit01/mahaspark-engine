@@ -133,3 +133,68 @@ def test_scene_voice_is_reused_from_the_cache(tmp_path, monkeypatch):
     (tmp_path / "scene-0.wav").unlink()
     longform.voice_scene(GOOD, 0, fake_tts, tmp_path, "question")
     assert made == [GOOD] and (tmp_path / "scene-0.wav").exists()
+
+
+# ---- chart scenes, style packs, loops, thumbnail swap ----
+
+import pytest  # noqa: E402
+
+import drafts  # noqa: E402
+import explainer  # noqa: E402
+import thumb_ab  # noqa: E402
+from test_longform import SOURCE, good_explainer, good_scene  # noqa: E402
+
+
+def test_chart_scene_needs_figures_in_the_source():
+    data = good_explainer()
+    items = [{"label": "मंजूर निधी", "value": "₹१,२०० कोटी", "cue": "योजना"}, {"label": "पूर्वीचा निधी", "value": "₹१,२०० कोटी", "cue": "गळती"}]
+    data["scenes"][1] = good_scene("chart", items)
+    assert explainer.validate_explainer(data, SOURCE)["scenes"][1]["kind"] == "chart"
+    data["scenes"][1] = good_scene("chart", [{**items[0]}, {"label": "दुसरे", "value": "खूप", "cue": "गळती"}])
+    with pytest.raises(ValueError, match="figure"):
+        explainer.validate_explainer(data, SOURCE)
+    data["scenes"][1] = good_scene("chart", [{**items[0]}, {"label": "दुसरे", "value": "₹९९९ कोटी", "cue": "गळती"}])
+    with pytest.raises(ValueError, match="not in the source"):
+        explainer.validate_explainer(data, SOURCE)
+
+
+def test_chart_scene_in_a_hand_written_script():
+    text = """
+TITLE: माझी स्वतःची पुणे पाणी योजना माहिती
+=== SCENE 1 | title ===
+HEADLINE: पुण्याची नवी पाणी योजना
+SPEECH: पुणे महापालिकेने 1200 कोटी रुपयांची पाणी योजना मंजूर केली आहे.
+=== SCENE 2 | chart ===
+HEADLINE: निधी तुलना
+SPEECH: मंजूर निधी 1200 कोटी आणि पूर्वीचा निधी 800 कोटी होता.
+ITEMS:
+- मंजूर निधी | ₹1200 कोटी | मंजूर
+- पूर्वीचा निधी | ₹800 कोटी | पूर्वीचा
+"""
+    assert drafts.parse_explainer(text)["scenes"][1]["kind"] == "chart"
+    with pytest.raises(Exception):
+        drafts.parse_explainer(text.replace("₹800 कोटी", "कमी"))
+
+
+def test_pack_and_loop(tmp_path):
+    assert longform.pick_pack("explainer") == "knowledge" and longform.pick_pack("quiz") == "quiz"
+    assert longform.pick_loop("x", tmp_path) is None
+    (tmp_path / "b.mp4").write_bytes(b"0")
+    (tmp_path / "a.mp4").write_bytes(b"0")
+    assert longform.pick_loop("x", tmp_path) in ("loops/a.mp4", "loops/b.mp4")
+    assert longform.pick_loop("x", tmp_path) == longform.pick_loop("x", tmp_path)
+    props = longform.assemble("quiz", "t", [{"seconds": 5.0}], 3)
+    assert props["pack"] == "quiz" and "loop" in props
+
+
+def test_thumb_swap_rotates_and_parses_video_ids(tmp_path):
+    files = [tmp_path / f"long-explainer-{s}.jpg" for s in ("bold", "figure", "question")]
+    for f in files:
+        f.write_bytes(b"x")
+    found = thumb_ab.variants("long-explainer", tmp_path)
+    assert [p.name for p in found] == sorted(p.name for p in files)
+    assert thumb_ab.next_variant(found, found[0].name) == found[1]
+    assert thumb_ab.next_variant(found, found[-1].name) == found[0]
+    assert thumb_ab.next_variant(found, None) == found[0] and thumb_ab.next_variant([], None) is None
+    for ref in ("abc123", "https://youtu.be/abc123", "https://www.youtube.com/watch?v=abc123&t=5"):
+        assert thumb_ab.video_ref(ref) == "https://www.youtube.com/watch?v=abc123"
