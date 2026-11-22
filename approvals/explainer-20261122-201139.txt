@@ -1,0 +1,64 @@
+# MahaSpark explainer script. Edit anything, save, then run:
+#   python scripts/explainer.py produce <this file>
+# Lines starting with # are ignored. Each scene:
+#   THUMB (top of file): 3-5 punchy words for the YouTube thumbnail, for example a question
+#   HEADLINE: big text on screen        SUBTITLE: small line under it (optional)
+#   SPEECH: what the anchor says (digits are fine; the voice spells them in Marathi)
+#   ITEMS: one per line:  - text on screen | value (optional) | word to appear on (optional)
+# Scene kinds: title, points, steps, compare, timeline, stat, quote, summary, chart.
+#   chart: 2-5 items, each with a number and its unit as the value (all the same unit), drawn as animated bars.
+#   stat and quote need exactly one item with a value. timeline/compare items use the value for the event/detail.
+# Delete a whole scene (from === to its last line) to drop it, or copy one to add one.
+# FACT-CHECK NOTE (check this, then delete the line): Scene 1 claims Mary Kom is known as 'Magnificent Mary' (which is true), but the reference text states she is a politician and 'former' Member of Rajya Sabha, whereas the script implies she is currently a Member of Rajya Sabha in Scene 5.
+# FACT-CHECK NOTE (check this, then delete the line): Scene 2 states her birth date as 24 November 1982, which contradicts the Marathi reference text that states 1 March 1983.
+
+TITLE: मेरी कोम: बॉक्सिंग रिंगमधील एक महान भारतीय खेळाडू | MahaSpark मराठी बातम्या
+THUMB: बॉक्सिंगमधील मॅग्निफिसेंट मेरी
+CAPTION: जागतिक बॉक्सिंगमध्ये भारताचे नाव उंचावणाऱ्या मेरी कोम यांच्या कारकिर्दीचा आढावा घेणारा हा विशेष व्हिडिओ.
+KEYWORDS: मेरी कोम, बॉक्सिंग, भारतीय खेळाडू, ऑलिम्पिक, मणिपूर, Mary Kom, Boxing, Indian Athlete, Olympics, Manipur
+MOOD: upbeat
+SOURCES: https://en.wikipedia.org/wiki/Mary_Kom | https://mr.wikipedia.org/wiki/%E0%A4%AE%E0%A5%87%E0%A4%B0%E0%A5%80_%E0%A4%95%E0%A5%8B%E0%A4%AE
+
+=== SCENE 1 | title ===
+HEADLINE: मेरी कोम: बॉक्सिंग रिंगमधील एक महान भारतीय खेळाडू
+SPEECH: बॉक्सिंगच्या रिंगणात भारताचा तिरंगा अभिमानाने फडकवणारी खेळाडू म्हणजे मेरी कोम. मॅग्निफिसेंट मेरी म्हणून ओळखल्या जाणाऱ्या या खेळाडूने जागतिक स्तरावर अनेक विक्रम प्रस्थापित केले आहेत. आजच्या या भागात आपण मेरी कोम यांच्या प्रेरणादायी प्रवासाबद्दल आणि त्यांच्या महत्त्वपूर्ण कामगिरीबद्दल जाणून घेणार आहोत.
+
+=== SCENE 2 | points ===
+HEADLINE: मेरी कोम यांचा परिचय
+SPEECH: मेरी कोम यांचे पूर्ण नाव मांगते चुंगनीजांग मेरी कोम असे आहे. त्यांचा जन्म चोवीस नोव्हेंबर एक हजार नऊशे ब्याऐंशी रोजी मणिपूरमधील कांगथेई या दुर्गम खेड्यात झाला. एका गरीब कुटुंबात जन्मलेल्या मेरी कोम यांनी अत्यंत प्रतिकूल परिस्थितीतून आपल्या खेळाची सुरुवात केली. त्यांच्या वडिलांचे नाव मांगते टोंपा कोम आणि आईचे नाव मांगते अखम कोम असे आहे.
+ITEMS:
+- पूर्ण नाव: मांगते चुंगनीजांग मेरी कोम |  | नाव
+- जन्म: २४ नोव्हेंबर १९८२ |  | जन्म
+- जन्मस्थान: कांगथेई, मणिपूर
+
+=== SCENE 3 | timeline ===
+HEADLINE: बॉक्सिंगमधील सुरुवातीचा प्रवास
+SPEECH: मणिपुरी बॉक्सर डिंको सिंग यांच्या यशाने प्रेरित होऊन मेरी कोम यांनी बॉक्सिंगमध्ये पहिले पाऊल टाकले. इ स दोन हजार मध्ये त्यांनी राज्यस्तरीय स्पर्धेत जेतेपद मिळवले. त्यांच्या उत्कृष्ट कामगिरीची दखल घेत दोन हजार तीन साली त्यांना अर्जुन पुरस्काराने सन्मानित करण्यात आले. पुढे दोन हजार बारा च्या लंडन ऑलिम्पिकमध्ये फ्लायवेट प्रकारात त्यांनी कांस्यपदक मिळवून भारताचे नाव जागतिक स्तरावर उंचावले.
+ITEMS:
+- २०००: बॉक्सिंगमध्ये पहिले पाऊल | २००० | पाऊल
+- २००३: अर्जुन पुरस्कार | २००३
+- २०१२: लंडन ऑलिम्पिक कांस्यपदक | २०१२ | कांस्यपदक
+
+=== SCENE 4 | points ===
+HEADLINE: प्रमुख जागतिक विक्रम
+SPEECH: मेरी कोम या सहा वेळा जागतिक हौशी बॉक्सिंग चॅम्पियनशिप जिंकणाऱ्या एकमेव महिला आहेत. त्यांनी एकूण आठ जागतिक चॅम्पियनशिप पदके जिंकली आहेत, जो एक विक्रम आहे. त्यांच्या या अतुलनीय योगदानासाठी भारत सरकारने दोन हजार वीस मध्ये त्यांना पद्मविभूषण या दुसऱ्या सर्वोच्च नागरी पुरस्काराने सन्मानित केले आहे.
+ITEMS:
+- ६ वेळा जागतिक अजिंक्यपद विजेती
+- ८ जागतिक चॅम्पियनशिप पदके |  | पदके
+- पद्मविभूषण पुरस्कार २०२० |  | पद्मविभूषण
+
+=== SCENE 5 | points ===
+HEADLINE: इतर महत्त्वपूर्ण कामगिरी
+SPEECH: मेरी कोम यांनी दोन हजार चौदा च्या इंचॉन आशियाई खेळांमध्ये सुवर्णपदक जिंकले. तसेच दोन हजार अठरा च्या राष्ट्रकुल खेळांमध्ये सुवर्णपदक मिळवणारी ती पहिली भारतीय महिला बॉक्सर ठरली. खेळाव्यतिरिक्त, मेरी कोम यांची भारतीय संसदेच्या वरिष्ठ सभागृहाच्या म्हणजेच राज्यसभेच्या सदस्य म्हणूनही नियुक्ती करण्यात आली होती. त्यांच्या या प्रवासाने अनेक खेळाडूंना प्रेरणा दिली आहे.
+ITEMS:
+- २०१४ आशियाई खेळ: सुवर्णपदक |  | सुवर्णपदक
+- २०१८ राष्ट्रकुल खेळ: सुवर्णपदक |  | राष्ट्रकुल
+- राज्यसभेच्या सदस्य म्हणून नियुक्ती |  | सदस्य
+
+=== SCENE 6 | summary ===
+HEADLINE: मेरी कोम: एक प्रेरणा
+SPEECH: थोडक्यात सांगायचे तर, मणिपूरच्या दुर्गम भागातून जागतिक स्तरापर्यंत मजल मारणाऱ्या मेरी कोम यांनी आपल्या जिद्दीच्या जोरावर अनेक विक्रमांची नोंद केली आहे. भारतीय क्रीडा क्षेत्रातील एक आदर्श व्यक्तिमत्व म्हणून त्यांचे नाव नेहमीच आदराने घेतले जाईल. बॉक्सिंगच्या रिंगणातील त्यांचा हा प्रवास आजही अनेकांसाठी प्रेरणादायी आहे.
+ITEMS:
+- मणिपूरच्या दुर्गम भागातून जागतिक स्तरापर्यंत मजल |  | मजल
+- अनेक जागतिक विक्रमांची नोंद |  | विक्रमांची
+- भारतीय क्रीडा क्षेत्रातील एक आदर्श व्यक्तिमत्व |  | आदर्श
