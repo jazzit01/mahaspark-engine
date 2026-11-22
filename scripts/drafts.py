@@ -20,6 +20,7 @@ from pathlib import Path
 
 import content_rules
 import editorial_engine as ee
+from content_rules import office_error
 import fetch_news
 import longform
 from config import ROOT
@@ -238,6 +239,9 @@ def parse_explainer(text: str) -> dict:
         problems.append("No scenes found. Each scene starts with a line like: === SCENE 1 | title ===")
     elif sum(len(s["tts_text"].split()) for s in scenes) < 20:
         problems.append("The whole script is under 20 spoken words.")
+    office = office_error(" ".join(f"{s['headline']} {s['tts_text']}" for s in scenes))
+    if office:
+        problems.append(office)  # an approved script may not give a leader the wrong office either
     banned = ee.find_forbidden(" ".join(s["tts_text"] for s in scenes))
     if banned:
         print(f"⚠️ Note: the phrase '{banned}' is on the banned list for news copy. Kept because you approved the script.")

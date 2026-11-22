@@ -6,6 +6,9 @@
    never offers them as a topic (``blocked_topic``).
 3. News (reels, bulletin) whose headline or summary names Savarkar is skipped (``skip_news``); set ``SAVARKAR_NEWS=plain``
    to publish such news with the plain name instead.
+4. Office titles are never promoted or demoted: ``office_error`` rejects a script that calls Eknath Shinde "मुख्यमंत्री"
+   (he is उपमुख्यमंत्री) or Devendra Fadnavis "उपमुख्यमंत्री" (he is मुख्यमंत्री). "माजी"/"तत्कालीन" in front is allowed.
+   ``OFFICES`` is the table to UPDATE whenever someone's office changes.
 """
 
 from __future__ import annotations
@@ -73,3 +76,43 @@ def skip_news(title: str, summary: str = "") -> bool:
     if os.getenv("SAVARKAR_NEWS", "skip").strip().lower() == "plain":
         return False
     return mentions_savarkar(f"{title}\n{summary}")
+
+
+# ---- office titles ---------------------------------------------------------------------------------------------------
+# person -> (name pattern in Devanagari, name pattern in Latin, the right title, the wrong-title kind)
+# UPDATE THIS TABLE when an office changes (and the tests). Only add people whose office is certain.
+OFFICES = {
+    "एकनाथ शिंदे": {"mr": r"(?:एकनाथ\s+(?:संभाजी\s+)?)?शिंदे", "en": r"(?:Eknath\s+)?Shinde", "title": "उपमुख्यमंत्री", "wrong": "cm"},
+    "देवेंद्र फडणवीस": {"mr": r"(?:देवेंद्र\s+(?:गंगाधरराव\s+)?)?फडणवीस", "en": r"(?:Devendra\s+)?Fadnavis", "title": "मुख्यमंत्री", "wrong": "deputy"},
+}
+_NOT_CURRENT = r"(?<!माजी )(?<!तत्कालीन )(?<!भावी )"
+_CM_MR = r"(?<!उप)(?<!उप )" + _NOT_CURRENT + r"मुख्यमंत्री"
+_DEPUTY_MR = _NOT_CURRENT + r"उप\s*मुख्यमंत्री"
+_CM_EN = r"(?<!Deputy )(?<!Dy\. )(?<!Dy )(?<!former )(?<!ex-)\b(?:Chief\s+Minister|CM)"
+_DEPUTY_EN = r"(?<!former )\b(?:Deputy\s+Chief\s+Minister|Deputy\s+CM|Dy\.?\s*CM)"
+_ADDRESS = r"(?:\s+श्री\.?)?"
+
+
+def _office_patterns():
+    for person, info in OFFICES.items():
+        if info["wrong"] == "cm":
+            yield person, info, re.compile(rf"{_CM_MR}{_ADDRESS}\s+{info['mr']}"), re.compile(rf"{_CM_EN}\s+{info['en']}\b", re.IGNORECASE)
+        else:
+            yield person, info, re.compile(rf"{_DEPUTY_MR}{_ADDRESS}\s+{info['mr']}"), re.compile(rf"{_DEPUTY_EN}\s+{info['en']}\b", re.IGNORECASE)
+
+
+def office_error(text: str) -> str | None:
+    """A repair message when ``text`` gives a known leader the wrong office, else None."""
+    raw = re.sub(r"\s+", " ", str(text or ""))
+    for person, info, mr, en in _office_patterns():
+        found = mr.search(raw) or en.search(raw)
+        if found:
+            return (f"'{found.group(0)}' is wrong: {person} is {info['title']}. Write the title exactly as the source states it "
+                    f"and never promote or demote a leader (use 'माजी' only for a former office).")
+    return None
+
+
+def office_prompt_line() -> str:
+    """One line for the editorial prompt, built from ``OFFICES``."""
+    facts = "; ".join(f"{person} is {info['title']}" for person, info in OFFICES.items())
+    return f"Official titles are never changed: {facts}. Copy every leader's title exactly as the source states it; never promote or demote anyone."

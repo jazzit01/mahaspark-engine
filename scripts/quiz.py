@@ -160,6 +160,7 @@ def check_question(raw: dict, stories: list[dict]) -> dict:
             problems = ee.tts_problems(text)
             if problems:
                 raise ValueError(f"{key}: {problems[0]}")
+    ee.check_offices(f"{question} {explanation} {spoken['question_tts']} {spoken['explanation_tts']}")
     banned = ee.find_forbidden(f"{question} {explanation} {spoken['question_tts']} {spoken['explanation_tts']}")
     if banned:
         raise ValueError(f"The phrase '{banned}' is banned.")

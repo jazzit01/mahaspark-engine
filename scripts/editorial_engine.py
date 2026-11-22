@@ -25,7 +25,7 @@ import requests
 from pydantic import BaseModel, Field
 
 from config import STORY_PATH, VOICEOVER_PATH, get_env_value
-from content_rules import plain_names
+from content_rules import office_error, plain_names
 from fetch_news import THIN_SOURCE_CHARS
 from marathi_numbers import numbers_to_words, words_to_digits
 from editorial_prompts import AUDIO_MOODS, SYSTEM_INSTRUCTION, THEMES, build_user_prompt
@@ -156,6 +156,13 @@ def source_numbers(text: str) -> set[str]:
     # numbers the source spells out in words count too (the on-screen text is converted to digits)
     normalised = words_to_digits(str(text or "")).translate(_DEVANAGARI_DIGITS)
     return {m.replace(",", "") for m in _NUMBER.findall(normalised)}
+
+
+def check_offices(text: str) -> None:
+    """Raise ValueError (the model's one repair) when a known leader is given the wrong office, e.g. Shinde as मुख्यमंत्री."""
+    message = office_error(text)
+    if message:
+        raise ValueError(message)
 
 
 def find_forbidden(text: str) -> str | None:
@@ -374,6 +381,7 @@ def validate_story(
         + keywords
         + [str(v) for v in five.values()]
     )
+    check_offices(visible)
     banned = find_forbidden(visible)
     if banned:
         raise ValueError(f'The phrase "{banned}" is forbidden. Name the actual institution, leader or department instead.')
