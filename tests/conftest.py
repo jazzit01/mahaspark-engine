@@ -25,3 +25,15 @@ def _no_related_source_search(monkeypatch):
     import fetch_news
 
     monkeypatch.setattr(fetch_news, "related_sources", lambda *a, **k: [])
+
+
+@pytest.fixture(autouse=True)
+def _no_live_office_check(monkeypatch, tmp_path):
+    """Tests never call Google Search for office holders; the cache is empty and lives in tmp."""
+    import officecheck
+
+    monkeypatch.setenv("OFFICE_LIVE_CHECK", "0")
+    monkeypatch.setattr(officecheck, "CACHE_FILE", tmp_path / "office_cache.json")
+    officecheck.reset_cache()
+    yield
+    officecheck.reset_cache()
