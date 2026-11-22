@@ -2,27 +2,13 @@ import React from 'react';
 import {AbsoluteFill, Easing, Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig} from 'remotion';
 import {fontFamily} from '../fonts';
 import {COLORS, PHOTO_CUT, PHOTO_WIDTH, TEXT_LEFT, TEXT_WIDTH, TICKER_HEIGHT, TRANSITION_FRAMES, headlineSize} from './constants';
+import {LightLines} from './LightLines';
 import {BulletinItem} from './types';
 
 const PANEL_HEIGHT = 1080 - TICKER_HEIGHT;
 const CUT_CLIP = `polygon(${PHOTO_CUT}px 0, 100% 0, 100% 100%, 0 100%)`;
 
-const Background: React.FC<{hue: number}> = ({hue}) => {
-  const frame = useCurrentFrame();
-  const drift = Math.sin(frame / 90) * 40;
-  return (
-    <AbsoluteFill style={{background: `linear-gradient(160deg, ${COLORS.bgTop} 0%, ${COLORS.bgBottom} 100%)`, filter: hue ? `hue-rotate(${hue}deg)` : undefined}}>
-      <AbsoluteFill
-        style={{
-          backgroundImage: `linear-gradient(${COLORS.grid} 2px, transparent 2px), linear-gradient(90deg, ${COLORS.grid} 2px, transparent 2px)`,
-          backgroundSize: '96px 96px',
-          backgroundPosition: `${drift}px 0`,
-        }}
-      />
-      <AbsoluteFill style={{background: 'radial-gradient(900px 700px at 25% 40%, rgba(40,90,220,0.28), transparent 70%)'}} />
-    </AbsoluteFill>
-  );
-};
+const Background = LightLines;
 
 /** Photo (Ken Burns) behind a diagonal gold cut line, or animated rings when no photo exists. */
 const Panel: React.FC<{item: BulletinItem; total: number}> = ({item, total}) => {

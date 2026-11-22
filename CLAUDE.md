@@ -265,7 +265,19 @@ Two more long videos on the shared engine `longform.py` and ONE composition, `Ma
 - **Thumbnail swap:** `python scripts/thumb_ab.py swap <video id or URL> [--name long-explainer] [--style bold]` sets the next variant from `out/thumbs/`; it only rotates (no click-rate reading). Use YouTube Studio's Test & compare to measure.
 - Not verified here (no real render): all of the above visually (transition overlays, lower third position against captions, chart bar sizes, depth mask, sting timing against the first voice, `color-mix` borders), and the live voice-wait behaviour.
 
+### Line-art studios (look families "Sketch & Board", "Line Diagrams", "Data & Maps", "Light & Lines")
+
+- Inspired by the look families of lemo-opuscar, written as ORIGINAL Remotion/SVG code. Its code is MIT but its style prompts/docs are CC BY-NC 4.0, so they are never copied into this monetised project.
+- Explainer and quiz: `ChalkboardStudio` (slate board, self-drawing chalk doodles, dust), `BlueprintStudio` (blueprint grid, meshing gears, isometric cube, dimension lines), `DataMapStudio` (contours, graticule, transit-style routes with stations). Helpers in `studios/lines.tsx` (`DrawPath`, `drawn`, `cycleOpacity`). All are dark so the existing light text, captions and scrims stay readable; palettes are in `theme.ts`. `longform.LINE_STUDIOS` joins `pick_studio` (rotates with the three older studios; Breaking is still never used).
+- News bulletin: `bulletin/LightLines.tsx` replaces the plain grid background (circuit traces with travelling light pulses, flow-field lines, drifting light points); `bg_hue` still applies.
+- Real lemo films can still be dropped into `remotion/public/loops/*.mp4` (`pick_loop`).
+- Not verified here (no real render): the look and motion of all four, SVG filter cost per frame (chalk displacement, glow); check the first renders and drop the filter if rendering is slow.
+
 ### Office titles (never promote or demote a leader)
 
 - `content_rules.OFFICES` lists leaders whose office is certain (Eknath Shinde = उपमुख्यमंत्री, Devendra Fadnavis = मुख्यमंत्री). `office_error` flags "मुख्यमंत्री"/"Chief Minister"/"CM" directly before Shinde (and "उपमुख्यमंत्री"/"Deputy CM" before Fadnavis); "माजी", "तत्कालीन", "भावी" in front are allowed. `ee.check_offices` raises a ValueError (the model's one repair) in reel `validate_story`, bulletin `validate_item`, explainer scenes and quiz questions; `drafts.parse_*` lists it as a problem for hand-edited scripts. The prompt's fact section carries the same table (`office_prompt_line`). **Update `OFFICES` (and `tests/test_office_titles.py`) whenever an office changes**; only add people whose office is certain.
 - Limit: only a title directly in front of the name is checked ("मुख्यमंत्री एकनाथ शिंदे", "Chief Minister Shinde"); a title that follows the name or a leader not in the table is not.
+
+### Licensing rule (owner decision)
+
+Anything that needs a licence fee, attribution/credit, or forbids commercial use is NOT used in this monetised project. Use only original code and assets (own synthesis, own drawings) or material that needs no credit. The lemo-opuscar style prompts (CC BY-NC) and its CC BY demo films are therefore not used. Wikipedia/Commons photos in the explainer already carry their credit lines in the video description by law; do not add new sources that need credit.
