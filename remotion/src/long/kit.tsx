@@ -79,11 +79,12 @@ export const KineticText: React.FC<{text: string; startSeconds?: number; stagger
 /** The scene headline: big, white, kinetic words, with the animated red accent bar. Sits in the header zone below the logo. */
 export const Headline: React.FC<{text: string; subtitle?: string}> = ({text, subtitle}) => {
   const enter = useReveal(0.1);
+  const subtitleIn = useReveal(0.1 + 0.07 * text.split(/\s+/).length);
   return (
     <div style={{position: 'absolute', left: CONTENT_LEFT, width: CONTENT_WIDTH, top: HEADER_TOP, fontFamily}}>
       <div style={{width: 150 * enter, height: 10, background: ACCENT2, marginBottom: 16}} />
       <KineticText text={text} style={{color: COLORS.white, fontWeight: 800, fontSize: headlineFontSize(text), lineHeight: 1.18, textShadow: '0 4px 22px rgba(0,0,0,0.55)'}} />
-      {subtitle ? <div style={{color: COLORS.context, fontWeight: 600, fontSize: 44, marginTop: 8, opacity: useReveal(0.1 + 0.07 * text.split(/\s+/).length)}}>{subtitle}</div> : null}
+      {subtitle ? <div style={{color: COLORS.context, fontWeight: 600, fontSize: 44, marginTop: 8, opacity: subtitleIn}}>{subtitle}</div> : null}
     </div>
   );
 };

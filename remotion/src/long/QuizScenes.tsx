@@ -64,7 +64,8 @@ const OPTION_H = 142;
 
 const Option: React.FC<{letter: string; text: string; cue: number; state: 'idle' | 'correct' | 'wrong'}> = ({letter, text, cue, state}) => {
   const p = Math.min(1, useReveal(cue, 16));
-  const glow = state === 'correct' ? 0.5 + 0.5 * Math.sin(useSeconds() * 5) : 0;
+  const seconds = useSeconds(); // hooks must run on every render (the state flips to 'correct' mid-scene)
+  const glow = state === 'correct' ? 0.5 + 0.5 * Math.sin(seconds * 5) : 0;
   const color = state === 'correct' ? GREEN : state === 'wrong' ? 'rgba(255,255,255,0.72)' : COLORS.white;
   return (
     <div style={{...CARD, width: OPTION_W, height: OPTION_H, display: 'flex', alignItems: 'center', gap: 26, padding: '0 30px', opacity: state === 'wrong' ? 0.8 : p, transform: `translateY(${(1 - p) * 30}px) scale(${state === 'correct' ? 1.03 : 1})`, boxShadow: state === 'correct' ? `0 0 ${24 + 30 * glow}px rgba(34,197,94,${0.45 + 0.3 * glow})` : CARD.boxShadow, borderColor: state === 'correct' ? GREEN : CARD.borderColor ?? undefined, background: state === 'correct' ? 'rgba(20,83,45,0.9)' : CARD.background, borderWidth: state === 'correct' ? 5 : 2}}>

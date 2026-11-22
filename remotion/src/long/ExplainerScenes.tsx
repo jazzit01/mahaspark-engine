@@ -34,6 +34,7 @@ const Item: React.FC<{item: LongItem; render: (p: number) => React.ReactNode}> =
 const Title: React.FC<{scene: LongScene; pin?: GeoPin}> = ({scene, pin}) => {
   const p = useReveal(0.15);
   const t = useSeconds();
+  const subtitleIn = useReveal(0.7);
   return (
     <div style={{position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '120px 140px 220px', fontFamily}}>
       {pin ? (
@@ -43,7 +44,7 @@ const Title: React.FC<{scene: LongScene; pin?: GeoPin}> = ({scene, pin}) => {
       )}
       <div style={{width: 220 * p, height: 14, background: ACCENT2, marginBottom: 30}} />
       <KineticText text={scene.headline} startSeconds={0.15} stagger={0.09} style={{color: COLORS.white, fontWeight: 800, fontSize: scene.headline.length <= 34 ? 132 : 108, lineHeight: 1.18, maxWidth: pin ? 1000 : 1450, textShadow: '0 6px 30px rgba(0,0,0,0.6)'}} />
-      {scene.subtitle ? <div style={{color: ACCENT, fontWeight: 700, fontSize: 56, marginTop: 28, maxWidth: pin ? 1000 : 1450, opacity: useReveal(0.7)}}>{scene.subtitle}</div> : null}
+      {scene.subtitle ? <div style={{color: ACCENT, fontWeight: 700, fontSize: 56, marginTop: 28, maxWidth: pin ? 1000 : 1450, opacity: subtitleIn}}>{scene.subtitle}</div> : null}
     </div>
   );
 };
