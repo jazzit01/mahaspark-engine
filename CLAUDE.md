@@ -264,3 +264,11 @@ Two more long videos on the shared engine `longform.py` and ONE composition, `Ma
 - **Loop backgrounds:** `.mp4` files in `remotion/public/loops/` (for example made with lemo-opuscar) are picked per video (`longform.pick_loop`, `LONG_LOOPS=0` off) and play muted under a dark scrim (`LoopBackdrop.tsx`); photo scenes cover them. Empty folder = animated studio only. Keep clips small (Telegram's 50 MB limit).
 - **Thumbnail swap:** `python scripts/thumb_ab.py swap <video id or URL> [--name long-explainer] [--style bold]` sets the next variant from `out/thumbs/`; it only rotates (no click-rate reading). Use YouTube Studio's Test & compare to measure.
 - Not verified here (no real render): all of the above visually (transition overlays, lower third position against captions, chart bar sizes, depth mask, sting timing against the first voice, `color-mix` borders), and the live voice-wait behaviour.
+
+### Line-art studios (look families "Sketch & Board", "Line Diagrams", "Data & Maps", "Light & Lines")
+
+- Inspired by the look families of lemo-opuscar, written as ORIGINAL Remotion/SVG code. Its code is MIT but its style prompts/docs are CC BY-NC 4.0, so they are never copied into this monetised project.
+- Explainer and quiz: `ChalkboardStudio` (slate board, self-drawing chalk doodles, dust), `BlueprintStudio` (blueprint grid, meshing gears, isometric cube, dimension lines), `DataMapStudio` (contours, graticule, transit-style routes with stations). Helpers in `studios/lines.tsx` (`DrawPath`, `drawn`, `cycleOpacity`). All are dark so the existing light text, captions and scrims stay readable; palettes are in `theme.ts`. `longform.LINE_STUDIOS` joins `pick_studio` (rotates with the three older studios; Breaking is still never used).
+- News bulletin: `bulletin/LightLines.tsx` replaces the plain grid background (circuit traces with travelling light pulses, flow-field lines, drifting light points); `bg_hue` still applies.
+- Real lemo films can still be dropped into `remotion/public/loops/*.mp4` (`pick_loop`).
+- Not verified here (no real render): the look and motion of all four, SVG filter cost per frame (chalk displacement, glow); check the first renders and drop the filter if rendering is slow.

@@ -158,13 +158,18 @@ def voice_all(scenes: list[dict], extras: list[float] | None = None, **kw) -> li
 
 
 STUDIOS = ("PrimeGridStudio", "DataTelemetryStudio", "GlassNewsroomDepth", "BreakingNewsStudio")
+# line-art studios (original code in the look families "Sketch & Board", "Line Diagrams", "Data & Maps")
+LINE_STUDIOS = {
+    "explainer": ("ChalkboardStudio", "BlueprintStudio", "DataMapStudio"),
+    "quiz": ("ChalkboardStudio", "BlueprintStudio", "DataMapStudio"),
+}
 
 
 def pick_studio(seed: str) -> str:
     """One of the animated studios, chosen from the title so every video does not look the same."""
     import zlib
 
-    pool = STUDIOS[:3]  # the crimson Breaking studio is for grave news only
+    pool = STUDIOS[:3] + LINE_STUDIOS["explainer"]  # the crimson Breaking studio is for grave news only
     return pool[zlib.crc32(("studio" + seed).encode("utf-8")) % len(pool)]
 
 

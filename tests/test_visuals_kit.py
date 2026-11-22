@@ -51,7 +51,7 @@ def test_attach_photos_spreads_over_scenes_and_keeps_credits():
 
 def test_studio_is_rotated_and_never_the_grave_one():
     names = {longform.pick_studio(f"title {i}") for i in range(40)}
-    assert names <= {"PrimeGridStudio", "DataTelemetryStudio", "GlassNewsroomDepth"} and len(names) >= 2
+    assert "BreakingNewsStudio" not in names and len(names) >= 2
     assert longform.assemble("quiz", "t", [{"seconds": 5}], 0)["studio"] in names | {"PrimeGridStudio"}
 
 
@@ -79,3 +79,15 @@ def test_manual_kit_writes_file_and_tells_telegram(monkeypatch, tmp_path):
     sent.clear()
     manual_kit.deliver("क्विझ", big, "T", "D", [], "x", send=False)
     assert sent == []
+
+
+def test_line_art_studios_are_in_the_rotation_and_exist_in_remotion():
+    from config import ROOT
+
+    names = {longform.pick_studio(f"title {i}") for i in range(200)}
+    assert set(longform.LINE_STUDIOS["explainer"]) <= names
+    assert "BreakingNewsStudio" not in names
+    registry = (ROOT / "remotion/src/studios/index.ts").read_text(encoding="utf-8")
+    for n in longform.LINE_STUDIOS["quiz"]:
+        assert n in registry
+        assert (ROOT / f"remotion/src/studios/{n}.tsx").exists()

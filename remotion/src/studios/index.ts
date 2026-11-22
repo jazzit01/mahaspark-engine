@@ -4,6 +4,9 @@ import {BreakingNewsStudio} from './BreakingNewsStudio';
 import {DataTelemetryStudio} from './DataTelemetryStudio';
 import {EditorialDeskLight} from './EditorialDeskLight';
 import {GlassNewsroomDepth} from './GlassNewsroomDepth';
+import {BlueprintStudio} from './BlueprintStudio';
+import {ChalkboardStudio} from './ChalkboardStudio';
+import {DataMapStudio} from './DataMapStudio';
 import {PrimeGridStudio} from './PrimeGridStudio';
 
 /** story.json's visual_theme selects which studio motion background is rendered. */
@@ -13,6 +16,9 @@ export const STUDIOS: Record<ThemeName, React.FC> = {
   EditorialDeskLight,
   DataTelemetryStudio,
   GlassNewsroomDepth,
+  ChalkboardStudio,
+  BlueprintStudio,
+  DataMapStudio,
 };
 
 export const getStudio = (theme: string): React.FC =>
