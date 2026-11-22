@@ -346,7 +346,7 @@ def finish(ex: dict, queue, skip_render: bool, skip_upload: bool, skip_telegram:
     video_url, uploaded, fail_reason = None, False, ""
     if not skip_upload:
         try:
-            video_url = youtube_upload.upload_video(LONG_PATH, ex["title"], build_description(ex, props), build_tags(ex))
+            video_url = youtube_upload.upload_video(LONG_PATH, ex["title"], manual_kit.safe_description(build_description, ex.get("social_caption") or ex["title"], ex, props), build_tags(ex))
             uploaded = True
             print(f"▶️ Uploaded: {video_url}")
             thumb = longform.render_thumbnail("explainer", ex.get("thumb_text") or scenes[0]["headline"], EXPLAINER_THUMB_TAG, key_figure(ex), props["bg_hue"])
@@ -363,7 +363,7 @@ def finish(ex: dict, queue, skip_render: bool, skip_upload: bool, skip_telegram:
             fail_reason = str(exc)
 
     if not uploaded and not skip_upload:
-        manual_kit.deliver("समजून घ्या", LONG_PATH, ex["title"], build_description(ex, props), build_tags(ex), fail_reason or "YouTube is not set up", send=not skip_telegram)
+        manual_kit.deliver("समजून घ्या", LONG_PATH, ex["title"], manual_kit.safe_description(build_description, ex.get("social_caption") or ex["title"], ex, props), build_tags(ex), fail_reason or "YouTube is not set up", send=not skip_telegram)
 
     if not skip_telegram:
         text = f"🧠 <b>MahaSpark समजून घ्या: {ex['title']}</b>\n" + (video_url or "(YouTube अपलोड झाला नाही; व्हिडिओ out/ फोल्डरमध्ये आहे.)")

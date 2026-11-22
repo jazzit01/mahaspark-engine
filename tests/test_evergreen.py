@@ -69,3 +69,16 @@ def test_draft_topic_sources_wikipedia_first(monkeypatch):
     monkeypatch.setattr(drafts, "topic_reports", lambda *a, **k: (_ for _ in ()).throw(AssertionError("news used")))
     text, urls = drafts.topic_sources("Shivneri")
     assert urls == REF["urls"] and "Shivneri" in text
+
+
+def test_quiz_description_works_without_q_index_and_never_blocks_the_kit():
+    """Scenes read back from an approved draft file have no q_index: that KeyError once stopped the YouTube upload AND the metadata file."""
+    import manual_kit
+    import quiz
+
+    scenes = [{"kind": "quiz_intro", "start": 0}, {"kind": "question", "start": 12}, {"kind": "answer", "start": 40},
+              {"kind": "question", "start": 60}, {"kind": "answer", "start": 90}, {"kind": "quiz_end", "start": 110}]
+    props = {"scenes": scenes, "outro_start": 140}
+    text = quiz.build_description({"social_caption": "cap", "title": "t", "credit_urls": []}, props)
+    assert "प्रश्न 1" in text and "प्रश्न 2" in text
+    assert manual_kit.safe_description(lambda: 1 / 0, "short") == "short"

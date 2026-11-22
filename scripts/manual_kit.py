@@ -24,6 +24,15 @@ def write_kit(title: str, description: str, tags: list[str], path: Path = KIT_PA
     return path
 
 
+def safe_description(build, fallback: str, *args) -> str:
+    """Run a description builder; on any bug return ``fallback`` so the upload / the manual kit still happens."""
+    try:
+        return build(*args)
+    except Exception as exc:  # noqa: BLE001
+        print(f"⚠️ Could not build the full description ({type(exc).__name__}: {exc}); using the short one.")
+        return fallback
+
+
 def deliver(label: str, video_path: Path, title: str, description: str, tags: list[str], reason: str, send: bool = True) -> Path:
     """Write the metadata file and (``send``) tell the owner on Telegram how to post the video by hand."""
     path = write_kit(title, description, tags)
