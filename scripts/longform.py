@@ -111,7 +111,6 @@ def voice_scene(text: str, index: int, tts=editorial_engine.synthesize_voiceover
             shutil.copyfile(path, cached)
         except OSError:
             pass
-    editorial_engine.clean_voice_tail(path)  # idempotent: also cleans clips cached before the tail cleaning existed
     return f"long/{path.name}", align_timings.audio_duration(path)
 
 
