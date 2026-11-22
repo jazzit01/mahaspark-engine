@@ -135,6 +135,14 @@ def add_voices(items: list[dict], tts=editorial_engine.synthesize_voiceover, out
     """Voice every item. When the voice quota runs out the bulletin keeps the items voiced so far."""
     out_dir.mkdir(parents=True, exist_ok=True)
     voiced: list[dict] = []
+    editorial_engine.allow_tts_wait(float(os.getenv("TTS_WAIT_SECONDS", "900")))  # wait out per-minute 429s
+    try:
+        return _voice_items(items, tts, out_dir, voiced)
+    finally:
+        editorial_engine.allow_tts_wait(0)
+
+
+def _voice_items(items: list[dict], tts, out_dir: Path, voiced: list[dict]) -> list[dict]:
     for i, item in enumerate(items):
         path = out_dir / f"item-{i}.wav"
         try:

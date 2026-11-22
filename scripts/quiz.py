@@ -300,6 +300,11 @@ def finish(quiz: dict, queue, skip_render: bool, skip_upload: bool, skip_telegra
         scenes = longform.voice_all(scenes, extras)
     except (LLMUnavailableError, ContentFailed, ContentRejected) as exc:
         print(f"❌ {exc}")
+        if not skip_telegram:
+            try:
+                send_telegram.send_message("⚠️ व्हिडिओ अर्धवट राहिला: Gemini आवाजाची मर्यादा संपली. काही वेळाने 'produce' पुन्हा चालवा; आधी तयार झालेले आवाज पुन्हा वापरले जातील.")
+            except Exception:  # noqa: BLE001
+                pass
         return 1
     props = longform.assemble("quiz", quiz["title"], scenes, ee.pick_hue(quiz["title"]), "upbeat")
     longform.write_props(props)

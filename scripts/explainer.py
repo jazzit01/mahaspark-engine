@@ -317,6 +317,11 @@ def finish(ex: dict, queue, skip_render: bool, skip_upload: bool, skip_telegram:
         scenes = longform.voice_all(ex["scenes"])
     except (LLMUnavailableError, ContentFailed, ContentRejected) as exc:
         print(f"❌ {exc}")
+        if not skip_telegram:
+            try:
+                send_telegram.send_message("⚠️ व्हिडिओ अर्धवट राहिला: Gemini आवाजाची मर्यादा संपली. काही वेळाने 'produce' पुन्हा चालवा; आधी तयार झालेले आवाज पुन्हा वापरले जातील.")
+            except Exception:  # noqa: BLE001
+                pass
         return 1
     props = longform.assemble("explainer", ex["title"], scenes, ee.pick_hue(ex["title"]), ex["audio_mood"])
     if os.getenv("EXPLAINER_PHOTOS", "1") != "0":  # real, freely licensed photos of the topic behind the graphics

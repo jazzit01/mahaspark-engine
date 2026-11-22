@@ -163,6 +163,14 @@ jobs:
           git pull --rebase origin main
           git push origin HEAD:main
 
+      - name: Restore voices made earlier (a retry after a spent voice quota only voices what is missing)
+        if: inputs.step == 'produce'
+        uses: actions/cache/restore@v4
+        with:
+          path: remotion/public/long/cache
+          key: voices-${{ github.run_id }}
+          restore-keys: voices-
+
       - name: Make the video from the approved script (voice, render, YouTube, Telegram)
         if: inputs.step == 'produce'
         env:
@@ -185,6 +193,13 @@ jobs:
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
           YOUTUBE_PRIVACY: ${{ vars.YOUTUBE_PRIVACY }}
         run: python scripts/explainer.py produce "$FILE_INPUT"
+
+      - name: Remember the voices (for a retry)
+        if: always() && inputs.step == 'produce'
+        uses: actions/cache/save@v4
+        with:
+          path: remotion/public/long/cache
+          key: voices-${{ github.run_id }}
 
       - name: Keep the video (2 days)
         if: always() && inputs.step == 'produce'
