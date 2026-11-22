@@ -81,6 +81,20 @@ def test_manual_kit_writes_file_and_tells_telegram(monkeypatch, tmp_path):
     assert sent == []
 
 
+def test_remotion_hooks_are_never_called_conditionally():
+    """React error #310 (a render stopped at frame 938): a hook inside `cond ? ... : ...` or `cond && ...` changes the hook count between frames."""
+    import re
+
+    from config import ROOT
+
+    bad = []
+    for path in (ROOT / "remotion/src").rglob("*.tsx"):
+        for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            code = line.split("//")[0]
+            if re.search(r"(\?|&&|\|\|)[^;:]*\buse(Seconds|Reveal|CurrentFrame|VideoConfig|Layout)\(", code):
+                bad.append(f"{path.name}:{n}")
+    assert not bad, bad
+
 def test_line_art_studios_are_in_the_rotation_and_exist_in_remotion():
     from config import ROOT
 
