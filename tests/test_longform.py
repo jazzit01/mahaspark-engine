@@ -420,3 +420,18 @@ def test_quiz_upload_only_uses_the_rendered_video_and_never_voices_or_renders(tm
     assert seen == {"title": qz["title"], "scenes": 2, "skip_upload": False, "short": False}
     assert (tmp_path / "out" / "mahaspark_long.mp4").read_bytes() == b"x"
     assert quiz.main(["upload", str(draft), "--video", str(tmp_path / "missing.mp4"), "--props", str(props)]) == 1
+
+
+def test_question_number_survives_build_scene(tmp_path):
+    """q_index ends in "_index" and used to be stripped as a word position, so every question showed number 1."""
+    def fake_tts(text, path, **kw):
+        import wave
+        with wave.open(str(path), "wb") as w:
+            w.setnchannels(1), w.setsampwidth(2), w.setframerate(24000)
+            w.writeframes(b"\x00\x00" * 24000 * 3)
+
+    scene = {"kind": "question", "q_index": 7, "total": 10, "headline": "h", "subtitle": "", "tts_text": "एक दोन तीन चार.",
+             "reveal_index": 1, "items": []}
+    out = longform.build_scene(scene, 0, tts=fake_tts, whisper=lambda *a, **k: [], out_dir=tmp_path)
+    assert out["q_index"] == 7 and out["total"] == 10
+    assert "reveal_at" in out and "reveal_index" not in out
