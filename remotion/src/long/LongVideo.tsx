@@ -8,7 +8,12 @@ import {ExplainerScene} from './ExplainerScenes';
 import {LongCaptions} from './LongCaptions';
 import {QuestionScene, QuizEnd, QuizIntro} from './QuizScenes';
 import {LongBackdrop} from './LongBackdrop';
-import {LongProps, LongScene} from './types';
+import {LoopBackdrop} from './LoopBackdrop';
+import {LowerThird} from './LowerThird';
+import {Sting} from './Sting';
+import {TransitionOverlay, transitionKind, useEnterStyle} from './Transitions';
+import {packVars} from './kit';
+import {LongMedia, LongProps, LongScene} from './types';
 
 const FPS = 30;
 const EXIT_FRAMES = 8;
@@ -17,7 +22,7 @@ const BACKDROP_FADE = 12;
 export const longFrames = (props: LongProps, fps = FPS): number =>
   props.scenes.reduce((sum, s) => sum + Math.max(1, Math.round(s.seconds * fps)), 0) + Math.round(props.outro_seconds * fps);
 
-const SceneBody: React.FC<{scene: LongScene; pin?: LongProps['map']}> = ({scene, pin}) => {
+const SceneBody: React.FC<{scene: LongScene; pin?: LongProps['map']; gallery?: LongMedia[]}> = ({scene, pin, gallery}) => {
   switch (scene.kind) {
     case 'quiz_intro':
       return <QuizIntro scene={scene} />;
@@ -27,7 +32,7 @@ const SceneBody: React.FC<{scene: LongScene; pin?: LongProps['map']}> = ({scene,
     case 'quiz_end':
       return <QuizEnd scene={scene} />;
     default:
-      return <ExplainerScene scene={scene} pin={pin} />;
+      return <ExplainerScene scene={scene} pin={pin} gallery={gallery} />;
   }
 };
 
@@ -41,6 +46,7 @@ export const LongVideo: React.FC<LongProps> = (props) => {
     cursor += Math.max(1, Math.round(s.seconds * fps));
   });
   const Studio = getStudio(props.studio ?? 'PrimeGridStudio');
+  const gallery: LongMedia[] = props.scenes.reduce<LongMedia[]>((all, sc) => (sc.media && !all.some((m) => m.file === sc.media!.file) ? [...all, sc.media] : all), []);
   const outroStart = cursor;
   const outroFrames = Math.round(props.outro_seconds * fps);
 
@@ -63,10 +69,11 @@ export const LongVideo: React.FC<LongProps> = (props) => {
     BED_VOLUME * duck(f) * interpolate(f, [winStart, winStart + fps * 0.5, winEnd - fps, winEnd], [0, 1, 1, 0], {extrapolateLeft: 'clamp', extrapolateRight: 'clamp'});
 
   return (
-    <AbsoluteFill style={{background: COLORS.bgBottom}}>
+    <AbsoluteFill style={{background: COLORS.bgBottom, ...packVars(props.pack)}}>
       <AbsoluteFill style={props.bg_hue ? {filter: `hue-rotate(${props.bg_hue}deg)`} : undefined}>
         <Studio />
       </AbsoluteFill>
+      {props.loop ? <LoopBackdrop file={props.loop} /> : null}
 
       {/* real photos of the topic: each fades in over the previous one (the overlap), slow Ken Burns push, dark scrim */}
       {props.scenes.map((scene, i) => {
@@ -86,8 +93,12 @@ export const LongVideo: React.FC<LongProps> = (props) => {
           <Sequence key={i} from={starts[i]} durationInFrames={frames}>
             <AbsoluteFill>
               <FadeOut frames={frames}>
-                <SceneBody scene={scene} pin={props.map} />
+                <Enter kind={i === 0 ? -1 : transitionKind(i)}>
+                  <SceneBody scene={scene} pin={props.map} gallery={gallery} />
+                </Enter>
+                {props.kind === 'explainer' && scene.kind !== 'title' ? <LowerThird text={props.title} /> : null}
               </FadeOut>
+              {i > 0 ? <TransitionOverlay kind={transitionKind(i)} /> : null}
               {props.clip || scene.kind === 'question' || scene.kind === 'answer' ? null : <LongCaptions words={scene.words} />}
             </AbsoluteFill>
             <Sequence from={Math.round(scene.lead_seconds * fps)} layout="none">
@@ -96,6 +107,12 @@ export const LongVideo: React.FC<LongProps> = (props) => {
           </Sequence>
         );
       })}
+
+      {props.clip ? null : (
+        <Sequence from={0} durationInFrames={Math.round(fps * 1.4)} layout="none">
+          <Sting />
+        </Sequence>
+      )}
 
       {/* thin progress line over the whole video, then the logo: one steady layer above every scene */}
       <Sequence from={0} durationInFrames={outroStart} layout="none">
@@ -118,6 +135,12 @@ export const LongVideo: React.FC<LongProps> = (props) => {
       <Audio src={staticFile(`bed/${props.audio_mood}.mp3`)} loop volume={bedVolume} />
     </AbsoluteFill>
   );
+};
+
+/** The first frames of a scene: content motion of the cut (the overlay itself is drawn above). kind -1 = none. */
+const Enter: React.FC<{kind: number; children: React.ReactNode}> = ({kind, children}) => {
+  const style = useEnterStyle(kind < 0 ? 0 : kind);
+  return <AbsoluteFill style={kind < 0 ? undefined : style}>{children}</AbsoluteFill>;
 };
 
 const FadeOut: React.FC<{frames: number; children: React.ReactNode}> = ({frames, children}) => {

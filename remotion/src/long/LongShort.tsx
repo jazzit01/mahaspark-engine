@@ -4,7 +4,7 @@ import {fontFamily} from '../fonts';
 import {COLORS} from '../bulletin/constants';
 import {getStudio} from '../studios';
 import {LongVideo} from './LongVideo';
-import {KineticText} from './kit';
+import {KineticText, packVars} from './kit';
 import {LongProps, LongWord} from './types';
 
 export const SHORT_W = 1080;
@@ -59,7 +59,7 @@ export const LongShort: React.FC<LongProps> = (props) => {
   const Studio = getStudio(props.studio ?? 'PrimeGridStudio');
   const from = Math.round(clip.start * fps);
   return (
-    <AbsoluteFill style={{background: COLORS.bgBottom}}>
+    <AbsoluteFill style={{background: COLORS.bgBottom, ...packVars(props.pack)}}>
       <AbsoluteFill style={props.bg_hue ? {filter: `hue-rotate(${props.bg_hue}deg)`} : undefined}>
         <Studio />
       </AbsoluteFill>

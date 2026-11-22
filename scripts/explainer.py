@@ -47,9 +47,9 @@ MIN_TOTAL_WORDS, MAX_TOTAL_WORDS = 230, 620
 MAX_HEADLINE, MAX_SUBTITLE, MAX_LABEL, MAX_VALUE = 56, 92, 56, 64
 ITEM_COUNTS = {  # kind -> (min items, max items)
     "title": (0, 0), "points": (2, 4), "steps": (3, 4), "compare": (2, 2), "timeline": (3, 5),
-    "stat": (1, 1), "quote": (1, 1), "summary": (2, 4),
+    "stat": (1, 1), "quote": (1, 1), "summary": (2, 4), "chart": (2, 5),
 }
-Kind = Literal["title", "points", "steps", "compare", "timeline", "stat", "quote", "summary"]
+Kind = Literal["title", "points", "steps", "compare", "timeline", "stat", "quote", "summary", "chart"]
 CHANNEL_HASHTAGS = "#MahaSpark #मराठीबातम्या #समजूनघ्या #MarathiNews #महाराष्ट्र"
 EXPLAINER_THUMB_TAG = "समजून घ्या"
 
@@ -74,6 +74,8 @@ Write 6 to 9 scenes. Each scene has a "kind", an on-screen "headline", optional 
   "steps"    3-4 stages in order (process, procedure, sequence). items: {{"label": step}}
   "compare"  EXACTLY 2 items, two sides (before/after, claim/response). items: {{"label": heading, "value": text}}
   "timeline" 3-5 dated events in order. items: {{"label": date or time, "value": the event}}
+  "chart"    2-5 comparable numbers as animated bars (heights, lengths, populations, years of change). All values share ONE unit.
+             items: {{"label": what it is, "value": the figure with its unit, e.g. ८,८४८ मीटर}}
   "stat"     ONE key figure. items: [{{"label": what it measures, "value": the figure, e.g. ₹१,२०० कोटी}}]
   "quote"    ONE statement quoted word for word from the source (only if the reference text contains a quotation). items: [{{"label": speaker and role, "value": the quote}}]
   "summary"  the LAST scene: 2-4 takeaways. items: {{"label": takeaway}}
@@ -182,8 +184,10 @@ def validate_explainer(data: dict, source_text: str) -> dict:
             cue = _clean(it.get("cue")).split(" ")[0] if _clean(it.get("cue")) else ""
             if not label or len(label) > MAX_LABEL:
                 raise ValueError(f"Scene {n}: an item label is empty or longer than {MAX_LABEL} characters.")
-            if len(value) > MAX_VALUE or (kind in ("stat", "quote", "compare", "timeline") and not value):
+            if len(value) > MAX_VALUE or (kind in ("stat", "quote", "compare", "timeline", "chart") and not value):
                 raise ValueError(f"Scene {n}: an item value is missing or longer than {MAX_VALUE} characters.")
+            if kind == "chart" and not re.search(r"[0-9०-९]", value):
+                raise ValueError(f"Scene {n}: every chart item needs a figure in its value (a number from the source).")
             if kind == "stat" and len(value) > 24:
                 raise ValueError(f"Scene {n}: the key figure '{value}' is too long for the big number (24 characters).")
             if kind == "quote" and (not 10 <= len(value) <= MAX_VALUE + 30 or longform.squash(value) not in longform.squash(source_text)):
