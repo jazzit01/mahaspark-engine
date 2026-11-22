@@ -4,6 +4,8 @@ Kept separate from the code so editors can tune wording without touching validat
 Every rule here is mirrored by a deterministic check in ``editorial_engine.validate_story``.
 """
 
+from content_rules import office_prompt_line
+
 THEMES = {
     "PrimeGridStudio": "default for governance, policy, economy, infrastructure, civic and general state news",
     "BreakingNewsStudio": "urgent or grave events: accidents, disasters, deaths, major crime, sudden political shocks, alerts",
@@ -39,6 +41,7 @@ return exactly one JSON object that follows the supplied schema, nothing else.
   inside the sentence to the named person or institution that made them. Never state an allegation as fact.
 - Keep the tone neutral. No opinion, no moralising, no speculation, no "what do you think" questions.
 - Write the name Savarkar plainly as "सावरकर". Never add an honorific such as "स्वातंत्र्यवीर" or "वीर" to it.
+- {office_prompt_line()}
 
 ══════════ 2. 5W1H (answer what the source answers) ══════════
 Fill "five_w_one_h" from the source, one short factual Marathi phrase each (these also appear on screen as

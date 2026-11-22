@@ -272,3 +272,12 @@ Two more long videos on the shared engine `longform.py` and ONE composition, `Ma
 - News bulletin: `bulletin/LightLines.tsx` replaces the plain grid background (circuit traces with travelling light pulses, flow-field lines, drifting light points); `bg_hue` still applies.
 - Real lemo films can still be dropped into `remotion/public/loops/*.mp4` (`pick_loop`).
 - Not verified here (no real render): the look and motion of all four, SVG filter cost per frame (chalk displacement, glow); check the first renders and drop the filter if rendering is slow.
+
+### Office titles (never promote or demote a leader)
+
+- `content_rules.OFFICES` lists leaders whose office is certain (Eknath Shinde = उपमुख्यमंत्री, Devendra Fadnavis = मुख्यमंत्री). `office_error` flags "मुख्यमंत्री"/"Chief Minister"/"CM" directly before Shinde (and "उपमुख्यमंत्री"/"Deputy CM" before Fadnavis); "माजी", "तत्कालीन", "भावी" in front are allowed. `ee.check_offices` raises a ValueError (the model's one repair) in reel `validate_story`, bulletin `validate_item`, explainer scenes and quiz questions; `drafts.parse_*` lists it as a problem for hand-edited scripts. The prompt's fact section carries the same table (`office_prompt_line`). **Update `OFFICES` (and `tests/test_office_titles.py`) whenever an office changes**; only add people whose office is certain.
+- Limit: only a title directly in front of the name is checked ("मुख्यमंत्री एकनाथ शिंदे", "Chief Minister Shinde"); a title that follows the name or a leader not in the table is not.
+
+### Licensing rule (owner decision)
+
+Anything that needs a licence fee, attribution/credit, or forbids commercial use is NOT used in this monetised project. Use only original code and assets (own synthesis, own drawings) or material that needs no credit. The lemo-opuscar style prompts (CC BY-NC) and its CC BY demo films are therefore not used. Wikipedia/Commons photos in the explainer already carry their credit lines in the video description by law; do not add new sources that need credit.
