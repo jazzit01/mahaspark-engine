@@ -664,21 +664,6 @@ def _request_tts_audio(script: str, model: str, api_key: str | None = None, voic
     raise RuntimeError(" | ".join(errors))
 
 
-def clean_voice_tail(path: Path) -> None:
-    """Drop a click / radio-like burst after the last word and fade the clip end (audio_tail.py). Never fails a voiceover."""
-    try:
-        import audio_tail
-
-        info = audio_tail.trim_tail(path)
-        if info["changed"]:
-            note = f", incl. a {info['artifact_ms']} ms burst after the last word" if info["artifact_ms"] else ""
-            print(f"🧹 Voice tail cleaned: {info['trimmed_ms']} ms removed{note}.")
-        if info.get("tail"):  # numbers of the last segment after a pause: lets the first real run show what the chirr looks like
-            print(f"   last sound after a pause: {info['tail']} -> {'removed' if info['artifact_ms'] else 'kept'}")
-    except Exception as exc:  # noqa: BLE001
-        print(f"⚠️ Could not clean the voice tail ({type(exc).__name__}: {exc}); using the clip as it is.")
-
-
 def synthesize_voiceover(script: str, out_path: Path = VOICEOVER_PATH, attempts: int = TTS_ATTEMPTS_PER_MODEL,
                          voice: str | None = None, style: str | None = None) -> Path:
     """Render ``script`` (the phonetic ``tts_narration_script``) to a WAV file.
@@ -718,7 +703,6 @@ def synthesize_voiceover(script: str, out_path: Path = VOICEOVER_PATH, attempts:
                             raise RuntimeError("TTS returned an empty or truncated audio file.")
                         out_path.parent.mkdir(parents=True, exist_ok=True)
                         out_path.write_bytes(wav)
-                        clean_voice_tail(out_path)
                         print(f"✅ Voiceover written by {label}: {out_path} ({len(wav) // 1024} KB)")
                         return out_path
                     except LLMUnavailableError:
