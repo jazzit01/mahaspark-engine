@@ -3,7 +3,10 @@ export type ThemeName =
   | 'BreakingNewsStudio'
   | 'EditorialDeskLight'
   | 'DataTelemetryStudio'
-  | 'GlassNewsroomDepth';
+  | 'GlassNewsroomDepth'
+  | 'ChalkboardStudio'
+  | 'BlueprintStudio'
+  | 'DataMapStudio';
 
 export type AudioMood = 'serious' | 'crime' | 'breaking' | 'upbeat' | 'neutral';
 
