@@ -285,3 +285,7 @@ Anything that needs a licence fee, attribution/credit, or forbids commercial use
 ### Quiz: upload only (no new voice, no new render)
 
 Workflow `quiz.yml` step `upload` + input `run_id` (number at the end of an earlier produce run's URL): downloads that run's `quiz` artifact (`out/mahaspark_long.mp4`, `remotion/public/long.json`), then `python scripts/quiz.py upload <approved file>` calls `quiz.publish` (YouTube upload, thumbnail, Telegram, Sheet record; no Short). Use it when a produce run rendered fine but the upload failed. Artifacts live 2 days. Not verified here: the cross-run artifact download on GitHub (needs `actions: read`, already in the workflow).
+
+### Radio "chirr" after a spoken line: what is ruled out (still open)
+
+Heard after the end of every line in all video types, about 470-480 ms after the speech ends. Ruled out: the transition whoosh (listening test: clean) and the Gemini voice clips themselves (a tail cleaner was built in #51/#52 and reverted: real runs logged "0 ms removed", so the clips carry nothing after the speech). Main suspect: the music bed ducking in `LongVideo.tsx` / `BulletinReel.tsx` (`duck()`: the bed gain rises from 45% to 100% over exactly 0.45 s after each word, applied as one gain per frame at 30 fps = 0.75 dB steps, which can sound like zipper noise). Check this before anything else; the fix would be to mix the ducked bed offline with a sample-accurate smooth gain instead of a per-frame `volume` callback.
