@@ -281,3 +281,7 @@ Two more long videos on the shared engine `longform.py` and ONE composition, `Ma
 ### Licensing rule (owner decision)
 
 Anything that needs a licence fee, attribution/credit, or forbids commercial use is NOT used in this monetised project. Use only original code and assets (own synthesis, own drawings) or material that needs no credit. The lemo-opuscar style prompts (CC BY-NC) and its CC BY demo films are therefore not used. Wikipedia/Commons photos in the explainer already carry their credit lines in the video description by law; do not add new sources that need credit.
+
+### Quiz: upload only (no new voice, no new render)
+
+Workflow `quiz.yml` step `upload` + input `run_id` (number at the end of an earlier produce run's URL): downloads that run's `quiz` artifact (`out/mahaspark_long.mp4`, `remotion/public/long.json`), then `python scripts/quiz.py upload <approved file>` calls `quiz.publish` (YouTube upload, thumbnail, Telegram, Sheet record; no Short). Use it when a produce run rendered fine but the upload failed. Artifacts live 2 days. Not verified here: the cross-run artifact download on GitHub (needs `actions: read`, already in the workflow).
