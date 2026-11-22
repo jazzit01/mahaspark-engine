@@ -26,12 +26,6 @@ PAD_MS = 120           # room kept after the last word
 FADE_MS = 40
 NOISE_ZCR = 0.20       # mean zero-crossing rate per sample: voiced speech is far lower, hiss/static far higher
 MIN_CLIP_MS = 500
-# Measured on real clips by the owner: the chirr starts about 470-480 ms after the speech ends. A short isolated
-# segment in that window is an artifact unless it clearly is speech (strong AND low-pitched AND not tiny).
-SIGNATURE_GAP_MS = (300, 700)
-SPEECH_LEVEL = 0.30     # share of the clip's 95th-percentile level a real last word reaches
-SPEECH_CENTROID_HZ = 1800.0
-SPEECH_MIN_MS = 150
 
 
 def _segments(active: np.ndarray, gap_frames: int) -> list[list[int]]:
@@ -55,15 +49,6 @@ def _segments(active: np.ndarray, gap_frames: int) -> list[list[int]]:
     return merged
 
 
-def _centroid_hz(seg: np.ndarray, rate: int) -> float:
-    """Spectral centroid of a segment: voiced speech sits low (a few hundred Hz to ~1.5 kHz), a radio chirp/hiss high."""
-    x = seg[:8192] * np.hanning(min(len(seg), 8192))
-    spectrum = np.abs(np.fft.rfft(x))
-    freqs = np.fft.rfftfreq(len(x), 1.0 / rate)
-    total = float(spectrum.sum())
-    return float((freqs * spectrum).sum() / total) if total > 0 else 0.0
-
-
 def analyse(samples: np.ndarray, rate: int) -> dict:
     """Where speech ends and whether a trailing artifact follows it. ``samples``: int16, shape (n, channels)."""
     mono = np.abs(samples.astype(np.float32)).mean(axis=1)
@@ -81,7 +66,6 @@ def analyse(samples: np.ndarray, rate: int) -> dict:
         return {"keep_to": len(mono), "artifact_ms": 0, "speech_found": False}
 
     artifact_ms = 0
-    detail: dict = {}
     last = segments[-1]
     if len(segments) >= 2:
         previous = segments[-2]
@@ -89,19 +73,12 @@ def analyse(samples: np.ndarray, rate: int) -> dict:
         length_ms = (last[1] - last[0] + 1) * FRAME_MS
         seg = samples[last[0] * frame:(last[1] + 1) * frame, 0].astype(np.float32)
         zcr = float((np.diff(np.signbit(seg).astype(np.int8)) != 0).mean()) if len(seg) > 1 else 0.0
-        level = float(rms[last[0]:last[1] + 1].max()) / peak
-        faint = level < 0.12
-        centroid = _centroid_hz(seg, rate)
-        in_window = SIGNATURE_GAP_MS[0] <= gap_ms <= SIGNATURE_GAP_MS[1]
-        real_word = level >= SPEECH_LEVEL and centroid < SPEECH_CENTROID_HZ and length_ms >= SPEECH_MIN_MS
-        old_rule = length_ms < TINY_MS or zcr > NOISE_ZCR or faint
-        verdict = gap_ms >= GAP_MS and length_ms <= MAX_ARTIFACT_MS and (old_rule or (in_window and not real_word))
-        detail = {"gap_ms": gap_ms, "length_ms": length_ms, "level": round(level, 2), "centroid_hz": round(centroid), "zcr": round(zcr, 2)}
-        if verdict:
+        faint = float(rms[last[0]:last[1] + 1].max()) < 0.12 * peak
+        if gap_ms >= GAP_MS and length_ms <= MAX_ARTIFACT_MS and (length_ms < TINY_MS or zcr > NOISE_ZCR or faint):
             artifact_ms = length_ms
             segments = segments[:-1]
     end_frame = segments[-1][1] + 1
-    return {"keep_to": min(len(mono), end_frame * frame + rate * PAD_MS // 1000), "artifact_ms": artifact_ms, "speech_found": True, "tail": detail}
+    return {"keep_to": min(len(mono), end_frame * frame + rate * PAD_MS // 1000), "artifact_ms": artifact_ms, "speech_found": True}
 
 
 def trim_tail(path: Path) -> dict:
@@ -132,4 +109,4 @@ def trim_tail(path: Path) -> dict:
         handle.setsampwidth(2)
         handle.setframerate(rate)
         handle.writeframes(out_i16.tobytes())
-    return {"trimmed_ms": trimmed_ms, "artifact_ms": info["artifact_ms"], "changed": True, "tail": info.get("tail", {})}
+    return {"trimmed_ms": trimmed_ms, "artifact_ms": info["artifact_ms"], "changed": True}

@@ -80,25 +80,3 @@ def test_silent_or_tiny_files_are_left_alone(tmp_path):
     write(q, voiced(200))
     assert audio_tail.trim_tail(q)["changed"] is False
     assert audio_tail.trim_tail(tmp_path / "missing.wav")["changed"] is False
-
-
-def chirp(ms, f0=1800, f1=3200, amp=9000):
-    t = np.arange(SR * ms // 1000) / SR
-    return amp * np.sin(2 * np.pi * (f0 * t + (f1 - f0) * t * t / (2 * t[-1])))
-
-
-def test_loud_tonal_chirp_470_ms_after_the_speech_is_removed(tmp_path):
-    """The owner measured the chirr 470-480 ms after the speech ends; a loud tonal one passes the noise/faint tests."""
-    p = tmp_path / "g.wav"
-    write(p, *SPEECH, silence(470), chirp(120), silence(300))
-    info = audio_tail.trim_tail(p)
-    assert info["artifact_ms"] >= 110 and info["tail"]["gap_ms"] >= 440
-    assert len(read(p)) < sum(len(x) for x in SPEECH) + SR * 140 // 1000
-
-
-def test_a_real_voiced_last_sentence_after_a_similar_pause_is_kept(tmp_path):
-    p = tmp_path / "h.wav"
-    write(p, *SPEECH, silence(470), voiced(260), silence(300))
-    info = audio_tail.trim_tail(p)
-    assert info["artifact_ms"] == 0
-    assert len(read(p)) > sum(len(x) for x in SPEECH) + SR * 470 // 1000  # the last sentence is still there
