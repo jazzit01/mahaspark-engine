@@ -13,7 +13,9 @@ explanation), then the closing scene. ``python scripts/quiz.py [--skip-render] [
 from __future__ import annotations
 
 import argparse
+import json
 import re
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -32,7 +34,7 @@ import topic_bank
 import wiki_sources
 import youtube_upload
 from bulletin_editorial import FACT_RULES, PHONETIC_RULES
-from config import LONG_PATH
+from config import LONG_JSON, LONG_PATH
 from llm_providers import ContentFailed, ContentRejected, LLMUnavailableError, generate_json
 from marathi_numbers import numbers_to_words, words_to_digits
 
@@ -317,7 +319,11 @@ def finish(quiz: dict, queue, skip_render: bool, skip_upload: bool, skip_telegra
     except RuntimeError as exc:
         print(f"❌ {exc}")
         return 1
+    return publish(quiz, props, queue, skip_upload, skip_telegram)
 
+
+def publish(quiz: dict, props: dict, queue, skip_upload: bool, skip_telegram: bool, short: bool = True) -> int:
+    """Upload the rendered video (out/mahaspark_long.mp4), announce it and record it. Also used alone by `quiz.py upload`."""
     video_url, uploaded, fail_reason = None, False, ""
     if not skip_upload:
         try:
@@ -346,7 +352,8 @@ def finish(quiz: dict, queue, skip_render: bool, skip_upload: bool, skip_telegra
             send_telegram.send_message(text)
         except Exception as exc:  # noqa: BLE001
             print(f"⚠️ Telegram notification failed: {exc}")
-    shorts.run(props, quiz["title"], "क्विझ", send=not skip_telegram)  # 9:16 clip for Telegram (LONG_SHORTS=0 turns it off)
+    if short:
+        shorts.run(props, quiz["title"], "क्विझ", send=not skip_telegram)  # 9:16 clip for Telegram (LONG_SHORTS=0 turns it off)
     if queue is not None and (uploaded or skip_upload):
         try:
             queue.record_longform("quiz", quiz["title"], "\n".join(quiz.get("sources", [])), video_url or "")
@@ -420,8 +427,35 @@ def produce_main(argv: list[str]) -> int:
     return finish(quiz_data, _connect_log()[0], args.skip_render, args.skip_upload, args.skip_telegram)
 
 
+def upload_main(argv: list[str]) -> int:
+    """Upload a video that was already rendered (no voice, no render): the file from a failed run's `quiz` artifact."""
+    parser = argparse.ArgumentParser(prog="quiz.py upload", description="Upload an already rendered quiz video with the details from its approved file.")
+    parser.add_argument("file", type=Path, help="the approved questions .txt the video was made from")
+    parser.add_argument("--video", type=Path, default=LONG_PATH)
+    parser.add_argument("--props", type=Path, default=LONG_JSON)
+    parser.add_argument("--skip-telegram", action="store_true")
+    args = parser.parse_args(argv)
+    for what, path in (("video", args.video), ("props (long.json)", args.props)):
+        if not path.exists():
+            print(f"❌ The {what} is missing: {path}. Download it from the failed run's artifact first.")
+            return 1
+    try:
+        quiz_data = drafts.parse_quiz(args.file.read_text(encoding="utf-8"))
+    except drafts.DraftError as exc:
+        print("❌ Fix these lines in the file and run again:\n" + "\n".join(f"  • {p}" for p in exc.problems))
+        return 1
+    props = json.loads(args.props.read_text(encoding="utf-8"))
+    if args.video != LONG_PATH:
+        LONG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(args.video, LONG_PATH)
+    print(f"⬆️ Uploading the finished video: {quiz_data['title']}")
+    return publish(quiz_data, props, _connect_log()[0], False, args.skip_telegram, short=False)
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "upload":
+        return upload_main(argv[1:])
     if argv and argv[0] == "draft":
         return draft_main(argv[1:])
     if argv and argv[0] == "produce":

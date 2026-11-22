@@ -398,3 +398,25 @@ def test_explainer_thumb_text_is_kept_only_when_short_and_backed_by_the_source()
     assert explainer.validate_explainer(data, SOURCE)["thumb_text"] == ""
     text = drafts.explainer_to_text({**explainer.validate_explainer(good_explainer(), SOURCE), "thumb_text": "पाणी योजना?"}, [])
     assert drafts.parse_explainer(text)["thumb_text"] == "पाणी योजना?"
+
+
+def test_quiz_upload_only_uses_the_rendered_video_and_never_voices_or_renders(tmp_path, monkeypatch):
+    import json
+
+    qz = quiz.validate_quiz({"title": "आजची क्विझ: पुणे पाणी योजना", "questions": [good_question() for _ in range(6)]}, STORIES)
+    draft = tmp_path / "quiz.txt"
+    draft.write_text(drafts.quiz_to_text(qz, ["https://x/1"]), encoding="utf-8")
+    video = tmp_path / "v.mp4"
+    video.write_bytes(b"x")
+    props = tmp_path / "long.json"
+    props.write_text(json.dumps({"scenes": [{"kind": "quiz_intro", "start": 0}, {"kind": "question", "start": 12}], "outro_start": 60, "bg_hue": 0}), encoding="utf-8")
+    seen = {}
+    monkeypatch.setattr(quiz, "LONG_PATH", tmp_path / "out" / "mahaspark_long.mp4")
+    monkeypatch.setattr(quiz, "_connect_log", lambda: (None, set()))
+    monkeypatch.setattr(quiz, "publish", lambda q, p, queue, skip_upload, skip_telegram, short=True: seen.update(title=q["title"], scenes=len(p["scenes"]), skip_upload=skip_upload, short=short) or 0)
+    monkeypatch.setattr(quiz.longform, "voice_all", lambda *a, **k: pytest.fail("must not voice"))
+    monkeypatch.setattr(quiz.longform, "render", lambda *a, **k: pytest.fail("must not render"))
+    assert quiz.main(["upload", str(draft), "--video", str(video), "--props", str(props), "--skip-telegram"]) == 0
+    assert seen == {"title": qz["title"], "scenes": 2, "skip_upload": False, "short": False}
+    assert (tmp_path / "out" / "mahaspark_long.mp4").read_bytes() == b"x"
+    assert quiz.main(["upload", str(draft), "--video", str(tmp_path / "missing.mp4"), "--props", str(props)]) == 1

@@ -163,7 +163,7 @@ def test_workflows_default_to_draft_and_never_publish_without_a_file():
         raw = pathlib.Path(f".github/workflows/{kind}.yml").read_text(encoding="utf-8")
         data = yaml.safe_load(raw)
         inputs = data[True]["workflow_dispatch"]["inputs"]
-        assert inputs["step"]["default"] == "draft" and set(inputs["step"]["options"]) == {"draft", "produce"}
+        assert inputs["step"]["default"] == "draft" and set(inputs["step"]["options"]) == ({"draft", "produce", "upload"} if kind == "quiz" else {"draft", "produce"})
         steps = data["jobs"][next(iter(data["jobs"]))]["steps"]
         by_name = {s.get("name", ""): s for s in steps}
         produce = next(s for n, s in by_name.items() if n.startswith("Make the video"))

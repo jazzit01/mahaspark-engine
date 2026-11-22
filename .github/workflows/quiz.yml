@@ -11,14 +11,15 @@ concurrency:
 
 permissions:
   contents: write
+  actions: read  # upload: download the video from an earlier run
 
 on:
   workflow_dispatch:
     inputs:
       step:
-        description: "draft = write the script for you to check, produce = make the video from the approved file"
+        description: "draft = write the script, produce = make the video from the approved file, upload = only upload the video of an earlier run (needs run_id)"
         type: choice
-        options: [draft, produce]
+        options: [draft, produce, upload]
         default: draft
       topic:
         description: "(draft) your topic, e.g. शिवनेरी किल्ला. Empty = the next unused topic from the list"
@@ -30,6 +31,10 @@ on:
         default: ""
       file:
         description: "(produce) leave EMPTY to use your newest approved script, or type its path e.g. approvals/quiz-20261120-103000.txt"
+        required: false
+        default: ""
+      run_id:
+        description: "(upload) number at the end of the URL of the earlier produce run whose video you want to upload, e.g. 123456789"
         required: false
         default: ""
 
@@ -49,8 +54,13 @@ jobs:
         env:
           STEP: ${{ inputs.step }}
           FILE_INPUT: ${{ inputs.file }}
+          RUN_ID: ${{ inputs.run_id }}
         run: |
-          if [ "$STEP" = "produce" ]; then
+          if [ "$STEP" = "upload" ] && [ -z "$RUN_ID" ]; then
+            echo "::error::For step = upload, type the run_id (the number at the end of the failed produce run's URL)."
+            exit 1
+          fi
+          if [ "$STEP" = "produce" ] || [ "$STEP" = "upload" ]; then
             FILE="$FILE_INPUT"
             if [ -z "$FILE" ]; then FILE=$(ls approvals/quiz-*.txt 2>/dev/null | sort | tail -1); fi
             if [ -z "$FILE" ] || [ ! -f "$FILE" ]; then
@@ -69,13 +79,13 @@ jobs:
           cache-dependency-path: requirements.txt
 
       - name: Set up Node 22
-        if: inputs.step == 'produce'
+        if: inputs.step != 'draft'
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
       - name: Cache npm dependencies
-        if: inputs.step == 'produce'
+        if: inputs.step != 'draft'
         uses: actions/cache@v4
         with:
           path: ~/.npm
@@ -83,14 +93,14 @@ jobs:
           restore-keys: npm-${{ runner.os }}-
 
       - name: Cache Remotion browser (Chrome Headless Shell)
-        if: inputs.step == 'produce'
+        if: inputs.step != 'draft'
         uses: actions/cache@v4
         with:
           path: remotion/node_modules/.remotion
           key: remotion-chrome-${{ runner.os }}-${{ hashFiles('remotion/package.json', 'remotion/package-lock.json') }}
 
       - name: Cache Playwright browsers
-        if: inputs.step == 'produce'
+        if: inputs.step != 'draft'
         # Kept as requested. The pipeline no longer uses Playwright, so this stays empty unless it is added back.
         uses: actions/cache@v4
         with:
@@ -98,7 +108,7 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
 
       - name: Install system libraries (Chrome dependencies)
-        if: inputs.step == 'produce'
+        if: inputs.step != 'draft'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -112,7 +122,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Install Remotion dependencies and browser
-        if: inputs.step == 'produce'
+        if: inputs.step != 'draft'
         working-directory: remotion
         run: |
           npm install --no-audit --no-fund
@@ -170,6 +180,39 @@ jobs:
           path: remotion/public/long/cache
           key: voices-${{ github.run_id }}
           restore-keys: voices-
+
+      - name: Get the finished video of the earlier run (upload only)
+        if: inputs.step == 'upload'
+        uses: actions/download-artifact@v4
+        with:
+          name: quiz
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          path: .
+
+      - name: Upload the finished video to YouTube (no new voice, no new render)
+        if: inputs.step == 'upload'
+        env:
+          FILE_INPUT: ${{ steps.pick.outputs.file }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          YOUTUBE_PRIVACY: ${{ vars.YOUTUBE_PRIVACY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python scripts/quiz.py upload "$FILE_INPUT"
+
+      - name: Keep the video again (2 days)
+        if: always() && inputs.step == 'upload'
+        uses: actions/upload-artifact@v4
+        with:
+          name: quiz-upload
+          path: |
+            out/youtube_metadata.txt
+            out/mahaspark_long.mp4
+          if-no-files-found: ignore
+          retention-days: 2
 
       - name: Make the video from the approved script (voice, render, YouTube, Telegram)
         if: inputs.step == 'produce'
