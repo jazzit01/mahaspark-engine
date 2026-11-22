@@ -10,9 +10,11 @@ All times in ``long.json`` are in seconds from the START OF THE SCENE (the voice
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -91,7 +93,19 @@ def voice_scene(text: str, index: int, tts=editorial_engine.synthesize_voiceover
     """Voice one scene in the voice role of its kind (voices.py). Returns (path under public/, seconds)."""
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"scene-{index}.wav"
-    tts(text, path, **voices.role_kwargs(voices.role_for_scene(kind)))
+    kwargs = voices.role_kwargs(voices.role_for_scene(kind))
+    # a clip already voiced (same text, voice and style) is reused, so a run that died on a spent quota resumes
+    cached = out_dir / "cache" / (hashlib.sha1(json.dumps([text, kwargs], sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()[:20] + ".wav")
+    if cached.exists() and cached.stat().st_size > 4000:
+        shutil.copyfile(cached, path)
+        print(f"♻️ Scene {index + 1}: reusing the voice made earlier.")
+    else:
+        tts(text, path, **kwargs)
+        try:
+            cached.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(path, cached)
+        except OSError:
+            pass
     return f"long/{path.name}", align_timings.audio_duration(path)
 
 
@@ -132,13 +146,14 @@ def voice_all(scenes: list[dict], extras: list[float] | None = None, **kw) -> li
     """Build every scene. A voice failure on one scene is fatal for the video (a silent scene would be wrong), but a
     spent quota raises LLMUnavailableError so the caller can stop cleanly."""
     built = []
-    for i, scene in enumerate(scenes):
-        extra = extras[i] if extras else 0.0
-        try:
+    editorial_engine.allow_tts_wait(float(os.getenv("TTS_WAIT_SECONDS", "1200")))  # wait out per-minute 429s (20 min in all)
+    try:
+        for i, scene in enumerate(scenes):
+            extra = extras[i] if extras else 0.0
             built.append(build_scene(scene, i, extra_seconds=extra, **kw))
-        except LLMUnavailableError:
-            raise
-        print(f"🎙️ Scene {i + 1}/{len(scenes)} voiced ({built[-1]['audio_seconds']:.1f}s)")
+            print(f"🎙️ Scene {i + 1}/{len(scenes)} voiced ({built[-1]['audio_seconds']:.1f}s)")
+    finally:
+        editorial_engine.allow_tts_wait(0)
     return built
 
 
