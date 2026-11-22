@@ -88,6 +88,11 @@ def cue_times(items: list[dict], words: list[dict], duration: float, lead: float
     return out
 
 
+# Scene keys holding a word position that build_scene turns into seconds. NOT every key ending in "_index":
+# "q_index" is the question number and was being stripped, so every question showed "प्रश्न १ / १०".
+WORD_INDEX_KEYS = ("reveal_index", "explain_index")
+
+
 def voice_scene(text: str, index: int, tts=editorial_engine.synthesize_voiceover, out_dir: Path = LONG_DIR,
                 kind: str = "") -> tuple[str, float]:
     """Voice one scene in the voice role of its kind (voices.py). Returns (path under public/, seconds)."""
@@ -126,9 +131,9 @@ def build_scene(scene: dict, index: int, tts=editorial_engine.synthesize_voiceov
     marks = {
         k[: -len("_index")] + "_at": round(LEAD_SECONDS + words[v]["start"] - 0.1, 2)
         for k, v in scene.items()
-        if k.endswith("_index") and isinstance(v, int) and 0 <= v < len(words)
+        if k in WORD_INDEX_KEYS and isinstance(v, int) and 0 <= v < len(words)
     }
-    scene = {k: v for k, v in scene.items() if k != "items" and not k.endswith("_index")}
+    scene = {k: v for k, v in scene.items() if k != "items" and k not in WORD_INDEX_KEYS}
     return {
         **marks,
         **scene,
