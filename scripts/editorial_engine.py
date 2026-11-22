@@ -673,6 +673,8 @@ def clean_voice_tail(path: Path) -> None:
         if info["changed"]:
             note = f", incl. a {info['artifact_ms']} ms burst after the last word" if info["artifact_ms"] else ""
             print(f"🧹 Voice tail cleaned: {info['trimmed_ms']} ms removed{note}.")
+        if info.get("tail"):  # numbers of the last segment after a pause: lets the first real run show what the chirr looks like
+            print(f"   last sound after a pause: {info['tail']} -> {'removed' if info['artifact_ms'] else 'kept'}")
     except Exception as exc:  # noqa: BLE001
         print(f"⚠️ Could not clean the voice tail ({type(exc).__name__}: {exc}); using the clip as it is.")
 
