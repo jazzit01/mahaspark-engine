@@ -124,6 +124,7 @@ def validate_item(data: dict, source_text: str) -> dict:
     category = re.sub(r"\s+", " ", str(data.get("category", ""))).strip()[: ee.MAX_CATEGORY_CHARS] or "मोठी बातमी"
     mood = data.get("audio_mood") if data.get("audio_mood") in AUDIO_MOODS else "neutral"
 
+    ee.check_offices(f"{headline} {context} {tts_text}")
     banned = ee.find_forbidden(f"{headline} {context} {tts_text}")
     if banned:
         raise ValueError(f"The phrase '{banned}' is banned. Name the institution or person inside the sentence instead.")
