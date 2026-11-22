@@ -1,0 +1,62 @@
+# MahaSpark explainer script. Edit anything, save, then run:
+#   python scripts/explainer.py produce <this file>
+# Lines starting with # are ignored. Each scene:
+#   THUMB (top of file): 3-5 punchy words for the YouTube thumbnail, for example a question
+#   HEADLINE: big text on screen        SUBTITLE: small line under it (optional)
+#   SPEECH: what the anchor says (digits are fine; the voice spells them in Marathi)
+#   ITEMS: one per line:  - text on screen | value (optional) | word to appear on (optional)
+# Scene kinds: title, points, steps, compare, timeline, stat, quote, summary, chart.
+#   chart: 2-5 items, each with a number and its unit as the value (all the same unit), drawn as animated bars.
+#   stat and quote need exactly one item with a value. timeline/compare items use the value for the event/detail.
+# Delete a whole scene (from === to its last line) to drop it, or copy one to add one.
+# FACT-CHECK NOTE (check this, then delete the line): Scene 2: The script states her birth date as 24 November 1982, while the Marathi reference text states 1 March 1983.
+# FACT-CHECK NOTE (check this, then delete the line): Scene 6: The script states she is a former member of Parliament, but the Marathi reference text states she is a current member of Parliament (विद्यमान संसद सदस्य).
+
+TITLE: मेरी कोम: जागतिक बॉक्सिंगमधील एक यशस्वी नाव | MahaSpark मराठी बातम्या
+THUMB: मेरी कोमचा प्रेरणादायी प्रवास
+CAPTION: भारतीय बॉक्सिंगपटू मेरी कोम हिचा संघर्ष आणि जागतिक स्तरावरील यशाचा प्रवास जाणून घ्या. सहा वेळा जागतिक विजेतेपद मिळवणाऱ्या या खेळाडूची माहिती या व्हिडिओमध्ये दिली आहे.
+KEYWORDS: मेरी कोम, बॉक्सिंग, भारतीय खेळाडू, ऑलिम्पिक, जागतिक विजेतेपद, मणिपूर, Mary Kom, Boxing, Indian Athlete, Olympics
+MOOD: upbeat
+SOURCES: https://en.wikipedia.org/wiki/Mary_Kom | https://mr.wikipedia.org/wiki/%E0%A4%AE%E0%A5%87%E0%A4%B0%E0%A5%80_%E0%A4%95%E0%A5%8B%E0%A4%AE
+
+=== SCENE 1 | title ===
+HEADLINE: मेरी कोम: जागतिक बॉक्सिंगमधील एक यशस्वी नाव
+SPEECH: भारतीय बॉक्सिंगच्या रिंगणात ज्या खेळाडूने भारताचे नाव जागतिक स्तरावर उंचावले, ती म्हणजे मेरी कोम. आजच्या या व्हिडिओमध्ये आपण मेरी कोम हिच्या संघर्षाचा आणि तिच्या ऐतिहासिक यशाचा प्रवास जाणून घेणार आहोत.
+
+=== SCENE 2 | points ===
+HEADLINE: मेरी कोमचा परिचय
+SPEECH: मांगते चुंगनीजांग मेरी कोम हिचा जन्म चोवीस नोव्हेंबर एक हजार नऊशे ब्याऐंशी रोजी झाला. मणिपूरमधील एका गरीब कुटुंबात जन्मलेल्या मेरी कोमचे पूर्ण नाव हे आहे. तिला मॅग्निफिसेंट मेरी या टोपणनावाने ओळखले जाते. तिने अत्यंत प्रतिकूल परिस्थितीतून बॉक्सिंगमध्ये आपले स्थान निर्माण केले आहे.
+ITEMS:
+- पूर्ण नाव | मांगते चुंगनीजांग मेरी कोम | नाव
+- जन्म तारीख | २४ नोव्हेंबर १९८२ | जन्म
+- टोपणनाव | मॅग्निफिसेंट मेरी
+
+=== SCENE 3 | timeline ===
+HEADLINE: बॉक्सिंगमधील सुरुवातीचा प्रवास
+SPEECH: मेरी कोमने दोन हजार साली बॉक्सिंगमध्ये पहिले पाऊल ठेवले. तिने दोन आठवड्यांत बॉक्सिंगचे बेसिक शिकून राज्यस्तरीय स्पर्धेत जेतेपद मिळवले. दोन हजार तीन साली तिला अर्जुन पुरस्काराने सन्मानित करण्यात आले. त्यानंतर दोन हजार चार, दोन हजार पाच आणि दोन हजार सहा मध्ये तिने जागतिक स्पर्धेत अजिंक्यपद पटकावले.
+ITEMS:
+- २००० | बॉक्सिंगमध्ये पहिले पाऊल
+- २००३ | अर्जुन पुरस्कार
+- २००४ ते २००६ | जागतिक स्पर्धेत सलग विजेतेपद
+
+=== SCENE 4 | chart ===
+HEADLINE: प्रमुख जागतिक यश
+SPEECH: मेरी कोमने महिला जागतिक हौशी बॉक्सिंग अजिंक्यपद सहा वेळा जिंकले आहे. ती सहा वेळा जागतिक विजेतेपद मिळवणारी एकमेव महिला बॉक्सर आहे. दोन हजार बारा लंडन ऑलिम्पिकमध्ये तिने फ्लायवेट प्रकारात कांस्यपदक मिळवले. ऑलिम्पिकमध्ये पदक मिळवणारी ती पहिली भारतीय महिला बॉक्सर ठरली.
+ITEMS:
+- जागतिक विजेतेपद | ६ वेळा | सहा
+- ऑलिम्पिक पदक | १ कांस्यपदक | कांस्यपदक
+
+=== SCENE 5 | points ===
+HEADLINE: महत्त्वाचे सन्मान
+SPEECH: तिच्या अतुलनीय कामगिरीसाठी तिला अनेक पुरस्कार मिळाले आहेत. दोन हजार वीस मध्ये तिला भारताचा दुसरा सर्वोच्च नागरी पुरस्कार पद्मविभूषण देऊन गौरवण्यात आले. तसेच दोन हजार अठरा मध्ये मणिपूर सरकारने तिला मीथोई लीमा ही विशेष पदवी बहाल केली आहे.
+ITEMS:
+- पद्मविभूषण | २०२० | पुरस्कार
+- मीथोई लीमा पदवी | मणिपूर सरकार | पदवी
+
+=== SCENE 6 | summary ===
+HEADLINE: मेरी कोमचा वारसा
+SPEECH: मेरी कोम ही सहा वेळा जागतिक विजेती ठरलेली एकमेव महिला बॉक्सर आहे. ऑलिम्पिकमध्ये पदक मिळवणारी ती पहिली भारतीय महिला बॉक्सर आहे. खेळासोबतच ती भारतीय संसदेची माजी सदस्य देखील राहिली आहे. तिचा प्रवास आजही अनेक खेळाडूंसाठी प्रेरणादायी आहे.
+ITEMS:
+- ६ वेळा जागतिक चॅम्पियन |  | विजेती
+- पहिली भारतीय महिला ऑलिम्पिक पदक विजेती |  | पहिली
+- संसदेची माजी सदस्य |  | सदस्य
