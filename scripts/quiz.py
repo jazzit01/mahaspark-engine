@@ -257,9 +257,11 @@ def build_scenes(quiz: dict) -> tuple[list[dict], list[float]]:
 
 
 def build_description(quiz: dict, props: dict) -> str:
-    labels = []
-    for s in props["scenes"]:
-        labels.append("आजची क्विझ" if s["kind"] == "quiz_intro" else f"प्रश्न {s['q_index']}" if s["kind"] in ("question", "answer") else "तुमचा स्कोअर")
+    labels, number = [], 0
+    for s in props["scenes"]:  # counted here: scenes read back from an approved draft file carry no q_index
+        if s["kind"] == "question":
+            number += 1
+        labels.append("आजची क्विझ" if s["kind"] == "quiz_intro" else f"प्रश्न {number}" if s["kind"] in ("question", "answer") else "तुमचा स्कोअर")
     marks = [(t, label) for t, label in longform.chapters(props, labels)]
     lines = [quiz["social_caption"] or quiz["title"], ""]
     if marks:
@@ -321,7 +323,7 @@ def finish(quiz: dict, queue, skip_render: bool, skip_upload: bool, skip_telegra
     video_url, uploaded, fail_reason = None, False, ""
     if not skip_upload:
         try:
-            video_url = youtube_upload.upload_video(LONG_PATH, quiz["title"], build_description(quiz, props), build_tags(quiz))
+            video_url = youtube_upload.upload_video(LONG_PATH, quiz["title"], manual_kit.safe_description(build_description, quiz["social_caption"] or quiz["title"], quiz, props), build_tags(quiz))
             uploaded = True
             print(f"▶️ Uploaded: {video_url}")
             thumb = longform.render_thumbnail("quiz", quiz["questions"][0]["question"], QUIZ_THUMB_TAG, "", props["bg_hue"])
@@ -338,7 +340,7 @@ def finish(quiz: dict, queue, skip_render: bool, skip_upload: bool, skip_telegra
             fail_reason = str(exc)
 
     if not uploaded and not skip_upload:
-        manual_kit.deliver("क्विझ", LONG_PATH, quiz["title"], build_description(quiz, props), build_tags(quiz), fail_reason or "YouTube is not set up", send=not skip_telegram)
+        manual_kit.deliver("क्विझ", LONG_PATH, quiz["title"], manual_kit.safe_description(build_description, quiz["social_caption"] or quiz["title"], quiz, props), build_tags(quiz), fail_reason or "YouTube is not set up", send=not skip_telegram)
 
     if not skip_telegram:
         text = f"❓ <b>MahaSpark क्विझ: {quiz['title']}</b>\n" + (video_url or "(YouTube अपलोड झाला नाही; व्हिडिओ out/ फोल्डरमध्ये आहे.)")

@@ -406,7 +406,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.skip_upload:
         try:
             video_url = youtube_upload.upload_video(
-                BULLETIN_PATH, build_title(items, slot_label), build_description(items, props, slot_label), build_tags(items)
+                BULLETIN_PATH, build_title(items, slot_label), manual_kit.safe_description(build_description, build_title(items, slot_label), items, props, slot_label), build_tags(items)
             )
             uploaded = True
             print(f"▶️ Uploaded: {video_url}")
@@ -424,7 +424,7 @@ def main(argv: list[str] | None = None) -> int:
             fail_reason = str(exc)
 
     if not uploaded and not args.skip_upload:
-        manual_kit.deliver("बुलेटिन", BULLETIN_PATH, build_title(items, slot_label), build_description(items, props, slot_label), build_tags(items), fail_reason or "YouTube is not set up", send=not args.skip_telegram)
+        manual_kit.deliver("बुलेटिन", BULLETIN_PATH, build_title(items, slot_label), manual_kit.safe_description(build_description, build_title(items, slot_label), items, props, slot_label), build_tags(items), fail_reason or "YouTube is not set up", send=not args.skip_telegram)
 
     if not args.skip_telegram:
         try:
