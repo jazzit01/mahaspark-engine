@@ -1,0 +1,99 @@
+# MahaSpark quiz script. Edit anything, save, then run:
+#   python scripts/quiz.py produce <this file>
+# Each question:  Q: question   A) B) C) D) four options   ANSWER: A, B, C or D   WHY: one-line explanation
+# Optional, only when the voice must say something different from the screen (for example an acronym spelled
+# out): QSPEECH:, ASPEECH: BSPEECH: CSPEECH: DSPEECH:, WHYSPEECH:   (Devanagari words only)
+# Lines starting with # are ignored. Delete a whole question block to drop it.
+
+TITLE: महाराष्ट्र आणि भारत सामान्य ज्ञान क्विझ | MahaSpark मराठी बातम्या
+CAPTION: आमच्या नवीन क्विझमध्ये सहभागी व्हा आणि तुमची माहिती तपासा. महाराष्ट्राचा इतिहास आणि भारताच्या महत्त्वाच्या ठिकाणांवर आधारित १० प्रश्न.
+KEYWORDS: Maharashtra GK, Indian History, Marathi Quiz, Rajgad Fort, Warli Painting, Bajirao I, Gadge Maharaj, IPL, Red Fort, General Knowledge
+SOURCES: https://en.wikipedia.org/wiki/Rajgad_Fort | https://en.wikipedia.org/wiki/Warli_painting | https://en.wikipedia.org/wiki/Baji_Rao_I | https://en.wikipedia.org/wiki/Sant_Gadge_Baba | https://en.wikipedia.org/wiki/Indian_Premier_League | https://en.wikipedia.org/wiki/Red_Fort
+
+=== Q1 ===
+Q: राजगड किल्ल्याची समुद्रसपाटीपासूनची उंची किती मीटर आहे?
+QSPEECH: राजगड किल्ल्याची समुद्रसपाटीपासूनची उंची किती मीटर आहे.
+A) १३९४ मीटर
+B) १४९४ मीटर
+C) १२९४ मीटर
+D) १५९४ मीटर
+ANSWER: A
+WHY: राजगडचा बालेकिल्ला खूप उंच असून त्याची समुद्रसपाटीपासूनची उंची १३९४ मीटर आहे.
+# PROOF in the reference text (check it before you approve): राजगडचा बालेकिल्ला खूप उंच असून त्याची समुद्रसपाटीपासूनची उंची १३९४ मीटर आहे.
+
+=== Q2 ===
+Q: वारली चित्रकलेत कोणत्या पारंपरिक वाद्याचा वापर प्रामुख्याने केला जातो?
+QSPEECH: वारली चित्रकलेत कोणत्या पारंपरिक वाद्याचा वापर प्रामुख्याने केला जातो.
+A) ढोल
+B) तारपा
+C) तुतारी
+D) सनई
+ANSWER: B
+WHY: तारपा हे पारंपरिक वाद्य वाजविणारा पुरूष मध्यभागी उभा असून अशी चित्रे वारली पद्धतीत आढळतात.
+# PROOF in the reference text (check it before you approve): तारपा हे पारंपरिक वाद्य वाजविणारा पुरूष मध्यभागी उभा असून त्याच्याभोवती गोलाकार रचनेत नृत्य करणारे स्री पुरूष अशी चित्रे वारली पद्धतीत विशेष करून आढळतात.
+
+=== Q3 ===
+Q: संत गाडगे महाराजांचे पूर्ण नाव काय होते?
+QSPEECH: संत गाडगे महाराजांचे पूर्ण नाव काय होते.
+A) डेबूजी झिंगराजी जानोरकर
+B) सखुबाई झिंगराजी जाणोरकर
+C) झिंगराजी राणोजी जाणोरकर
+D) तुकाराम झिंगराजी जानोरकर
+ANSWER: A
+WHY: संत गाडगे महाराजांचे पूर्ण नाव डेबूजी झिंगराजी जानोरकर होते.
+# PROOF in the reference text (check it before you approve): संत गाडगे महाराजांचे पूर्ण नाव 'डेबूजी झिंगराजी जानोरकर' होते.
+
+=== Q4 ===
+Q: आय पी एल ची पहिली स्पर्धा कोणत्या वर्षी घेण्यात आली?
+QSPEECH: आय पी एल ची पहिली स्पर्धा कोणत्या वर्षी घेण्यात आली.
+A) २००६
+B) २००७
+C) २००८
+D) २००९
+ANSWER: C
+WHY: सन २००८ मध्ये पहिल्यांदा आय पी एल स्पर्धा घेण्यात आली.
+# PROOF in the reference text (check it before you approve): सन २००८ मध्ये पहिल्यांदा ही स्पर्धा घेण्यात आली.
+
+=== Q5 ===
+Q: लाल किल्ला कोणत्या नदीच्या किनारी बांधला गेला आहे?
+QSPEECH: लाल किल्ला कोणत्या नदीच्या किनारी बांधला गेला आहे.
+A) गंगा
+B) यमुना
+C) सरयू
+D) गोमती
+ANSWER: B
+WHY: लाल किल्ला यमुना नदीच्या किनारी बांधला गेला आहे.
+# PROOF in the reference text (check it before you approve): हा किल्ला यमुना नदीच्या किनारी बांधला गेला.
+
+=== Q6 ===
+Q: शिवाजी महाराजांनी कोणत्या किल्ल्याला स्वराज्याची पहिली राजधानी बनवले होते?
+QSPEECH: शिवाजी महाराजांनी कोणत्या किल्ल्याला स्वराज्याची पहिली राजधानी बनवले होते.
+A) रायगड
+B) तोरणा
+C) राजगड
+D) प्रतापगड
+ANSWER: C
+WHY: राजगड किल्ला छत्रपती शिवाजी महाराजांच्या स्वराज्याची पहिली राजधानी होती.
+# PROOF in the reference text (check it before you approve): राजगड किल्ला छत्रपती शिवाजी महाराजांच्या स्वराज्याची पहिली राजधानी होती.
+
+=== Q7 ===
+Q: आय पी एल चे मुख्यालय कोणत्या शहरात आहे?
+QSPEECH: आय पी एल चे मुख्यालय कोणत्या शहरात आहे.
+A) दिल्ली
+B) मुंबई
+C) पुणे
+D) बंगळुरू
+ANSWER: B
+WHY: इंडियन प्रिमिअर लीगचे मुख्यालय मुंबईत आहे.
+# PROOF in the reference text (check it before you approve): तिचे मुख्यालय मुंबईत आहे.
+
+=== Q8 ===
+Q: लाल किल्ला कोणत्या मुघल बादशहाने बांधला होता?
+QSPEECH: लाल किल्ला कोणत्या मुघल बादशहाने बांधला होता.
+A) अकबर
+B) औरंगजेब
+C) शाहजहान
+D) हुमायून
+ANSWER: C
+WHY: लाल किल्ला पाचव्या मुघल बादशहा शाहजहानने बांधला होता.
+# PROOF in the reference text (check it before you approve): हा किल्ला पाचव्या मुघल बादशहा शाहजहानने बांधला होता.
