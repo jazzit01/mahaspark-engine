@@ -1,5 +1,7 @@
 export type LongWord = {text: string; start: number; end: number};
 
+export type LongMedia = {file: string; width: number; height: number};
+
 export type LongItem = {
   label: string;
   value?: string;
@@ -8,7 +10,7 @@ export type LongItem = {
 };
 
 export type LongSceneKind =
-  | 'title' | 'points' | 'steps' | 'compare' | 'timeline' | 'stat' | 'quote' | 'summary'
+  | 'title' | 'points' | 'steps' | 'compare' | 'timeline' | 'stat' | 'quote' | 'summary' | 'chart'
   | 'quiz_intro' | 'question' | 'answer' | 'quiz_end';
 
 export type LongScene = {
@@ -31,7 +33,7 @@ export type LongScene = {
   total?: number;
   correct?: number;
   /** A real photo of the topic behind this scene (explainer only), path inside remotion/public. */
-  media?: {file: string; width: number; height: number};
+  media?: LongMedia;
   reveal_at?: number;
   explain_at?: number;
 };
@@ -46,6 +48,10 @@ export type LongProps = {
   bg_hue?: number;
   /** Which animated studio runs behind the video (one per video). */
   studio?: string;
+  /** Brand style pack: knowledge (explainer) | quiz | news. Sets the accent colours. */
+  pack?: string;
+  /** Optional looping background clip (path inside remotion/public, e.g. loops/x.mp4). */
+  loop?: string | null;
   credits?: string[];
   /** Where the topic is, when it is a place in Maharashtra (from scripts/geo.py). */
   map?: GeoPin;

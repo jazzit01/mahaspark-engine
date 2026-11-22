@@ -603,15 +603,37 @@ def _tts_generate_content(model: str, script: str, voice: str, api_key: str, sty
     return _wav_from_pcm(pcm, int(rate.group(1)) if rate else TTS_SAMPLE_RATE)
 
 
-# (model, key) pairs whose quota is spent and keys Google rejected: skipped for the rest of the run, so a
-# bulletin that voices ten items does not re-hit an exhausted quota on every item.
+# (model, key) pairs whose DAILY quota is spent and keys Google rejected: skipped for the rest of the run. A per-minute
+# limit (the usual free-tier 429) only cools the pair down in ``_TTS_COOLDOWN`` (pair -> time it may be used again),
+# so a long video does not die at scene 17 of 18 because the minute's requests were used up.
 _TTS_SPENT: set = set()
+_TTS_COOLDOWN: dict = {}
 _TTS_BAD_KEYS: set = set()
+TTS_COOLDOWN_DEFAULT = 65.0
+_TTS_WAIT = {"left": 0.0}  # seconds the whole run may still spend waiting for per-minute limits (0 = fail fast, as reels do)
+
+
+def allow_tts_wait(seconds: float) -> None:
+    """Long videos and bulletins call this so a per-minute 429 is waited out instead of losing the video."""
+    _TTS_WAIT["left"] = max(0.0, float(seconds))
 
 
 def reset_tts_state() -> None:
     _TTS_SPENT.clear()
+    _TTS_COOLDOWN.clear()
     _TTS_BAD_KEYS.clear()
+    _TTS_WAIT['left'] = 0.0
+
+
+def quota_cooldown(exc: Exception) -> float | None:
+    """Seconds until a 429 clears, or None when it will not clear soon (daily quota used up, or a limit of 0)."""
+    text = str(exc)
+    if re.search(r"PerDay|per day|daily|limit:\s*0\b", text, re.IGNORECASE):
+        return None
+    found = re.search(r"retryDelay\W+(\d+(?:\.\d+)?)s", text)
+    if found:
+        return min(120.0, float(found.group(1)) + 2.0)
+    return TTS_COOLDOWN_DEFAULT
 
 
 def _request_tts_audio(script: str, model: str, api_key: str | None = None, voice: str | None = None, style: str | None = None) -> bytes:
@@ -658,38 +680,53 @@ def synthesize_voiceover(script: str, out_path: Path = VOICEOVER_PATH, attempts:
         raise LLMUnavailableError("GEMINI_API_KEY is not set; the Gemini voice cannot be used.")
 
     # Model-major: the preferred model is tried with every key before falling back to the next model.
-    for model in chain:
-        for number, key in enumerate(keys, start=1):
-            if key in _TTS_BAD_KEYS or (model, key) in _TTS_SPENT:
-                continue
-            label = f"{model} (key {number})" if len(keys) > 1 else model
-            for attempt in range(1, attempts + 1):
-                try:
-                    wav = (_request_tts_audio(script, model, key) if voice is None and style is None
-                           else _request_tts_audio(script, model, key, voice=voice, style=style))
-                    if len(wav) < 4000:
-                        raise RuntimeError("TTS returned an empty or truncated audio file.")
-                    out_path.parent.mkdir(parents=True, exist_ok=True)
-                    out_path.write_bytes(wav)
-                    print(f"✅ Voiceover written by {label}: {out_path} ({len(wav) // 1024} KB)")
-                    return out_path
-                except LLMUnavailableError:
-                    raise
-                except Exception as exc:  # noqa: BLE001
-                    if _is_bad_key(exc):
-                        _TTS_BAD_KEYS.add(key)
-                        errors.append(f"key {number}: rejected")
-                        print(f"🔑 Gemini key {number} was rejected; using the other keys.")
-                        break
-                    message = f"{type(exc).__name__}: {str(exc)[:200]}"
-                    print(f"⚠️ TTS {label} attempt {attempt}/{attempts} failed: {message}")
-                    if is_transient_error(exc) and attempt < attempts:
-                        time.sleep(3 * attempt)
-                        continue
-                    if is_quota_error(exc):
-                        _TTS_SPENT.add((model, key))
-                    errors.append(f"{label}: {message}")
-                    break  # quota, missing model or request error: next key, then next model
+    # When every pair is only cooling down (per-minute limit) the call waits for the earliest one instead of failing.
+    while True:
+        for model in chain:
+            for number, key in enumerate(keys, start=1):
+                if key in _TTS_BAD_KEYS or (model, key) in _TTS_SPENT or _TTS_COOLDOWN.get((model, key), 0.0) > time.monotonic():
+                    continue
+                label = f"{model} (key {number})" if len(keys) > 1 else model
+                for attempt in range(1, attempts + 1):
+                    try:
+                        wav = (_request_tts_audio(script, model, key) if voice is None and style is None
+                               else _request_tts_audio(script, model, key, voice=voice, style=style))
+                        if len(wav) < 4000:
+                            raise RuntimeError("TTS returned an empty or truncated audio file.")
+                        out_path.parent.mkdir(parents=True, exist_ok=True)
+                        out_path.write_bytes(wav)
+                        print(f"✅ Voiceover written by {label}: {out_path} ({len(wav) // 1024} KB)")
+                        return out_path
+                    except LLMUnavailableError:
+                        raise
+                    except Exception as exc:  # noqa: BLE001
+                        if _is_bad_key(exc):
+                            _TTS_BAD_KEYS.add(key)
+                            errors.append(f"key {number}: rejected")
+                            print(f"🔑 Gemini key {number} was rejected; using the other keys.")
+                            break
+                        message = f"{type(exc).__name__}: {str(exc)[:200]}"
+                        print(f"⚠️ TTS {label} attempt {attempt}/{attempts} failed: {message}")
+                        if is_transient_error(exc) and attempt < attempts:
+                            time.sleep(3 * attempt)
+                            continue
+                        if is_quota_error(exc):
+                            cooldown = quota_cooldown(exc)
+                            if cooldown is None:
+                                _TTS_SPENT.add((model, key))
+                            else:
+                                _TTS_COOLDOWN[(model, key)] = time.monotonic() + cooldown
+                        errors.append(f"{label}: {message}")
+                        break  # quota, missing model or request error: next key, then next model
+
+        now = time.monotonic()
+        pending = [t - now for (m, k), t in _TTS_COOLDOWN.items() if t > now and k not in _TTS_BAD_KEYS and (m, k) not in _TTS_SPENT and m in chain]
+        if not pending or min(pending) + 1.0 > _TTS_WAIT['left']:
+            break
+        pause = max(1.0, min(pending)) + 1.0
+        print(f"⏳ Every Gemini voice is at its per-minute limit; waiting {pause:.0f}s for it to reset.")
+        time.sleep(pause)
+        _TTS_WAIT['left'] -= pause
 
     if keys and all(k in _TTS_BAD_KEYS for k in keys):
         raise LLMUnavailableError("Gemini API key rejected: every configured key was refused.")

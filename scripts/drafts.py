@@ -29,7 +29,7 @@ DRAFT_DIR = ROOT / (os.getenv("DRAFT_DIR") or "drafts")  # the workflows set DRA
 MOODS = ("neutral", "serious", "crime", "breaking", "upbeat")
 EXPLAINER_KINDS = {  # kind -> (min items, max items)
     "title": (0, 0), "points": (0, 5), "steps": (0, 5), "compare": (0, 3), "timeline": (0, 6),
-    "stat": (1, 1), "quote": (1, 1), "summary": (0, 5),
+    "stat": (1, 1), "quote": (1, 1), "summary": (0, 5), "chart": (2, 5),
 }
 
 
@@ -145,7 +145,8 @@ EXPLAINER_HELP = """# MahaSpark explainer script. Edit anything, save, then run:
 #   HEADLINE: big text on screen        SUBTITLE: small line under it (optional)
 #   SPEECH: what the anchor says (digits are fine; the voice spells them in Marathi)
 #   ITEMS: one per line:  - text on screen | value (optional) | word to appear on (optional)
-# Scene kinds: title, points, steps, compare, timeline, stat, quote, summary.
+# Scene kinds: title, points, steps, compare, timeline, stat, quote, summary, chart.
+#   chart: 2-5 items, each with a number and its unit as the value (all the same unit), drawn as animated bars.
 #   stat and quote need exactly one item with a value. timeline/compare items use the value for the event/detail.
 # Delete a whole scene (from === to its last line) to drop it, or copy one to add one."""
 
@@ -228,6 +229,8 @@ def parse_explainer(text: str) -> dict:
         lo, hi = EXPLAINER_KINDS[kind]
         if not lo <= len(items) <= hi:
             problems.append(f"{label} ({kind}): needs {lo} to {hi} items, has {len(items)}.")
+        if kind == "chart" and any(not re.search(r"[0-9०-९]", i["value"]) for i in items):
+            problems.append(f"{label} (chart): every item needs a number as its value after the first |, for example - एव्हरेस्ट | ८,८४८ मीटर.")
         if kind in ("stat", "quote") and items and not items[0]["value"]:
             problems.append(f"{label} ({kind}): the item needs a value after the first |.")
         scenes.append({"kind": kind, "headline": headline, "subtitle": subtitle, "items": items, "tts_text": speech})
