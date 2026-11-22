@@ -38,18 +38,20 @@ def test_right_office_and_former_titles_pass(text):
     assert content_rules.office_error(text) is None
 
 
-def test_check_offices_gives_the_model_a_repair_message():
+def test_check_offices_gives_the_model_a_repair_message(monkeypatch):
+    monkeypatch.setattr(content_rules, "static_is_fresh", lambda today=None: True)
     with pytest.raises(ValueError, match="उपमुख्यमंत्री"):
         ee.check_offices("मुख्यमंत्री एकनाथ शिंदे यांनी आज घोषणा केली.")
     ee.check_offices("उपमुख्यमंत्री एकनाथ शिंदे यांनी आज घोषणा केली.")
 
 
-def test_the_prompt_states_the_titles():
-    assert "एकनाथ शिंदे is उपमुख्यमंत्री" in editorial_prompts.SYSTEM_INSTRUCTION
-    assert "never promote or demote" in editorial_prompts.SYSTEM_INSTRUCTION
+def test_the_prompt_has_the_generic_rule_and_no_hard_coded_holders():
+    assert "Never state a leader's office from memory" in editorial_prompts.SYSTEM_INSTRUCTION
+    assert "एकनाथ शिंदे is" not in editorial_prompts.SYSTEM_INSTRUCTION  # who holds an office changes; the live check decides
 
 
-def test_bulletin_item_with_the_wrong_title_is_sent_back_for_repair():
+def test_bulletin_item_with_the_wrong_title_is_sent_back_for_repair(monkeypatch):
+    monkeypatch.setattr(content_rules, "static_is_fresh", lambda today=None: True)
     item = {
         "approved": True, "category": "राजकारण", "headline": "शिंदे यांची घोषणा", "context": "उपमुख्यमंत्र्यांनी योजना जाहीर केली आहे",
         "tts_text": "मुख्यमंत्री एकनाथ शिंदे यांनी आज नवी योजना जाहीर केली, लाखो नागरिकांना याचा लाभ मिळेल. योजना पुढील महिन्यापासून लागू होईल.",

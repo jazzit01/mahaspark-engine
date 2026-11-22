@@ -158,11 +158,24 @@ def source_numbers(text: str) -> set[str]:
     return {m.replace(",", "") for m in _NUMBER.findall(normalised)}
 
 
-def check_offices(text: str) -> None:
-    """Raise ValueError (the model's one repair) when a known leader is given the wrong office, e.g. Shinde as मुख्यमंत्री."""
-    message = office_error(text)
-    if message:
-        raise ValueError(message)
+def check_offices(text: str, source: str = "") -> None:
+    """Raise ValueError (the model's one repair) when a leader is given an office he does not hold TODAY.
+
+    The live check (officecheck: Gemini + Google Search) decides. Only when it cannot run does the small offline table of
+    ``content_rules`` apply, and only while that table is fresh."""
+    import officecheck
+
+    ran, messages = officecheck.check(text, source)
+    if messages:
+        raise ValueError(messages[0])
+    if ran:
+        return
+    from content_rules import static_is_fresh
+
+    if static_is_fresh():
+        message = office_error(text)
+        if message:
+            raise ValueError(message)
 
 
 def find_forbidden(text: str) -> str | None:
@@ -381,7 +394,7 @@ def validate_story(
         + keywords
         + [str(v) for v in five.values()]
     )
-    check_offices(visible)
+    check_offices(visible, source_text)
     banned = find_forbidden(visible)
     if banned:
         raise ValueError(f'The phrase "{banned}" is forbidden. Name the actual institution, leader or department instead.')

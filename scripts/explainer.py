@@ -169,7 +169,7 @@ def validate_explainer(data: dict, source_text: str) -> dict:
         problems = ee.tts_problems(tts_text)
         if problems:
             raise ValueError(f"Scene {n}: {problems[0]}")
-        ee.check_offices(f"{headline} {subtitle} {tts_text} " + " ".join(f"{i.get('label', '')} {i.get('value', '')}" for i in raw.get("items") or []))
+        ee.check_offices(f"{headline} {subtitle} {tts_text} " + " ".join(f"{i.get('label', '')} {i.get('value', '')}" for i in raw.get("items") or []), source_text)
         banned = ee.find_forbidden(f"{headline} {subtitle} {tts_text}")
         if banned:
             raise ValueError(f"Scene {n}: the phrase '{banned}' is banned. Name the institution or person instead.")
