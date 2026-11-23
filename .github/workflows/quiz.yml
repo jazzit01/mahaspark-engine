@@ -17,9 +17,9 @@ on:
   workflow_dispatch:
     inputs:
       step:
-        description: "draft = write the script, produce = make the video from the approved file, upload = only upload the video of an earlier run (needs run_id)"
+        description: "draft = write the script, produce = make the video from the approved file, upload = only upload the video of an earlier run (needs run_id), stems = diagnostic: render the sound in separate parts, nothing is uploaded"
         type: choice
-        options: [draft, produce, upload]
+        options: [draft, produce, upload, stems]
         default: draft
       topic:
         description: "(draft) your topic, e.g. शिवनेरी किल्ला. Empty = the next unused topic from the list"
@@ -60,7 +60,7 @@ jobs:
             echo "::error::For step = upload, type the run_id (the number at the end of the failed produce run's URL)."
             exit 1
           fi
-          if [ "$STEP" = "produce" ] || [ "$STEP" = "upload" ]; then
+          if [ "$STEP" = "produce" ] || [ "$STEP" = "upload" ] || [ "$STEP" = "stems" ]; then
             FILE="$FILE_INPUT"
             if [ -z "$FILE" ]; then FILE=$(ls approvals/quiz-*.txt 2>/dev/null | sort | tail -1); fi
             if [ -z "$FILE" ] || [ ! -f "$FILE" ]; then
@@ -174,7 +174,7 @@ jobs:
           git push origin HEAD:main
 
       - name: Restore voices made earlier (a retry after a spent voice quota only voices what is missing)
-        if: inputs.step == 'produce'
+        if: inputs.step == 'produce' || inputs.step == 'stems'
         uses: actions/cache/restore@v4
         with:
           path: remotion/public/long/cache
@@ -237,8 +237,43 @@ jobs:
           YOUTUBE_PRIVACY: ${{ vars.YOUTUBE_PRIVACY }}
         run: python scripts/quiz.py produce "$FILE_INPUT"
 
+      - name: Sound in separate parts (diagnostic only, nothing is uploaded or sent)
+        if: inputs.step == 'stems'
+        env:
+          FILE_INPUT: ${{ steps.pick.outputs.file }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
+          GEMINI_MODELS: ${{ vars.GEMINI_MODELS }}
+          GEMINI_TTS_MODEL: ${{ vars.GEMINI_TTS_MODEL }}
+          GEMINI_TTS_VOICE: ${{ vars.GEMINI_TTS_VOICE }}
+        run: |
+          # voices come from the cache (no new quota); no video is rendered, nothing is uploaded
+          python scripts/quiz.py produce "$FILE_INPUT" --skip-render --skip-upload --skip-telegram
+          mkdir -p out/stems
+          python - <<'PY'
+          import json
+          props = json.load(open("remotion/public/long.json", encoding="utf-8"))
+          parts = {"full": [], "voice_only": ["bed", "whoosh", "sting"], "bed_only": ["voice", "whoosh", "sting"],
+                   "whoosh_only": ["voice", "bed", "sting"], "sting_only": ["voice", "bed", "whoosh"]}
+          for name, mute in parts.items():
+              json.dump({**props, "mute": mute}, open(f"remotion/public/stem_{name}.json", "w", encoding="utf-8"), ensure_ascii=False)
+          PY
+          cd remotion
+          for name in full voice_only bed_only whoosh_only sting_only; do
+            npx remotion render src/index.ts MahaSparkLong "../out/stems/$name.mp3" --props="public/stem_$name.json" --codec=mp3
+          done
+
+      - name: Keep the sound parts (2 days)
+        if: always() && inputs.step == 'stems'
+        uses: actions/upload-artifact@v4
+        with:
+          name: quiz-stems
+          path: out/stems/*.mp3
+          if-no-files-found: ignore
+          retention-days: 2
+
       - name: Remember the voices (for a retry)
-        if: always() && inputs.step == 'produce'
+        if: always() && (inputs.step == 'produce' || inputs.step == 'stems')
         uses: actions/cache/save@v4
         with:
           path: remotion/public/long/cache

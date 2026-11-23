@@ -5,7 +5,7 @@ import {ACCENT} from './kit';
 export const STING_SECONDS = 1.35;
 
 /** Signature opener over the first second of a long video: the logo punches in with a ring flash and a sound hit. */
-export const Sting: React.FC = () => {
+export const Sting: React.FC<{silent?: boolean}> = ({silent}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
   const total = STING_SECONDS * fps;
@@ -22,7 +22,7 @@ export const Sting: React.FC = () => {
         <div style={{position: 'absolute', width: 420, height: 420, borderRadius: '50%', border: `8px solid ${ACCENT}`, opacity: 1 - Math.min(1, ring / 2.4), transform: `scale(${ring})`}} />
         <Img src={staticFile('logo.png')} style={{height: 330, transform: `scale(${0.55 + 0.45 * pop})`, opacity: Math.min(1, pop * 1.4), filter: 'drop-shadow(0 12px 40px rgba(0,0,0,0.6))'}} />
       </AbsoluteFill>
-      <Audio src={staticFile('sting.wav')} volume={0.55} />
+      {silent ? null : <Audio src={staticFile('sting.wav')} volume={0.55} />}
     </AbsoluteFill>
   );
 };

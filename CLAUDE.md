@@ -289,3 +289,7 @@ Workflow `quiz.yml` step `upload` + input `run_id` (number at the end of an earl
 ### Radio "chirr" after a spoken line: what is ruled out (still open)
 
 Heard after the end of every line in all video types, about 470-480 ms after the speech ends. Ruled out: the transition whoosh (listening test: clean) and the Gemini voice clips themselves (a tail cleaner was built in #51/#52 and reverted: real runs logged "0 ms removed", so the clips carry nothing after the speech). Main suspect: the music bed ducking in `LongVideo.tsx` / `BulletinReel.tsx` (`duck()`: the bed gain rises from 45% to 100% over exactly 0.45 s after each word, applied as one gain per frame at 30 fps = 0.75 dB steps, which can sound like zipper noise). Check this before anything else; the fix would be to mix the ducked bed offline with a sample-accurate smooth gain instead of a per-frame `volume` callback.
+
+### Sound stems (diagnostic for the "chirr")
+
+Workflow `quiz.yml` step `stems` (same `file` input as produce; no upload, no Telegram): voices come from the cache, then `MahaSparkLong` is rendered audio-only (`--codec=mp3`) five times with `props.mute` (`voice`/`bed`/`whoosh`/`sting`, honoured only in `LongVideo.tsx`): `full`, `voice_only`, `bed_only`, `whoosh_only`, `sting_only`. Artifact `quiz-stems` (2 days). Listen to each: the chirr is in the part that has it. Not verified here: the audio-only Remotion render on GitHub.

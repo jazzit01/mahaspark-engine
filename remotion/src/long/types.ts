@@ -57,6 +57,8 @@ export type LongProps = {
   map?: GeoPin;
   /** Shorts cut: only this part (seconds) of the video is shown, vertical, no outro. */
   clip?: {start: number; end: number};
+  /** Diagnostics only: sound parts to leave out of the mix ('voice' | 'bed' | 'whoosh' | 'sting'), see the quiz workflow step 'stems'. */
+  mute?: string[];
   scenes: LongScene[];
   outro_seconds: number;
   outro_start: number;
