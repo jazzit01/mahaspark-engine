@@ -45,6 +45,7 @@ export const LongVideo: React.FC<LongProps> = (props) => {
     starts.push(cursor);
     cursor += Math.max(1, Math.round(s.seconds * fps));
   });
+  const muted = (part: string) => (props.mute ?? []).includes(part); // diagnostics only (workflow step 'stems')
   const Studio = getStudio(props.studio ?? 'PrimeGridStudio');
   const gallery: LongMedia[] = props.scenes.reduce<LongMedia[]>((all, sc) => (sc.media && !all.some((m) => m.file === sc.media!.file) ? [...all, sc.media] : all), []);
   const outroStart = cursor;
@@ -102,7 +103,7 @@ export const LongVideo: React.FC<LongProps> = (props) => {
               {props.clip || scene.kind === 'question' || scene.kind === 'answer' ? null : <LongCaptions words={scene.words} />}
             </AbsoluteFill>
             <Sequence from={Math.round(scene.lead_seconds * fps)} layout="none">
-              <Audio src={staticFile(scene.audio)} />
+              {muted('voice') ? null : <Audio src={staticFile(scene.audio)} />}
             </Sequence>
           </Sequence>
         );
@@ -110,7 +111,7 @@ export const LongVideo: React.FC<LongProps> = (props) => {
 
       {props.clip ? null : (
         <Sequence from={0} durationInFrames={Math.round(fps * 1.4)} layout="none">
-          <Sting />
+          <Sting silent={muted('sting')} />
         </Sequence>
       )}
 
@@ -128,11 +129,11 @@ export const LongVideo: React.FC<LongProps> = (props) => {
 
       {starts.slice(1).concat(outroStart).map((from) => (
         <Sequence key={`w${from}`} from={Math.max(0, from - WHOOSH_FRAMES_EARLY)} layout="none">
-          <Audio src={staticFile('whoosh.wav')} volume={WHOOSH_VOLUME} />
+          {muted('whoosh') ? null : <Audio src={staticFile('whoosh.wav')} volume={WHOOSH_VOLUME} />}
         </Sequence>
       ))}
 
-      <Audio src={staticFile(`bed/${props.audio_mood}.mp3`)} loop volume={bedVolume} />
+      {muted('bed') ? null : <Audio src={staticFile(`bed/${props.audio_mood}.mp3`)} loop volume={bedVolume} />}
     </AbsoluteFill>
   );
 };
