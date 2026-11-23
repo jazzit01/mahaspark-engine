@@ -6,7 +6,9 @@ export type ThemeName =
   | 'GlassNewsroomDepth'
   | 'ChalkboardStudio'
   | 'BlueprintStudio'
-  | 'DataMapStudio';
+  | 'DataMapStudio'
+  | 'AuroraStudio'
+  | 'OrbitStudio';
 
 export type AudioMood = 'serious' | 'crime' | 'breaking' | 'upbeat' | 'neutral';
 

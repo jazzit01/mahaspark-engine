@@ -4,6 +4,8 @@ import {BreakingNewsStudio} from './BreakingNewsStudio';
 import {DataTelemetryStudio} from './DataTelemetryStudio';
 import {EditorialDeskLight} from './EditorialDeskLight';
 import {GlassNewsroomDepth} from './GlassNewsroomDepth';
+import {AuroraStudio} from './AuroraStudio';
+import {OrbitStudio} from './OrbitStudio';
 import {BlueprintStudio} from './BlueprintStudio';
 import {ChalkboardStudio} from './ChalkboardStudio';
 import {DataMapStudio} from './DataMapStudio';
@@ -19,6 +21,8 @@ export const STUDIOS: Record<ThemeName, React.FC> = {
   ChalkboardStudio,
   BlueprintStudio,
   DataMapStudio,
+  AuroraStudio,
+  OrbitStudio,
 };
 
 export const getStudio = (theme: string): React.FC =>

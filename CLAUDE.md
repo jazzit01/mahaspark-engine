@@ -293,3 +293,10 @@ Heard after the end of every line in all video types, about 470-480 ms after the
 ### Sound stems (diagnostic for the "chirr")
 
 Workflow `quiz.yml` step `stems` (same `file` input as produce; no upload, no Telegram): voices come from the cache, then `MahaSparkLong` is rendered audio-only (`--codec=mp3`) five times with `props.mute` (`voice`/`bed`/`whoosh`/`sting`, honoured only in `LongVideo.tsx`): `full`, `voice_only`, `bed_only`, `whoosh_only`, `sting_only`. Artifact `quiz-stems` (2 days). Listen to each: the chirr is in the part that has it. Not verified here: the audio-only Remotion render on GitHub.
+
+### Explainer motion pack (original code)
+
+- Two more explainer-only studios: `AuroraStudio` ("Aurora Flow": navy with slow colour glows, silky light ribbons, drifting stars) and `OrbitStudio` ("Knowledge Graph": drifting nodes joined by thin lines with light pulses and slow dashed orbit rings). They are in `LINE_STUDIOS["explainer"]` (not the quiz) so `pick_studio` rotates them in. Palettes in `theme.ts`.
+- `long/SceneSweep.tsx`: on every explainer scene after the first (not in Shorts cuts) a soft light sweep crosses the frame and four corner brackets draw in and fade over 1.8 s. No text, never over captions.
+- All original SVG/React written for this project; nothing from lemo-opuscar's CC BY-NC prompts is used (licensing rule above).
+- Not verified here (no real render, `tsc` needs `npm install`): the look and timing of the three additions, SVG blur cost per frame (drop the `filter`s if rendering is slow).

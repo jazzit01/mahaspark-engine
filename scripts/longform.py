@@ -165,7 +165,7 @@ def voice_all(scenes: list[dict], extras: list[float] | None = None, **kw) -> li
 STUDIOS = ("PrimeGridStudio", "DataTelemetryStudio", "GlassNewsroomDepth", "BreakingNewsStudio")
 # line-art studios (original code in the look families "Sketch & Board", "Line Diagrams", "Data & Maps")
 LINE_STUDIOS = {
-    "explainer": ("ChalkboardStudio", "BlueprintStudio", "DataMapStudio"),
+    "explainer": ("ChalkboardStudio", "BlueprintStudio", "DataMapStudio", "AuroraStudio", "OrbitStudio"),
     "quiz": ("ChalkboardStudio", "BlueprintStudio", "DataMapStudio"),
 }
 

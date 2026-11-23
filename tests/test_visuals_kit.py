@@ -105,3 +105,18 @@ def test_line_art_studios_are_in_the_rotation_and_exist_in_remotion():
     for n in longform.LINE_STUDIOS["quiz"]:
         assert n in registry
         assert (ROOT / f"remotion/src/studios/{n}.tsx").exists()
+
+
+def test_aurora_and_orbit_studios_are_explainer_only_and_registered():
+    from config import ROOT
+
+    assert {"AuroraStudio", "OrbitStudio"} <= set(longform.LINE_STUDIOS["explainer"])
+    assert not {"AuroraStudio", "OrbitStudio"} & set(longform.LINE_STUDIOS["quiz"])
+    registry = (ROOT / "remotion/src/studios/index.ts").read_text(encoding="utf-8")
+    types = (ROOT / "remotion/src/types.ts").read_text(encoding="utf-8")
+    theme = (ROOT / "remotion/src/theme.ts").read_text(encoding="utf-8")
+    for n in ("AuroraStudio", "OrbitStudio"):
+        assert n in registry and n in types and n in theme
+        assert (ROOT / f"remotion/src/studios/{n}.tsx").exists()
+    video = (ROOT / "remotion/src/long/LongVideo.tsx").read_text(encoding="utf-8")
+    assert "SceneSweep" in video and "'explainer'" in video
