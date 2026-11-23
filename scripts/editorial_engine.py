@@ -24,6 +24,7 @@ from typing import Literal
 import requests
 from pydantic import BaseModel, Field
 
+import audio_tail
 from config import STORY_PATH, VOICEOVER_PATH, get_env_value
 from content_rules import office_error, plain_names
 from fetch_news import THIN_SOURCE_CHARS
@@ -701,8 +702,10 @@ def synthesize_voiceover(script: str, out_path: Path = VOICEOVER_PATH, attempts:
                                else _request_tts_audio(script, model, key, voice=voice, style=style))
                         if len(wav) < 4000:
                             raise RuntimeError("TTS returned an empty or truncated audio file.")
+                        wav, removed_ms = audio_tail.clean_wav_bytes(wav)
                         out_path.parent.mkdir(parents=True, exist_ok=True)
                         out_path.write_bytes(wav)
+                        print(f"🧹 End-of-clip noise burst: {removed_ms} ms removed." if removed_ms else "🧹 End-of-clip noise burst: none found.")
                         print(f"✅ Voiceover written by {label}: {out_path} ({len(wav) // 1024} KB)")
                         return out_path
                     except LLMUnavailableError:
