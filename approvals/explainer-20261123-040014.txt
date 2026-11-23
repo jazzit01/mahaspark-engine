@@ -1,0 +1,61 @@
+# MahaSpark explainer script. Edit anything, save, then run:
+#   python scripts/explainer.py produce <this file>
+# Lines starting with # are ignored. Each scene:
+#   THUMB (top of file): 3-5 punchy words for the YouTube thumbnail, for example a question
+#   HEADLINE: big text on screen        SUBTITLE: small line under it (optional)
+#   SPEECH: what the anchor says (digits are fine; the voice spells them in Marathi)
+#   ITEMS: one per line:  - text on screen | value (optional) | word to appear on (optional)
+# Scene kinds: title, points, steps, compare, timeline, stat, quote, summary, chart.
+#   chart: 2-5 items, each with a number and its unit as the value (all the same unit), drawn as animated bars.
+#   stat and quote need exactly one item with a value. timeline/compare items use the value for the event/detail.
+# Delete a whole scene (from === to its last line) to drop it, or copy one to add one.
+# FACT-CHECK NOTE (check this, then delete the line): Scene 3 claims the fort was captured by Malik Ahmed in 1489, but the reference text states the fort was captured by him around 1489 without specifying a precise date, and the English Wikipedia reference provides conflicting historical timelines regarding the fort's early history.
+# FACT-CHECK NOTE (check this, then delete the line): Scene 5 claims the Purandreshwar and Rameshwar temples are evidence of Peshwa-era architecture, whereas the reference text describes the Purandreshwar temple as likely Hemadpanti style and notes that the Peshwa Balaji Vishwanath only built the palace, not the temples themselves.
+
+TITLE: पुरंदर किल्ला: सह्याद्रीतील ऐतिहासिक वारसा आणि पराक्रमाची गाथा | MahaSpark मराठी बातम्या
+THUMB: पुरंदर किल्ल्याचा इतिहास काय?
+CAPTION: पुणे जिल्ह्यातील पुरंदर किल्ला हा छत्रपती संभाजी महाराजांचे जन्मस्थान आहे. या किल्ल्याचा गौरवशाली इतिहास आणि त्यातील महत्त्वाच्या घटना जाणून घ्या.
+KEYWORDS: पुरंदर किल्ला, छत्रपती संभाजी महाराज, मुरारबाजी देशपांडे, पुरंदरचा तह, पुणे, सह्याद्री, किल्ले, महाराष्ट्र इतिहास, Purandar Fort, Maratha History
+MOOD: neutral
+SOURCES: https://en.wikipedia.org/wiki/Purandar_Fort | https://mr.wikipedia.org/wiki/%E0%A4%AA%E0%A5%81%E0%A4%B0%E0%A4%82%E0%A4%A6%E0%A4%B0_%E0%A4%95%E0%A4%BF%E0%A4%B2%E0%A5%8D%E0%A4%B2%E0%A4%BE
+
+=== SCENE 1 | title ===
+HEADLINE: पुरंदर किल्ला: सह्याद्रीतील ऐतिहासिक वारसा
+SPEECH: पुणे जिल्ह्यातील सासवड जवळ असलेला पुरंदर किल्ला हा महाराष्ट्राच्या इतिहासातील एक महत्त्वाचा गड आहे. छत्रपती संभाजी महाराजांचे जन्मस्थान असलेल्या या किल्ल्याचा इतिहास आणि त्याची वैशिष्ट्ये आज आपण जाणून घेणार आहोत.
+
+=== SCENE 2 | points ===
+HEADLINE: पुरंदर किल्ल्याची वैशिष्ट्ये
+SPEECH: पुरंदर किल्ला सह्याद्रीच्या डोंगररांगेत वसलेला आहे. या किल्ल्याचे सर्वात मोठे ऐतिहासिक महत्त्व म्हणजे येथे छत्रपती संभाजी महाराजांचा जन्म झाला. किल्ल्याची रचना दोन मुख्य भागात विभागलेली आहे. खालच्या भागाला माची म्हणतात, जिथे अनेक ऐतिहासिक वास्तू आहेत, तर वरच्या भागाला बालेकिल्ला म्हणतात, जिथे बुरुज आणि तटबंदी आहेत.
+ITEMS:
+- सह्याद्रीच्या रांगेत वसलेला किल्ला |  | सह्याद्रीच्या
+- छत्रपती संभाजी महाराजांचे जन्मस्थान
+- २ भागात विभागणी माची आणि बालेकिल्ला
+
+=== SCENE 3 | timeline ===
+HEADLINE: पुरंदर किल्ल्याचा इतिहास
+SPEECH: पुरंदर किल्ल्याचा इतिहास खूप जुना आहे. सन एक हजार चारशे एकोणनव्वद च्या सुमारास निजामशाही सरदार मलिक अहमदने हा किल्ला जिंकून घेतला होता. पुढे चौदा मे एक हजार सहाशे सत्तावन्न रोजी या गडावर छत्रपती संभाजी महाराजांचा जन्म झाला. त्यानंतर एक हजार सहाशे पासष्ठ मध्ये मोगल सरदार जयसिंग आणि शिवाजी महाराज यांच्यात इतिहासप्रसिद्ध पुरंदरचा तह झाला.
+ITEMS:
+- १४८९ | निजामशाही सरदार मलिक अहमदने किल्ला जिंकला
+- १६५७ | १४ मे रोजी संभाजी महाराजांचा जन्म | जन्म
+- १६६५ | इतिहासप्रसिद्ध पुरंदरचा तह झाला | तह
+
+=== SCENE 4 | quote ===
+HEADLINE: मुरारबाजी देशपांडे यांचे शौर्य
+SPEECH: पुरंदरच्या लढाईत मुरारबाजी देशपांडे यांनी अतुलनीय शौर्य गाजवले. दिलेरखानाने त्यांना शरण येण्यास सांगितले असता, मुरारबाजी देशपांडे यांनी ठामपणे उत्तर दिले की, मी शिवाजी महाराजांचा शिपाई तुझा कौल घेतो की काय. त्यांनी मोगल सैन्याशी निकराची झुंज दिली आणि लढताना वीरमरण पत्करले.
+ITEMS:
+- मुरारबाजी देशपांडे | मी शिवाजी महाराजांचा शिपाई तुझा कौल घेतो की काय | शिपाई
+
+=== SCENE 5 | points ===
+HEADLINE: गडावरील पाहण्यासारखी ठिकाणे
+SPEECH: गडावर अनेक पाहण्यासारखी ठिकाणे आहेत. यामध्ये पुरंदरेश्वर मंदिर, पेशव्यांचे खाजगी रामेश्वर मंदिर आणि दिल्ली दरवाजा यांचा समावेश होतो. या वास्तू पेशवेकालीन स्थापत्यशैलीची साक्ष देतात. गडाच्या माचीवर अनेक ऐतिहासिक वास्तू आजही पर्यटकांचे लक्ष वेधून घेतात.
+ITEMS:
+- पुरंदरेश्वर मंदिर |  | पुरंदरेश्वर
+- रामेश्वर मंदिर |  | रामेश्वर
+- दिल्ली दरवाजा |  | दिल्ली
+
+=== SCENE 6 | summary ===
+HEADLINE: पुरंदर किल्ल्याचे महत्त्व
+SPEECH: पुरंदर किल्ला हा केवळ एक गड नसून तो मराठा साम्राज्याच्या शौर्याचा आणि संघर्षाचा साक्षीदार आहे. स्वराज्यातील एक महत्त्वाचा सामरिक किल्ला म्हणून पुरंदरचे स्थान आजही अढळ आहे. हा किल्ला महाराष्ट्राच्या इतिहासातील एक अमूल्य वारसा आहे.
+ITEMS:
+- स्वराज्यातील महत्त्वाचा सामरिक किल्ला |  | सामरिक
+- मराठा साम्राज्याच्या इतिहासाचा साक्षीदार |  | साक्षीदार
