@@ -10,6 +10,7 @@ import {QuestionScene, QuizEnd, QuizIntro} from './QuizScenes';
 import {LongBackdrop} from './LongBackdrop';
 import {LoopBackdrop} from './LoopBackdrop';
 import {LowerThird} from './LowerThird';
+import {SceneSweep} from './SceneSweep';
 import {Sting} from './Sting';
 import {TransitionOverlay, transitionKind, useEnterStyle} from './Transitions';
 import {packVars} from './kit';
@@ -99,6 +100,7 @@ export const LongVideo: React.FC<LongProps> = (props) => {
                 </Enter>
                 {props.kind === 'explainer' && scene.kind !== 'title' ? <LowerThird text={props.title} /> : null}
               </FadeOut>
+              {props.kind === 'explainer' && i > 0 && !props.clip ? <SceneSweep /> : null}
               {i > 0 ? <TransitionOverlay kind={transitionKind(i)} /> : null}
               {props.clip || scene.kind === 'question' || scene.kind === 'answer' ? null : <LongCaptions words={scene.words} />}
             </AbsoluteFill>
