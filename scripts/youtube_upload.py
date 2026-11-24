@@ -34,13 +34,18 @@ def reel_uploads_enabled() -> bool:
     return (get_env_value("YOUTUBE_UPLOAD_REELS", "1") or "1").strip().lower() not in ("0", "false", "no", "off")
 
 
+def shorts_uploads_enabled() -> bool:
+    """9:16 Shorts are uploaded too (they share the reel slots, so the daily quota is not exceeded). YOUTUBE_UPLOAD_SHORTS=0 turns it off."""
+    return (get_env_value("YOUTUBE_UPLOAD_SHORTS", "1") or "1").strip().lower() not in ("0", "false", "no", "off")
+
+
 def allowed_reel_uploads(hour: int, done_today: int, slots: tuple[int, ...] = REEL_UPLOAD_SLOTS) -> bool:
     """True while fewer reels were uploaded today than slots have started. A default YouTube API project can upload
     about six videos a day (1,600 quota units each of 10,000), and the two bulletins must always fit."""
     return done_today < sum(1 for s in slots if hour >= s)
 
 
-def build_reel_description(story: dict) -> str:
+def build_reel_description(story: dict, short: bool = False) -> str:
     five = story.get("five_w_one_h") or {}
     lines = [str(story.get("social_caption", "")).strip(), ""]
     if five.get("what"):
@@ -49,7 +54,10 @@ def build_reel_description(story: dict) -> str:
     if credits:
         lines += ["🖼️ चित्रे: प्रातिनिधिक; घटनेचे थेट चित्र असेलच असे नाही.", *credits, ""]
     lines += [AI_NOTE, "", "🔔 MahaSpark ला फॉलो आणि सबस्क्राईब करा, रोज ताज्या बातम्या मिळवा.", "▶️ @MahaSparkOfficial", "", str(story.get("hashtags", ""))]
-    return "\n".join(lines).strip()
+    text = "\n".join(lines).strip()
+    if short and "#shorts" not in text.lower():
+        text += "\n#Shorts"  # a 9:16 video under 3 minutes is a Short; the tag makes it explicit
+    return text
 
 
 class YouTubeUnavailable(RuntimeError):

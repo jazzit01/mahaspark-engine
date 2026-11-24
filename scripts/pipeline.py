@@ -197,7 +197,8 @@ def render_reel_thumbnail(story: dict) -> Path | None:
 
 def upload_reel_to_youtube(queue, story: dict) -> str:
     """Best-effort YouTube upload of the 16:9 video, within the daily slot budget. Returns a Sheet note fragment."""
-    if not youtube_upload.reel_uploads_enabled() or is_short(story):  # Shorts go to Telegram only for now
+    short = is_short(story)
+    if not youtube_upload.reel_uploads_enabled() or (short and not youtube_upload.shorts_uploads_enabled()):
         return ""
     try:
         youtube_upload.credentials()
@@ -212,11 +213,11 @@ def upload_reel_to_youtube(queue, story: dict) -> str:
         url = youtube_upload.upload_video(
             REEL_PATH,
             story.get("social_title") or story["scenes"][0]["headline"],
-            youtube_upload.build_reel_description(story),
-            list(story.get("seo_keywords") or []) + ["MahaSpark", "मराठी बातम्या"],
+            youtube_upload.build_reel_description(story, short=short),
+            list(story.get("seo_keywords") or []) + ["MahaSpark", "मराठी बातम्या"] + (["Shorts"] if short else []),
         )
-        print(f"▶️ Uploaded to YouTube: {url}")
-        thumb = render_reel_thumbnail(story)
+        print(f"▶️ Uploaded to YouTube{' (Short)' if short else ''}: {url}")
+        thumb = None if short else render_reel_thumbnail(story)  # the 16:9 thumbnail does not fit a Short
         if thumb:
             try:
                 youtube_upload.set_thumbnail(url, thumb)
