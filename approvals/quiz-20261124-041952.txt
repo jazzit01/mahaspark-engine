@@ -1,0 +1,99 @@
+# MahaSpark quiz script. Edit anything, save, then run:
+#   python scripts/quiz.py produce <this file>
+# Each question:  Q: question   A) B) C) D) four options   ANSWER: A, B, C or D   WHY: one-line explanation
+# Optional, only when the voice must say something different from the screen (for example an acronym spelled
+# out): QSPEECH:, ASPEECH: BSPEECH: CSPEECH: DSPEECH:, WHYSPEECH:   (Devanagari words only)
+# Lines starting with # are ignored. Delete a whole question block to drop it.
+
+TITLE: महाराष्ट्र आणि भारत सामान्य ज्ञान क्विझ | MahaSpark मराठी बातम्या
+CAPTION: आमच्या नवीन क्विझमध्ये सहभागी व्हा आणि तुमची माहिती तपासा. महाराष्ट्राच्या आणि भारताच्या इतिहासावर आधारित १० प्रश्न सोडवा.
+KEYWORDS: Maharashtra GK, India GK, Marathi Quiz, General Knowledge, MahaSpark, महाराष्ट्र क्विझ, सामान्य ज्ञान, भारत इतिहास, मराठी प्रश्नमंजुषा
+SOURCES: https://en.wikipedia.org/wiki/Kaas_Plateau | https://en.wikipedia.org/wiki/Marathi_cinema | https://en.wikipedia.org/wiki/Lata_Mangeshkar | https://en.wikipedia.org/wiki/Indian_Institute_of_Technology_Bombay | https://en.wikipedia.org/wiki/Indian_rupee | https://en.wikipedia.org/wiki/Sardar_Vallabhbhai_Patel
+
+=== Q1 ===
+Q: कास पठार कोणत्या जिल्ह्यात आहे?
+QSPEECH: कास पठार कोणत्या जिल्ह्यात आहे.
+A) पुणे
+B) सातारा
+C) कोल्हापूर
+D) नाशिक
+ANSWER: B
+WHY: कासचे पठार साताऱ्याच्या पश्चिमेकडे साधारणपणे २२ किलोमीटर अंतरावर आहे.
+# PROOF in the reference text (check it before you approve): कासचे पठार साताऱ्याच्या पश्चिमेकडे साधारणपणे २२ किलोमीटर अंतरावर आहे.
+
+=== Q2 ===
+Q: लता मंगेशकर यांना भारतरत्न पुरस्कार कोणत्या वर्षी मिळाला?
+QSPEECH: लता मंगेशकर यांना भारतरत्न पुरस्कार कोणत्या वर्षी मिळाला.
+A) १९८७
+B) २००१
+C) २००७
+D) २०२२
+ANSWER: B
+WHY: देशासाठी त्यांच्या योगदानाबद्दल २००१ मध्ये भारतरत्न हा सर्वोच्च नागरी सन्मान प्रदान करण्यात आला.
+# PROOF in the reference text (check it before you approve): देशासाठी त्यांच्या योगदानाबद्दल २००१ मध्ये भारतरत्न हा सर्वोच्च नागरी सन्मान प्रदान करण्यात आला.
+
+=== Q3 ===
+Q: आय आय टी मुंबईची स्थापना कोणत्या वर्षी झाली?
+QSPEECH: आय आय टी मुंबईची स्थापना कोणत्या वर्षी झाली.
+A) १९५९
+B) १९६१
+C) १९७०
+D) १९८०
+ANSWER: A
+WHY: पंडित जवाहरलाल नेहरू यांनी मार्च १० इ.स. १९५९ रोजी पवईमध्ये या संस्थेचा पाया घातला.
+# PROOF in the reference text (check it before you approve): पंडित जवाहरलाल नेहरू यांनी मार्च १० इ.स. १९५९ रोजी पवईमध्ये या संस्थेचा पाया घातला.
+
+=== Q4 ===
+Q: भारतीय नाणक शास्त्राचे जनक कोणाला मानले जाते?
+QSPEECH: भारतीय नाणक शास्त्राचे जनक कोणाला मानले जाते.
+A) लॉर्ड विल्यम बेंटिक
+B) चौथे विल्यम
+C) जेम्स प्रिन्सेप
+D) शाह आलम
+ANSWER: C
+WHY: जेम्स प्रिन्सेप यांना भारतीय नाणक शास्त्राचे जनक मानले जाते.
+# PROOF in the reference text (check it before you approve): जेम्स प्रिन्सेप यांना भारतीय नाणक शास्त्राचे (Numismatics) जनक मानले जाते.
+
+=== Q5 ===
+Q: वल्लभभाई पटेल यांचा जन्म कोणत्या राज्यात झाला?
+QSPEECH: वल्लभभाई पटेल यांचा जन्म कोणत्या राज्यात झाला.
+A) महाराष्ट्र
+B) गुजरात
+C) पंजाब
+D) मध्य प्रदेश
+ANSWER: B
+WHY: वल्लभभाई झवेरभाई पटेल यांचा जन्म नडियाद गुजरात येथील घरी झाला.
+# PROOF in the reference text (check it before you approve): वल्लभभाई झवेरभाई पटेल यांचा जन्म लेवा पाटीदार समाजात, त्यांच्या मामांच्या नडियाद (गुजरात) येथील घरी झाला.
+
+=== Q6 ===
+Q: कास पठाराचे क्षेत्रफळ अंदाजे किती आहे?
+QSPEECH: कास पठाराचे क्षेत्रफळ अंदाजे किती आहे.
+A) ५ चौ.किमी
+B) १० चौ.किमी
+C) १५ चौ.किमी
+D) २० चौ.किमी
+ANSWER: B
+WHY: कास पठाराचे क्षेत्रफळ अंदाजे १० चौ.किमी आहे.
+# PROOF in the reference text (check it before you approve): पठाराची समुद्रसपाटीपासूनची उंची १००० ते १२५० मीटर, आणि क्षेत्रफळ अंदाजे १० चौ.किमी आहे.
+
+=== Q7 ===
+Q: स्टॅच्यू ऑफ युनिटीची उंची किती मीटर आहे?
+QSPEECH: स्टॅच्यू ऑफ युनिटीची उंची किती मीटर आहे.
+A) १५० मीटर
+B) १८२ मीटर
+C) २०० मीटर
+D) २५० मीटर
+ANSWER: B
+WHY: २०१८ मध्ये गुजरातच्या केवडिया येथे त्यांच्या स्मर्त्यर्थ १८२ मीटर उंच स्टॅच्यू ऑफ युनिटी उभारण्यात आला.
+# PROOF in the reference text (check it before you approve): २०१८ मध्ये गुजरातच्या केवडिया (एकता नगर) येथे त्यांच्या स्मर्त्यर्थ १८२ मीटर उंच 'स्टॅच्यू ऑफ युनिटी' हा जगातील सर्वात उंच पुतळा उभारण्यात आला.
+
+=== Q8 ===
+Q: आय आय टी मुंबईमध्ये एकूण किती विभाग आहेत?
+QSPEECH: आय आय टी मुंबईमध्ये एकूण किती विभाग आहेत.
+A) १०
+B) ११
+C) १२
+D) १५
+ANSWER: C
+WHY: भारतीय तंत्रज्ञान संस्था, मुंबई येथे १२ विभाग आहेत.
+# PROOF in the reference text (check it before you approve): भारतीय तंत्रज्ञान संस्था, मुंबई येथे १२ विभाग आहेत.
