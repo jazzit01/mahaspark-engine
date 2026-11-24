@@ -300,3 +300,9 @@ Workflow `quiz.yml` step `stems` (same `file` input as produce; no upload, no Te
 - `long/SceneSweep.tsx`: on every explainer scene after the first (not in Shorts cuts) a soft light sweep crosses the frame and four corner brackets draw in and fade over 1.8 s. No text, never over captions.
 - All original SVG/React written for this project; nothing from lemo-opuscar's CC BY-NC prompts is used (licensing rule above).
 - Not verified here (no real render, `tsc` needs `npm install`): the look and timing of the three additions, SVG blur cost per frame (drop the `filter`s if rendering is slow).
+
+### Instagram Reels (back on, opt-in)
+
+- `scripts/publish_instagram.py` posts the finished video (16:9 reels and 9:16 Shorts) as an Instagram Reel through Meta's resumable upload (no public link needed): container -> upload -> poll `status_code` -> `media_publish`. `pipeline.post_reel_to_instagram` runs after Telegram and YouTube, best effort (a failure only writes `Instagram: FAIL ...` in the Sheet note). Caption = `social_caption` + follow line + up to 30 hashtags, cut to 2200 characters.
+- Off unless the repository VARIABLE `ENABLE_INSTAGRAM` is exactly `true`. Secrets: `INSTAGRAM_USER_ID` (Instagram Business/Creator account id), `INSTAGRAM_ACCESS_TOKEN` (long-lived, `instagram_content_publish`; it expires after about 60 days unless refreshed, and an expired token is named in the error). Only the 16:9 reels get the YouTube slot limit; Instagram has no slot limit here (Meta allows 100 API posts a day).
+- Not verified here (no network, no account): the live Meta calls and how a 16:9 video looks as a Reel; check the first run's log lines starting `[Instagram]`.

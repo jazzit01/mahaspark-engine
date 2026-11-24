@@ -45,13 +45,16 @@ def test_scan_stops_after_candidate_limit(monkeypatch):
     assert len(seen) == pipeline.MAX_CANDIDATES_TO_CHECK
 
 
-def test_instagram_is_fully_removed():
+def test_instagram_is_opt_in_and_credentials_stay_in_the_environment(monkeypatch):
     from pathlib import Path
 
     root = Path(pipeline.__file__).parent.parent
-    assert not (root / "scripts" / "publish_instagram.py").exists()
-    for path in list((root / "scripts").glob("*.py")) + [root / ".github" / "workflows" / "runner.yml"]:
-        assert "instagram" not in path.read_text(encoding="utf-8").lower(), path.name
+    monkeypatch.delenv("ENABLE_INSTAGRAM", raising=False)
+    assert pipeline.post_reel_to_instagram({"social_caption": "x"}) == ""  # off unless ENABLE_INSTAGRAM == "true"
+    workflow = (root / ".github" / "workflows" / "runner.yml").read_text(encoding="utf-8")
+    assert "vars.ENABLE_INSTAGRAM" in workflow and "secrets.INSTAGRAM_ACCESS_TOKEN" in workflow
+    source = (root / "scripts" / "publish_instagram.py").read_text(encoding="utf-8")
+    assert "EAA" not in source and 'get_env_value("INSTAGRAM_ACCESS_TOKEN")' in source
 
 
 def test_tts_failure_falls_back_to_a_voiceless_story(monkeypatch, tmp_path):

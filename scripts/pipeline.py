@@ -24,6 +24,7 @@ import editorial_engine
 import fetch_news
 import media_fetch
 import send_telegram
+import publish_instagram
 import youtube_upload
 from config import COMPOSITION_ID, OUT_DIR, SHORT_COMPOSITION_ID, REEL_PATH, REMOTION_DIR, STORY_PATH, VOICEOVER_PATH
 from llm_providers import ContentRejected, LLMUnavailableError
@@ -151,6 +152,18 @@ def deliver(story: dict, source_url: str) -> str:
     return f"SUCCESS{voice} - Telegram: {'OK' if telegram_ok else 'FAIL'}"
 
 
+def post_reel_to_instagram(story: dict) -> str:
+    """Best-effort Instagram Reel (16:9 videos and 9:16 Shorts). Returns a Sheet note fragment; never fails the story."""
+    if not publish_instagram.instagram_enabled():
+        return ""
+    try:
+        post_id = publish_instagram.post_reel_to_instagram(str(REEL_PATH), publish_instagram.build_caption(story))
+        return f" - Instagram: OK {post_id}"
+    except Exception as exc:  # noqa: BLE001 - the reel is already delivered to Telegram
+        print(f"⚠️ Instagram Reel failed: {type(exc).__name__}: {str(exc)[:200]}")
+        return f" - Instagram: FAIL {str(exc)[:80]}"
+
+
 REEL_THUMB_JSON = REMOTION_DIR / "public" / "reel_thumb.json"
 REEL_THUMB_PATH = OUT_DIR / "reel_thumb.jpg"
 
@@ -249,7 +262,7 @@ def run_scheduled() -> int:
             article = fetch_news.enrich_thin_source(title, summary, article, source_url)
             story = produce_reel(title, summary, article, source_url)
             queue.write_story(row.index, story)
-            status_note = deliver(story, source_url) + upload_reel_to_youtube(queue, story)
+            status_note = deliver(story, source_url) + upload_reel_to_youtube(queue, story) + post_reel_to_instagram(story)
             queue.set_status(row.index, DONE, status_note)
             print(f"✅ Row {row.index} completed.")
             processed += 1
