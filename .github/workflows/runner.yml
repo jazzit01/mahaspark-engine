@@ -113,8 +113,12 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          # Instagram Reels are posted only when the repository variable ENABLE_INSTAGRAM is 'true'.
-          ENABLE_INSTAGRAM: ${{ vars.ENABLE_INSTAGRAM }}
+          # Instagram is PAUSED on purpose. To resume, replace 'false' with ${{ vars.ENABLE_INSTAGRAM }} (and set that variable to 'true').
+          ENABLE_INSTAGRAM: 'false'
+          # Facebook Page Reels (9:16 Shorts only) are posted only when the repository variable ENABLE_FACEBOOK is 'true'.
+          ENABLE_FACEBOOK: ${{ vars.ENABLE_FACEBOOK }}
+          FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+          FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
           INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
           INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
         run: python scripts/pipeline.py

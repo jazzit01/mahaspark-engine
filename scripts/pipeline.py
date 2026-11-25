@@ -24,6 +24,7 @@ import editorial_engine
 import fetch_news
 import media_fetch
 import send_telegram
+import publish_facebook
 import publish_instagram
 import youtube_upload
 from config import COMPOSITION_ID, OUT_DIR, SHORT_COMPOSITION_ID, REEL_PATH, REMOTION_DIR, STORY_PATH, VOICEOVER_PATH
@@ -164,6 +165,22 @@ def post_reel_to_instagram(story: dict) -> str:
         return f" - Instagram: FAIL {str(exc)[:80]}"
 
 
+def post_reel_to_facebook(story: dict) -> str:
+    """Best-effort Facebook Page Reel (9:16 Shorts only: Facebook Reels must be vertical and 3-90 s). Returns a Sheet note fragment."""
+    if not publish_facebook.facebook_enabled():
+        return ""
+    reason = publish_facebook.reel_skip_reason(story)
+    if reason:
+        print(f"ℹ️ Facebook Reel skipped: {reason}.")
+        return ""
+    try:
+        video_id = publish_facebook.post_reel_to_facebook(str(REEL_PATH), publish_instagram.build_caption(story))
+        return f" - Facebook: OK {video_id}"
+    except Exception as exc:  # noqa: BLE001 - the video is already delivered to Telegram
+        print(f"⚠️ Facebook Reel failed: {type(exc).__name__}: {str(exc)[:200]}")
+        return f" - Facebook: FAIL {str(exc)[:80]}"
+
+
 REEL_THUMB_JSON = REMOTION_DIR / "public" / "reel_thumb.json"
 REEL_THUMB_PATH = OUT_DIR / "reel_thumb.jpg"
 
@@ -263,7 +280,7 @@ def run_scheduled() -> int:
             article = fetch_news.enrich_thin_source(title, summary, article, source_url)
             story = produce_reel(title, summary, article, source_url)
             queue.write_story(row.index, story)
-            status_note = deliver(story, source_url) + upload_reel_to_youtube(queue, story) + post_reel_to_instagram(story)
+            status_note = deliver(story, source_url) + upload_reel_to_youtube(queue, story) + post_reel_to_instagram(story) + post_reel_to_facebook(story)
             queue.set_status(row.index, DONE, status_note)
             print(f"✅ Row {row.index} completed.")
             processed += 1

@@ -311,3 +311,10 @@ Workflow `quiz.yml` step `stems` (same `file` input as produce; no upload, no Te
 
 - `pipeline.upload_reel_to_youtube` now uploads the 9:16 Shorts too (before: Telegram only). A Short gets `#Shorts` in the description and tags (`build_reel_description(story, short=True)`) and no custom 16:9 thumbnail. Shorts SHARE the reel slots (`REEL_UPLOAD_SLOTS` 12 and 19 IST, one upload per slot hour, counted from `YouTube: OK <date>`), so the daily quota (6 uploads of 1,600 units) is not exceeded: a slot goes to whichever reel or Short is finished first after the slot hour. `YOUTUBE_UPLOAD_SHORTS=0` turns Shorts off, `YOUTUBE_UPLOAD_REELS=0` turns all reel/Short uploads off. More uploads per day need a YouTube API quota increase; then add slot hours.
 - Not verified here (no network): the live upload and that YouTube lists the video under Shorts.
+
+### Facebook Page Reels (on) and Instagram (paused)
+
+- `scripts/publish_facebook.py` posts the 9:16 Shorts as Facebook Page Reels (Graph API `video_reels`: start -> rupload -> poll `status.video_status` -> finish `PUBLISHED`, `is_ai_generated: true`). Facebook Reels must be 9:16 and 3-90 s, so 16:9 videos are skipped (`reel_skip_reason`). `pipeline.post_reel_to_facebook` runs after Instagram, best effort (`Facebook: OK/FAIL ...` in the Sheet note); the caption is the same as Instagram's.
+- Off unless the repository VARIABLE `ENABLE_FACEBOOK` is exactly `true`. Secrets: `FACEBOOK_PAGE_ID`, `FACEBOOK_PAGE_ACCESS_TOKEN` (a Page access token with `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`; a long-lived one does not expire). Limit: 30 API posts per Page per 24 h.
+- **Instagram is paused**: `runner.yml` sets `ENABLE_INSTAGRAM: 'false'` on purpose. To resume, replace that line with `ENABLE_INSTAGRAM: ${{ vars.ENABLE_INSTAGRAM }}` and set the variable to `true`. The code in `publish_instagram.py` is unchanged.
+- Not verified here (no network, no account): the live Meta calls; check the first run's `[Facebook]` log lines.

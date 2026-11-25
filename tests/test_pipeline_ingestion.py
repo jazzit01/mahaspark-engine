@@ -52,7 +52,8 @@ def test_instagram_is_opt_in_and_credentials_stay_in_the_environment(monkeypatch
     monkeypatch.delenv("ENABLE_INSTAGRAM", raising=False)
     assert pipeline.post_reel_to_instagram({"social_caption": "x"}) == ""  # off unless ENABLE_INSTAGRAM == "true"
     workflow = (root / ".github" / "workflows" / "runner.yml").read_text(encoding="utf-8")
-    assert "vars.ENABLE_INSTAGRAM" in workflow and "secrets.INSTAGRAM_ACCESS_TOKEN" in workflow
+    assert "secrets.INSTAGRAM_ACCESS_TOKEN" in workflow
+    assert "ENABLE_INSTAGRAM: 'false'" in workflow  # paused on purpose; see the comment in runner.yml to resume
     source = (root / "scripts" / "publish_instagram.py").read_text(encoding="utf-8")
     assert "EAA" not in source and 'get_env_value("INSTAGRAM_ACCESS_TOKEN")' in source
 
