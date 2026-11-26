@@ -1,18 +1,17 @@
 # MahaSpark Engine: maintenance guide
 
-A scheduled pipeline that turns one verified Marathi news story per run into a prime-time news video and delivers it to Telegram: a 16:9 video of about one minute (1920x1080, 30 fps, shared 8 s outro) when the sources are rich, otherwise a 9:16 Short (1080x1920, no outro).
-
-```
-RSS -> Sheet queue -> article text -> 5W1H + phonetic script (Gemini) -> Gemini TTS voiceover
-    -> faster-whisper word timings -> Remotion render (studio chosen by visual_theme)
-    -> out/mahaspark_reel.mp4 -> Telegram (video without caption, then the message: 5W1H, source URL, SEO title/description/keywords/tags) -> Sheet DONE
-```
+MahaSpark publishes verified Marathi news for Maharashtra. The landscape news pipeline makes one
+240–300-second feature in an available IST slot, with a hard limit of four per IST day.
+Vertical news uses 15–30-second Shorts. The bulletin is manual. See [P0 news operations](docs/p0-news.md)
+for the schedule, shared event history, publishing checks and recovery.
 
 ## Layout
 
 | Path | Role |
 |---|---|
-| `scripts/pipeline.py` | Orchestrator. `python scripts/pipeline.py` (scheduled), or `--text "<title>\n<article>" --url ... [--skip-render] [--skip-telegram]` for a local one-off that does not touch the Sheet. |
+| `scripts/pipeline.py` | Vertical news and shared rendering and delivery. Use `--text`, `--url`, and `--skip-telegram` for a local preview. |
+| `scripts/news.py` | Single-topic landscape news, slots, research and verified scripts. |
+| `scripts/event_memory.py` | Shared news event ledger, deduplication, reservations and recovery. |
 | `scripts/fetch_news.py` | RSS feeds, Google News link resolution (`googlenewsdecoder`), article text extraction. Items whose publisher article can't be read are still queued (written from headline + RSS summary) unless title + summary are under 80 characters. |
 | `scripts/sheet_queue.py` | Google Sheet job queue. Columns A-M legacy, N `Source_URL`, O `Visual_Theme`, P `Summary_5W1H`. |
 | `scripts/editorial_prompts.py` | The editorial system prompt (Marathi voice, 5W1H, phonetic rules). Edit wording here. |
@@ -54,7 +53,9 @@ A model slip is caught and the model gets one repair attempt with the exact erro
 - **Banned phrases** (`FORBIDDEN_PHRASES`): अधिकृत माहितीनुसार, वृत्तानुसार, सूत्रांनी दिलेल्या माहितीनुसार and similar
   agency clichés, plus old filler/clickbait lines. Extend that list rather than adding prompt-only rules.
 - **On-screen numbers** in `headline`/`description` must appear in the source text (no invented figures).
-- **Length.** Reels are about one minute: 140-185 spoken words (`REEL_MIN_WORDS`; `validate_story(min_words=...)`), 2-8 scenes, headline at most 56 characters, description at most 92. A story whose sources cannot fill that (source text under `THIN_SOURCE_CHARS`, or a long attempt that still comes out short) is written as a **9:16 Short** instead (`story["format"] == "portrait"`): hook + 1-3 scenes, 25-100 words (`SHORT_MAX_WORDS`, `SHORT_MAX_SCENES`), prompt override via `build_user_prompt(short=True)`; the Short renders as composition `MahaSparkShort`, has no outro and goes to Telegram only (no YouTube upload). A thin source (under `THIN_SOURCE_CHARS`) first gets up to two other reports of the same event via `fetch_news.enrich_thin_source` (Google News search on the headline, labelled in the source text). Bulletin items keep their short length.
+- **Length.** Production news measures WAV and rendered video durations before publishing. Short-form is strictly
+  15–30 seconds. Stories longer than 60 seconds are considered for 240–300 seconds of 16:9 news if the
+  sources support it. The landscape composition retains its original outro.
 - **Visuals (reels: OFF by default).** `pipeline.add_visuals` does nothing unless `REEL_VISUALS=1`: reels use the animated studios only because photos did not match the news. The rest of this bullet and `media_fetch.py` still describe the optional/bulletin path. The model writes a generic English `visual_query` per scene and, only for a named public figure acting in
   their public role, `public_figure`. `clean_public_figure` drops it for serious/crime/breaking stories (never a
   face for victims or accused). Stock footage is representative, never presented as the event; the Telegram summary
@@ -91,11 +92,7 @@ or a comma list), the visible known models and the built-in list (`TTS_MODELS_DE
 exhausted per-model quota moves to the next model; transient errors retry; only an invalid key stops the chain.
 The spoken text part is ONLY the script (never an instruction line, or the voice reads it aloud); the anchor style goes in the Interactions `annotations` or, on REST, `systemInstruction` (retried without it on HTTP 400). Override voice with `GEMINI_TTS_VOICE`. Output is 24 kHz mono WAV at `remotion/public/voiceover.wav`.
 
-**Voiceless fallback:** if no TTS model works, `pipeline.add_voice_and_timings` does NOT drop the story. It builds
-estimated word/scene timings from the script (`align_timings.main_voiceless`, about 2.4 words/s plus pauses), sets
-`audio: false` in `story.json`, and renders the full reel (studio, cards, karaoke captions, whoosh SFX, studio bed)
-without the voiceover. The Sheet note reads `SUCCESS (voiceless)` and the Telegram summary says the voiceover was
-unavailable. If Google changes a TTS API, `_tts_interactions` / `_tts_generate_content` are the only functions to adjust.
+Production news requires usable TTS and timed captions. Missing or invalid narration stops publishing.
 
 ## Word timing
 
@@ -109,7 +106,7 @@ adds `words[]` (`text,start,end,scene`), per-scene `start/end`, `duration_second
 ## Broadcast design (`remotion/`)
 
 - Two formats from the same components: `MahaSparkReel` 1920x1080 (16:9) and `MahaSparkShort` 1080x1920 (9:16, original vertical layout, no outro). `src/layout.ts` (`useLayout`, from the composition size) holds every size that differs (safe zones 175/56/80 landscape vs 290/450/60 portrait, logo plate, headline/caption sizes); studios read `useVideoConfig()`.
-- 1920x1080 (16:9), 30 fps; the story is followed by the shared bulletin outro (`OUTRO_SECONDS` = 8). Scripts are ~150-175 words, 2-8 scenes, total cap 185 words. Font: Noto Sans Devanagari through `@remotion/google-fonts` (loaded in `src/fonts.ts`).
+- 1920x1080 (16:9), 30 fps; the story is followed by the shared bulletin outro (`OUTRO_SECONDS` = 8). P0 news length is gated by measured narration and rendered duration. Font: Noto Sans Devanagari through `@remotion/google-fonts` (loaded in `src/fonts.ts`).
 - `story.json` -> props (`--props=public/story.json`). `Root.tsx` sets the video length from
   `duration_seconds + 1s`. Preview compositions `Preview-<theme>` exist for `npm run studio`.
 - `visual_theme` (`pick_theme`: grave moods -> Breaking; otherwise rotated over the other four by a hash of the story, skipping the previous reel's studio read from Sheet column O; the model's own pick is ignored for variety) selects one of five full-motion studios in `src/studios/`: `PrimeGridStudio` (navy
@@ -147,7 +144,7 @@ cd remotion && npm run studio   # edit visuals against the sample story
 
 ## News bulletin (16:9, YouTube)
 
-Separate from the reels (the reel pipeline is untouched). Twice a day, 05:00 and 17:00 IST (`bulletin.yml`, cron `30 23` and `30 11` UTC), one job:
+The bulletin runs on manual dispatch only. Its editorial items share the news event history.
 
 ```
 RSS (round-robin over feeds, de-duplicated) -> 10 items (bulletin_editorial) -> one Gemini TTS clip per item
@@ -168,27 +165,14 @@ RSS (round-robin over feeds, de-duplicated) -> 10 items (bulletin_editorial) -> 
 - Sheet worksheet `Bulletins` (created on first run) stores used headlines/URLs so the next bulletin only has new stories.
 - YouTube: `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `YOUTUBE_REFRESH_TOKEN` (scope `youtube.upload`), `YOUTUBE_PRIVACY` (default `private`; unaudited API
   projects can only upload private videos). Without credentials the video is only kept as the `bulletin` workflow artifact (2 days) and Telegram says so.
-- GitHub minutes: one render job per bulletin (about 15-25 min on the 2-core runner), twice a day, in addition to the 16 hourly reel runs.
+- GitHub minutes: one render job per manual bulletin.
 - Not verified here (no network): live Commons photos, the YouTube upload, the real Remotion render. Check the first run's logs.
 
-## YouTube upload of the 16:9 videos
+## CI and publishing
 
-After Telegram, `pipeline.upload_reel_to_youtube` uploads the video (and sets a 1280x720 thumbnail from the `BulletinThumbnail` composition: hook headline, red tag, key figure; best effort) (title `social_title`, description from `youtube_upload.build_reel_description`: caption, main point, CTA, AI-voice note, hashtags; NO source link; tags from `seo_keywords`). Best effort: a failure never fails the story. A default YouTube API project has 10,000 quota units/day and an upload costs 1,600, so only ~6 uploads/day fit and the two bulletins must always get in: reels upload at most one per slot hour (`REEL_UPLOAD_SLOTS` = 12, 19 IST; the explainer and quiz take two of the ~6 daily uploads), counted from `YouTube: OK <date>` in the Sheet note. `YOUTUBE_UPLOAD_REELS=0` turns it off; `YOUTUBE_SYNTHETIC_FLAG=1` also ticks YouTube's altered/synthetic box (the AI voice is always disclosed in the description via `AI_NOTE`). Privacy follows `YOUTUBE_PRIVACY`.
-
-## CI (`.github/workflows/runner.yml`)
-
-Hourly cron, daytime only (05:00-20:00 IST = cron `30 23` and `30 0-14` in UTC, 16 runs a day) + manual dispatch, 60 min timeout, one run at a time. It caches pip, `~/.npm`, Remotion's browser
-(`remotion/node_modules/.remotion`), the Whisper model (`~/.cache/huggingface`) and `~/.cache/ms-playwright`
-(kept as requested; Playwright is no longer used, so it stays empty). It runs the unit tests, then
-`python scripts/pipeline.py`. Secrets: `GCP_CREDENTIALS`, `GEMINI_API_KEY`, `TELEGRAM_BOT_TOKEN`,
-optional `TELEGRAM_CHAT_ID` (defaults to the project's existing chat), optional `PEXELS_API_KEY` (stock footage; without it reels keep the studio backgrounds), optional `GROQ_/CEREBRAS_/OPENROUTER_API_KEY`.
-Variables: `GEMINI_MODELS`, `GEMINI_TTS_MODEL`, `GEMINI_TTS_VOICE`.
-
-`MAX_STORIES_PER_RUN` (default 2, the number queued per run) counts every story attempted, failures included, so one broken story can't burn
-through the queue and the TTS quota. No new story is started once `RUN_BUDGET_SECONDS` (default 1800) is used; the rest stay PENDING. A run where the attempted story failed exits with code 1 (red in Actions).
-
-Sheet status flow: `PENDING -> PROCESSING -> DONE | ERROR | REJECTED`. If no AI provider is usable, the row
-returns to `PENDING` and is retried next run; `ERROR` rows are never retried.
+See [P0 news operations](docs/p0-news.md) for IST slot configuration, YouTube, Telegram,
+social settings and event ledger recovery. News production uses a shared concurrency group
+in GitHub Actions. Quiz and evergreen long-form remain independent.
 
 ## Rules for future changes
 

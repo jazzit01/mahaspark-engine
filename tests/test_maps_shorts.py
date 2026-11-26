@@ -57,7 +57,7 @@ def test_quiz_clip_starts_on_a_question_and_ends_on_its_answer():
 
 
 def test_no_clip_when_too_short_or_too_long():
-    assert shorts.pick_clip(props("explainer", [("title", 8), ("points", 10)])) is None
+    assert shorts.pick_clip(props("explainer", [("title", 8), ("points", 6)])) is None
     assert shorts.pick_clip(props("explainer", [("stat", 70)])) is None
 
 

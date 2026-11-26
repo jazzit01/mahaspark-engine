@@ -24,13 +24,17 @@ const BACKDROP_FADE_FRAMES = 9;
 
 /** Frames of the story itself (voice + studio tail); the shared outro follows it. */
 export const storyFrames = (story: Story, fps: number): number =>
-  Math.max(1, Math.ceil((story.duration_seconds + TAIL_SECONDS) * fps));
+  Math.min(deliveryFrames(story, fps), Math.max(1, Math.ceil((story.duration_seconds + TAIL_SECONDS) * fps)));
+
+const deliveryFrames = (story: Story, fps: number): number =>
+  story.delivery_duration_limit === undefined ? Infinity : story.delivery_duration_limit * fps;
 
 /** A 9:16 Short has no outro; the 16:9 video ends with the shared outro. */
 export const hasOutro = (story: Story): boolean => story.format !== 'portrait';
 
 export const totalFrames = (story: Story, fps: number): number =>
-  storyFrames(story, fps) + (hasOutro(story) ? Math.round(OUTRO_SECONDS * fps) : 0);
+  Math.min(deliveryFrames(story, fps), storyFrames(story, fps) +
+    (hasOutro(story) ? Math.round(OUTRO_SECONDS * fps) : 0));
 
 /**
  * Layer order (bottom to top):
@@ -120,7 +124,7 @@ export const Reel: React.FC<Story> = (story) => {
         <SharedOverlay palette={palette} />
       </Sequence>
 
-      {hasOutro(story) ? (
+      {hasOutro(story) && outroStart < durationInFrames ? (
         <>
           <Sequence from={outroStart} durationInFrames={durationInFrames - outroStart}>
             <Outro />

@@ -234,7 +234,7 @@ def _headline_query(title: str) -> str:
     return _TITLE_TAIL.sub("", title or "").strip()[:120]
 
 
-def related_sources(title: str, source_url: str, limit: int = MAX_EXTRA_SOURCES) -> list[tuple[str, str, str]]:
+def related_sources(title: str, source_url: str, limit: int = MAX_EXTRA_SOURCES, *, cross_language: bool = False) -> list[tuple[str, str, str]]:
     """Other publishers' reports of the same event as ``(title, url, article_text)``, found with a Google News
     search on the headline. Pages that cannot be read are skipped; any failure returns what was found so far."""
     import difflib
@@ -257,7 +257,9 @@ def related_sources(title: str, source_url: str, limit: int = MAX_EXTRA_SOURCES)
         if len(found) >= limit:
             break
         other = strip_html(entry.get("title", ""))
-        if not other or is_stale(entry) or difflib.SequenceMatcher(None, _headline_query(other), query).ratio() < 0.3:
+        if not other or is_stale(entry):
+            continue
+        if not cross_language and difflib.SequenceMatcher(None, _headline_query(other), query).ratio() < 0.3:
             continue  # a different story that merely shares a word
         url = resolve_article_url((entry.get("link") or "").strip())
         host = urlparse(url).netloc.lower()
