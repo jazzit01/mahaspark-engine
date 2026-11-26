@@ -1,0 +1,88 @@
+# MahaSpark quiz script. Edit anything, save, then run:
+#   python scripts/quiz.py produce <this file>
+# Each question:  Q: question   A) B) C) D) four options   ANSWER: A, B, C or D   WHY: one-line explanation
+# Optional, only when the voice must say something different from the screen (for example an acronym spelled
+# out): QSPEECH:, ASPEECH: BSPEECH: CSPEECH: DSPEECH:, WHYSPEECH:   (Devanagari words only)
+# Lines starting with # are ignored. Delete a whole question block to drop it.
+
+TITLE: महाराष्ट्र आणि भारत सामान्य ज्ञान क्विझ | MahaSpark मराठी बातम्या
+CAPTION: आमच्या आजच्या क्विझमध्ये सहभागी व्हा आणि तुमची माहिती तपासा. महाराष्ट्राचा इतिहास आणि भारताच्या महत्त्वाच्या घटनांवर आधारित १० प्रश्न.
+KEYWORDS: Maharashtra GK, Marathi Quiz, General Knowledge, MahaSpark, History, Sports, Maharashtra, India, Marathi News, GK Quiz
+SOURCES: https://en.wikipedia.org/wiki/Sambhaji | https://en.wikipedia.org/wiki/Maharashtra_Legislative_Assembly | https://en.wikipedia.org/wiki/Vinoba_Bhave | https://en.wikipedia.org/wiki/Mahalakshmi_Temple%2C_Kolhapur | https://en.wikipedia.org/wiki/1983_Cricket_World_Cup | https://en.wikipedia.org/wiki/Artificial_intelligence
+
+=== Q1 ===
+Q: छत्रपती संभाजी महाराजांचा जन्म कोणत्या किल्ल्यावर झाला?
+QSPEECH: छत्रपती संभाजी महाराजांचा जन्म कोणत्या किल्ल्यावर झाला.
+A) रायगड
+B) पुरंदर
+C) प्रतापगड
+D) सिंहगड
+ANSWER: B
+WHY: छत्रपती संभाजी महाराजांचा जन्म १४ मे १६५७ रोजी किल्ले पुरंदर येथे झाला.
+# PROOF in the reference text (check it before you approve): छत्रपती संभाजी महाराजांचा जन्म १४ मे १६५७ रोजी किल्ले पुरंदर येथे झाला.
+
+=== Q2 ===
+Q: महाराष्ट्र विधानसभेची विद्यमान सदस्य संख्या किती आहे?
+QSPEECH: महाराष्ट्र विधानसभेची विद्यमान सदस्य संख्या किती आहे.
+A) २८८
+B) २७८
+C) २९८
+D) २६८
+ANSWER: A
+WHY: विधानसभेची विद्यमान सदस्य संख्या २८८ आहे.
+# PROOF in the reference text (check it before you approve): विधानसभेची विद्यमान सदस्य संख्या २८८ आहे.
+
+=== Q3 ===
+Q: विनोबा भावे यांचा जन्म कोणत्या जिल्ह्यात झाला?
+QSPEECH: विनोबा भावे यांचा जन्म कोणत्या जिल्ह्यात झाला.
+A) रत्नागिरी
+B) सिंधुदुर्ग
+C) रायगड
+D) ठाणे
+ANSWER: C
+WHY: विनोबा भावे यांचा जन्म कोकणातील रायगड जिल्ह्यातील पेण तहसिलातील गागोदे या गावी झाला.
+# PROOF in the reference text (check it before you approve): कोकणातील रायगड जिल्ह्यातील पेण तहसिलातील गागोदे या गावी ११ सप्टेंबर १८९५ रोजी विनोबा तथा विनायक नरहर भावे यांचा जन्‍म झाला.
+
+=== Q4 ===
+Q: कोल्हापूरच्या महालक्ष्मी मंदिराला सुमारे किती वर्षांचा इतिहास आहे?
+QSPEECH: कोल्हापूरच्या महालक्ष्मी मंदिराला सुमारे किती वर्षांचा इतिहास आहे.
+A) ८००
+B) दहाशे
+C) बाराशे
+D) चौदाशे
+ANSWER: C
+WHY: या मंदिराला सुमारे बाराशे वर्षांचा इतिहास आहे.
+# PROOF in the reference text (check it before you approve): या मंदिराला सुमारे बाराशे वर्षांचा इतिहास आहे.
+
+=== Q5 ===
+Q: १९८३ च्या क्रिकेट विश्वचषकात भारतीय संघाने अंतिम सामन्यात कोणाला हरवले?
+QSPEECH: एक हजार नऊशे त्र्याऐंशी च्या क्रिकेट विश्वचषकात भारतीय संघाने अंतिम सामन्यात कोणाला हरवले.
+A) ऑस्ट्रेलिया
+B) इंग्लंड
+C) पाकिस्तान
+D) वेस्ट इंडीज
+ANSWER: D
+WHY: अंतिम सामन्यात भारतीय संघाने वेस्ट इंडीज संघाला ४१ धावांनी हरवत विश्वचषक पटकावला.
+# PROOF in the reference text (check it before you approve): अंतिम सामन्यात भारतीय संघाने वेस्ट इंडीज संघाला ४१ धावांनी हरवत विश्वचषक पटकावला.
+
+=== Q6 ===
+Q: कृत्रिम बुद्धिमत्तेच्या कोणत्या प्रणालीमध्ये पॅटर्न रेकग्निशनची क्षमता चांगली असते?
+QSPEECH: कृत्रिम बुद्धिमत्तेच्या कोणत्या प्रणालीमध्ये पॅटर्न रेकग्निशनची क्षमता चांगली असते.
+A) फझी सिस्टिम्स
+B) ज्ञानतंतू जाल
+C) निष्णात प्रणाली
+D) बेसियन नेटवर्क
+ANSWER: B
+WHY: ज्ञानतंतू जाल या प्रणाल्यांची पॅटर्न रेकग्निशनची क्षमता अत्यंत चांगली असते.
+# PROOF in the reference text (check it before you approve): ज्ञानतंतू जाल (Neural Network) - या प्रणाल्यांची पॅटर्न रेकग्निशनची क्षमता अत्यंत चांगली असते.
+
+=== Q7 ===
+Q: शिवाजी महाराजांनी संभाजी महाराजांना आग्रा भेटीच्या वेळी बरोबर नेले तेव्हा त्यांचे वय किती होते?
+QSPEECH: शिवाजी महाराजांनी संभाजी महाराजांना आग्रा भेटीच्या वेळी बरोबर नेले तेव्हा त्यांचे वय किती होते.
+A) ७ वर्षे
+B) ८ वर्षे
+C) ९ वर्षे
+D) १० वर्षे
+ANSWER: C
+WHY: आग्रा भेटीच्या वेळी संभाजीराजे ९ वर्षाचे होते.
+# PROOF in the reference text (check it before you approve): त्यावेळी संभाजीराजे ९ वर्षाचे होते.
