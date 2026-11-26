@@ -9,6 +9,12 @@ import {OrbitStudio} from './OrbitStudio';
 import {BlueprintStudio} from './BlueprintStudio';
 import {ChalkboardStudio} from './ChalkboardStudio';
 import {DataMapStudio} from './DataMapStudio';
+import {CivicWavesStudio} from './CivicWavesStudio';
+import {NoirSearchlightStudio} from './NoirSearchlightStudio';
+import {SkyWeatherStudio} from './SkyWeatherStudio';
+import {SpeedStripesStudio} from './SpeedStripesStudio';
+import {MarketLinesStudio} from './MarketLinesStudio';
+import {PulseCareStudio} from './PulseCareStudio';
 import {PrimeGridStudio} from './PrimeGridStudio';
 
 /** story.json's visual_theme selects which studio motion background is rendered. */
@@ -23,6 +29,12 @@ export const STUDIOS: Record<ThemeName, React.FC> = {
   DataMapStudio,
   AuroraStudio,
   OrbitStudio,
+  CivicWavesStudio,
+  NoirSearchlightStudio,
+  SkyWeatherStudio,
+  SpeedStripesStudio,
+  MarketLinesStudio,
+  PulseCareStudio,
 };
 
 export const getStudio = (theme: string): React.FC =>

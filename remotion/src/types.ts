@@ -8,7 +8,13 @@ export type ThemeName =
   | 'BlueprintStudio'
   | 'DataMapStudio'
   | 'AuroraStudio'
-  | 'OrbitStudio';
+  | 'OrbitStudio'
+  | 'CivicWavesStudio'
+  | 'NoirSearchlightStudio'
+  | 'SkyWeatherStudio'
+  | 'SpeedStripesStudio'
+  | 'MarketLinesStudio'
+  | 'PulseCareStudio';
 
 export type AudioMood = 'serious' | 'crime' | 'breaking' | 'upbeat' | 'neutral';
 

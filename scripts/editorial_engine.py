@@ -179,9 +179,42 @@ AVOID_THEME: str | None = None  # studio of the previous reel; set by the pipeli
 CALM_THEMES = ["PrimeGridStudio", "DataTelemetryStudio", "GlassNewsroomDepth"]  # the white studio was retired on request
 
 
+# Story-type looks: one dedicated studio per kind of story (original SVG studios in remotion/src/studios).
+STORY_TYPE_THEMES = {
+    "politics": "CivicWavesStudio",
+    "crime": "NoirSearchlightStudio",
+    "weather": "SkyWeatherStudio",
+    "sports": "SpeedStripesStudio",
+    "business": "MarketLinesStudio",
+    "health": "PulseCareStudio",
+}
+# Marathi/English words that point to a story type. The model's category label counts three times as much as the text.
+STORY_TYPE_KEYWORDS = {
+    "crime": ("गुन्हे", "गुन्हा", "पोलीस", "अटक", "एफआयआर", "खून", "हत्या", "दरोडा", "फसवणूक", "न्यायालय", "कोर्ट", "तस्करी"),
+    "weather": ("हवामान", "पाऊस", "पावसा", "उष्णता", "थंडी", "वादळ", "पूर", "दुष्काळ", "ढग", "अवकाळी", "तापमान", "मान्सून"),
+    "sports": ("क्रीडा", "क्रिकेट", "सामना", "सामन्य", "खेळाडू", "कबड्डी", "फुटबॉल", "ऑलिम्पिक", "स्पर्धा", "आयपीएल", "कुस्ती", "हॉकी"),
+    "business": ("अर्थकारण", "शेअर", "बाजार", "सेन्सेक्स", "निफ्टी", "सोने", "चांदी", "रुपया", "गुंतवणूक", "अर्थसंकल्प", "बँक", "जीडीपी", "महागाई", "उद्योग", "कंपनी"),
+    "health": ("आरोग्य", "रुग्ण", "रुग्णालय", "डॉक्टर", "लस", "आजार", "डेंग्यू", "कोरोना", "औषध", "साथ"),
+    "politics": ("राजकारण", "निवडणूक", "मतदान", "मंत्री", "आमदार", "खासदार", "भाजप", "काँग्रेस", "राष्ट्रवादी", "शिवसेना", "विधानसभा", "लोकसभा", "मुख्यमंत्री", "पक्ष"),
+}
+
+
+def story_type(category: str, text: str, mood: str) -> str:
+    """politics / crime / weather / sports / business / health, else 'general'. Deterministic: the mood 'crime'
+    wins, otherwise the type whose keywords occur most (category x3, headline/summary text x1); ties go to the order above."""
+    if mood == "crime":
+        return "crime"
+    best, best_score = "general", 0
+    for kind, words in STORY_TYPE_KEYWORDS.items():
+        score = sum(3 for w in words if w in category) + sum(1 for w in words if w in text)
+        if score > best_score:
+            best, best_score = kind, score
+    return best
+
+
 def set_avoid_theme(theme: str | None) -> None:
     global AVOID_THEME
-    AVOID_THEME = theme if theme in THEMES else None
+    AVOID_THEME = theme if theme in THEMES or theme in STORY_TYPE_THEMES.values() else None
 
 
 def clean_visual_query(value) -> str:
@@ -259,13 +292,16 @@ def clean_hashtags(value) -> str:
     return " ".join(tags[:15])
 
 
-def pick_theme(model_choice: str | None, mood: str, seed_text: str) -> str:
+def pick_theme(model_choice: str | None, mood: str, seed_text: str, kind: str = "general") -> str:
     """Studio for the reel. Grave moods (or the model asking for the breaking studio) get BreakingNewsStudio.
     Everything else rotates over all four other studios from a hash of the story, skipping the studio the
     previous reel used, so videos do not all share one background. The model's own pick is not trusted for
     variety: it kept choosing the same studio."""
     if mood in ("serious", "breaking") or model_choice == "BreakingNewsStudio":
         return "BreakingNewsStudio"
+    themed = STORY_TYPE_THEMES.get(kind)
+    if themed and themed != AVOID_THEME:  # the same look twice in a row falls back to the rotation below
+        return themed
     pool = [t for t in CALM_THEMES if t != AVOID_THEME] or CALM_THEMES
     if mood == "crime":
         pool = [t for t in pool if t != "GlassNewsroomDepth"] or pool
@@ -400,12 +436,15 @@ def validate_story(
 
     theme = data.get("visual_theme")
     mood = str(data.get("audio_mood", "")).strip().lower()
+    kind = story_type(category, " ".join([social_title, *[sc["headline"] for sc in scenes]]), mood)
 
     return {
         "approved": True,
         "category": category,
-        "visual_theme": (chosen_theme := pick_theme(theme, mood, source_text or narration)),
-        "bg_hue": pick_hue(source_text or narration, calm=chosen_theme != "BreakingNewsStudio"),
+        "story_type": kind,
+        "visual_theme": (chosen_theme := pick_theme(theme, mood, source_text or narration, kind)),
+        # the dedicated story-type studios and Breaking keep their own colours; the calm studios are hue-rotated per story
+        "bg_hue": pick_hue(source_text or narration, calm=chosen_theme not in STORY_TYPE_THEMES.values() and chosen_theme != "BreakingNewsStudio"),
         "audio_mood": mood if mood in AUDIO_MOODS else "neutral",
         "five_w_one_h": {k: str(five.get(k, "")).strip() for k in ("what", "when", "who", "where", "why", "how")},
         "tts_narration_script": narration,
