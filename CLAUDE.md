@@ -318,3 +318,8 @@ Workflow `quiz.yml` step `stems` (same `file` input as produce; no upload, no Te
 - Off unless the repository VARIABLE `ENABLE_FACEBOOK` is exactly `true`. Secrets: `FACEBOOK_PAGE_ID`, `FACEBOOK_PAGE_ACCESS_TOKEN` (a Page access token with `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`; a long-lived one does not expire). Limit: 30 API posts per Page per 24 h.
 - **Instagram is paused**: `runner.yml` sets `ENABLE_INSTAGRAM: 'false'` on purpose. To resume, replace that line with `ENABLE_INSTAGRAM: ${{ vars.ENABLE_INSTAGRAM }}` and set the variable to `true`. The code in `publish_instagram.py` is unchanged.
 - Not verified here (no network, no account): the live Meta calls; check the first run's `[Facebook]` log lines.
+
+### Motion behind the headline (reels)
+
+- `remotion/src/HeadlineMotion.tsx` is rendered inside every scene's Sequence, BEHIND the `SceneCard` text and above the studio/footage: two soft colour glows drifting at different speeds (a slow parallax, direction alternates by scene), one light sweep as the scene arrives (about 1.5 s) and a glow right behind the headline that swells with the anchor's voice (`speechEnvelope`: 1 on a spoken word, easing to 0 over 0.35 s of silence; a continuous function of time, so no flicker). Pure CSS gradients (cheap), deterministic (`random(seed)`, no `Math.random`), no text and no badge. Over footage/photos (`overMedia`) everything is about half as strong so the picture stays clean. It uses the story's `words`, so it also works for the voiceless fallback (estimated timings).
+- Not verified here (no real render): how strong the glows and the sweep look on each studio; tune the opacities in `HeadlineMotion.tsx` (0.05-0.2 range) if too busy.

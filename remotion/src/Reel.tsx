@@ -2,6 +2,7 @@ import React from 'react';
 import {AbsoluteFill, Audio, Sequence, interpolate, staticFile, useVideoConfig} from 'remotion';
 import {Backdrop} from './Backdrop';
 import {Captions} from './Captions';
+import {HeadlineMotion} from './HeadlineMotion';
 import {
   BED_DUCK, BED_VOLUME,
   OUTRO_SECONDS,
@@ -35,7 +36,7 @@ export const totalFrames = (story: Story, fps: number): number =>
  * Layer order (bottom to top):
  *   1. studio motion background, chosen by story.visual_theme
  *   2. per-scene footage / photo (Backdrop), cross-fading from scene to scene
- *   3. scene cards (spring in, scale/fade out), one Sequence per scene
+ *   3. scene cards (spring in, scale/fade out), one Sequence per scene, each with HeadlineMotion behind its text
  *   4. karaoke captions synced to story.words
  *   5. SharedOverlay: the logo only, a single steady top-level layer
  * Audio: anchor voiceover, studio bed at -20 dB, and a whoosh on every scene cut.
@@ -99,6 +100,7 @@ export const Reel: React.FC<Story> = (story) => {
 
       {scenes.map((scene, i) => (
         <Sequence key={i} from={starts[i]} durationInFrames={Math.max(1, ends[i] - starts[i])} layout="none">
+          <HeadlineMotion palette={scene.media ? overMedia(palette) : palette} words={story.words} startFrame={starts[i]} index={i} overMedia={Boolean(scene.media)} />
           <SceneCard
             headline={scene.headline}
             description={scene.description}
