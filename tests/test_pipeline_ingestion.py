@@ -107,6 +107,9 @@ class RunQueue(FakeQueue):
         self.rows = rows
         self.statuses = {}
 
+    def last_theme(self):
+        return None
+
     def pending_rows(self):
         return self.rows
 
@@ -124,10 +127,12 @@ def _run_with_rows(monkeypatch, produce):
     monkeypatch.setattr(pipeline, "MAX_STORIES_PER_RUN", 1)
     monkeypatch.setattr(pipeline.fetch_news, "resolve_article_url", lambda u: u)
     monkeypatch.setattr(pipeline.fetch_news, "fetch_article_text", lambda u: "x" * 400)
-    monkeypatch.setattr(pipeline, "produce_reel", produce)
-    monkeypatch.setattr(pipeline, "deliver", lambda story, url: "SUCCESS - Telegram: OK")
-    monkeypatch.setattr(queue, "write_story", lambda *a, **k: None, raising=False)
-    return pipeline.run_scheduled(), queue
+    def process(_queue, _ledger, row):
+        produce(row.raw_input)
+        return "SUCCESS - Telegram: OK"
+
+    monkeypatch.setattr(pipeline, "process_row", process)
+    return pipeline.run_queue(queue, object()), queue
 
 
 def test_a_failing_story_counts_toward_the_run_limit(monkeypatch):
@@ -162,15 +167,17 @@ def test_every_queued_story_is_processed_until_the_limit_and_the_time_budget(mon
     monkeypatch.setattr(pipeline.time, "sleep", lambda _s: None)
     monkeypatch.setattr(pipeline.fetch_news, "resolve_article_url", lambda u: u)
     monkeypatch.setattr(pipeline.fetch_news, "fetch_article_text", lambda u: "x" * 400)
-    monkeypatch.setattr(pipeline, "produce_reel", ok)
-    monkeypatch.setattr(pipeline, "deliver", lambda story, url: "SUCCESS - Telegram: OK")
-    monkeypatch.setattr(queue, "write_story", lambda *a, **k: None, raising=False)
-    assert pipeline.run_scheduled() == 0
+    def process(_queue, _ledger, row):
+        ok(row.raw_input)
+        return "SUCCESS - Telegram: OK"
+
+    monkeypatch.setattr(pipeline, "process_row", process)
+    assert pipeline.run_queue(queue, object()) == 0
     assert len(done) == 3  # the limit stops the fourth
 
     done.clear()
     monkeypatch.setattr(pipeline, "RUN_BUDGET_SECONDS", -1)  # budget already used after the first story
-    pipeline.run_scheduled()
+    pipeline.run_queue(queue, object())
     assert len(done) == 1
 
 

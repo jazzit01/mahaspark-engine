@@ -1,23 +1,48 @@
-name: MahaSpark Prime-Time Reel Pipeline
+name: MahaSpark News
 
 concurrency:
-  group: mahaspark-pipeline
+  group: mahaspark-news-publishing
   cancel-in-progress: false
 
 on:
   schedule:
-    # Hourly, daytime only: 05:00 to 20:00 IST (16 runs a day). GitHub cron is UTC; IST = UTC+5:30, so
-    # 05:00 IST = 23:30 UTC the day before and 06:00-20:00 IST = 00:30-14:30 UTC. One full Whisper + Remotion
-    # render takes several minutes, so shorter intervals would queue up. GitHub may start a run a few minutes late.
-    - cron: '30 23 * * *'
-    - cron: '30 0-14 * * *'
+    # Top of each IST hour. The Python dispatcher selects configured news slots;
+    # outside those slots only daytime vertical news runs.
+    - cron: '30 * * * *'
   workflow_dispatch:
 
 jobs:
-  produce-reel:
+  publishing-window:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.window.outputs.run }}
+      time: ${{ steps.window.outputs.time }}
+    steps:
+      - name: Check IST publishing window
+        id: window
+        env:
+          NEWS_PUBLISH_HOURS_IST: ${{ vars.NEWS_PUBLISH_HOURS_IST }}
+        run: |
+          python3 - <<'PYTHON'
+          import os
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+
+          hours = [int(value) for value in (os.getenv("NEWS_PUBLISH_HOURS_IST") or "08,12,16,20").split(",")]
+          if len(hours) != len(set(hours)) or not 1 <= len(hours) <= 4 or any(not 0 <= hour <= 23 for hour in hours):
+              raise SystemExit("NEWS_PUBLISH_HOURS_IST must have one to four distinct hours (0–23).")
+          now = datetime.now(ZoneInfo("Asia/Kolkata"))
+          hour = now.hour
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              print(f"run={str(hour in hours or 5 <= hour <= 20).lower()}", file=output)
+              print(f"time={now.isoformat()}", file=output)
+          PYTHON
+
+  produce-news:
+    needs: publishing-window
+    if: needs.publishing-window.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -89,8 +114,9 @@ jobs:
           echo "$GCP_CREDS" > credentials.json
           mkdir -p out
 
-      - name: Run Pipeline (RSS, 5W1H script, Gemini TTS, alignment, Remotion render, Telegram)
+      - name: Run news slot or vertical pipeline
         env:
+          GOOGLE_SHEET_ID: ${{ vars.GOOGLE_SHEET_ID }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           # Extra keys from OTHER Google Cloud projects (comma separated); used when one key's quota is spent.
           GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
@@ -98,6 +124,9 @@ jobs:
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
           YOUTUBE_PRIVACY: ${{ vars.YOUTUBE_PRIVACY }}
+          NEWS_PUBLISH_HOURS_IST: ${{ vars.NEWS_PUBLISH_HOURS_IST }}
+          NEWS_DISPATCH_TIME: ${{ needs.publishing-window.outputs.time }}
+          YOUTUBE_UPLOAD_SHORTS: ${{ vars.YOUTUBE_UPLOAD_SHORTS || '0' }}
           YOUTUBE_UPLOAD_REELS: ${{ vars.YOUTUBE_UPLOAD_REELS }}
           YOUTUBE_SYNTHETIC_FLAG: ${{ vars.YOUTUBE_SYNTHETIC_FLAG }}
           # Stock footage per scene (free key from pexels.com/api). Unset = studio backgrounds only.
@@ -121,7 +150,7 @@ jobs:
           FACEBOOK_PAGE_ACCESS_TOKEN: ${{ secrets.FACEBOOK_PAGE_ACCESS_TOKEN }}
           INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
           INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
-        run: python scripts/pipeline.py
+        run: python scripts/news.py --scheduled
 
       - name: Upload debug files on failure
         if: failure()

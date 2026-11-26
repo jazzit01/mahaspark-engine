@@ -213,3 +213,12 @@ jobs:
             out/youtube_metadata.txt
           if-no-files-found: ignore
           retention-days: 2
+
+      - name: Keep recoverable drafts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: explainer-draft-debug
+          path: out/explainer-debug/*.json
+          if-no-files-found: ignore
+          retention-days: 3

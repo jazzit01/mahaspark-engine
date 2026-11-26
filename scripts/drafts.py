@@ -81,21 +81,25 @@ def topic_reports(topic: str, urls: list[str] | None = None, limit: int = 4) -> 
 
 
 def topic_sources(topic: str, urls: list[str] | None = None, limit: int = 4) -> tuple[str, list[str]]:
-    """The reference text for ``topic`` as one labelled text for the writer, and the urls used: Wikipedia first (Marathi and
-    English), then the person's own article links; a news search only when that is still too little."""
+    """Read the supplied articles or discover a Wikipedia reference for the exact subject."""
+    from urllib.parse import urlsplit
+
     import wiki_sources
 
     parts: list[str] = []
     used: list[str] = []
-    wiki = wiki_sources.fetch_topic(topic)
+
+    own = [(urlsplit(url).netloc, url, fetch_news.fetch_article_text(url)) for url in (urls or [])[:limit]]
+    own = [report for report in own if report[2]]
+    wiki = wiki_sources.discover_topic(topic) if not own else None
     if wiki:
         parts.append(wiki["text"])
-        used += wiki["urls"]
-    own = [r for r in topic_reports(topic, urls, limit) if r[1] in (urls or [])] if urls else []
+        used.extend(wiki["urls"])
     if not wiki and not own:
-        own = topic_reports(topic, urls, limit)  # no Wikipedia page and no links: fall back to a news search
+        # Generic news-search results are too easily mistaken for biographical references.
+        return "", []
     for i, (host, url, text) in enumerate(own, 1):
-        parts.append(f"[Report {i} from {host}]\n{text}")
+        parts.append(f"[Report {i} from {host}]\n{text[:3000]}")
         used.append(url)
     return "\n\n".join(parts)[: fetch_news.MAX_COMBINED_CHARS], used
 
@@ -154,7 +158,8 @@ EXPLAINER_HELP = """# MahaSpark explainer script. Edit anything, save, then run:
 
 def explainer_to_text(ex: dict, sources: list[str]) -> str:
     notes = [f"# FACT-CHECK NOTE (check this, then delete the line): {n}" for n in ex.get("fact_notes", [])]
-    out = [EXPLAINER_HELP, *notes, "", f"TITLE: {ex['title']}", f"THUMB: {ex.get('thumb_text', '')}", f"CAPTION: {ex.get('social_caption', '')}",
+    requested = [f"# Requested topic: {ex['requested_topic']}"] if ex.get("requested_topic") else []
+    out = [EXPLAINER_HELP, *requested, *notes, "", f"TITLE: {ex['title']}", f"THUMB: {ex.get('thumb_text', '')}", f"CAPTION: {ex.get('social_caption', '')}",
            f"KEYWORDS: {', '.join(ex.get('seo_keywords', []))}", f"MOOD: {ex.get('audio_mood', 'neutral')}",
            f"SOURCES: {' | '.join(sources)}", ""]
     for n, scene in enumerate(ex["scenes"], 1):

@@ -1,4 +1,4 @@
-"""Auto-cut a 9:16 Short (30-58 s) from a finished explainer or quiz, sent to Telegram.
+"""Auto-cut a 9:16 Short (15-30 s) from a finished explainer or quiz, sent to Telegram.
 
 ``pick_clip`` chooses a run of whole scenes from ``long.json`` props (no model call, deterministic). ``make_short`` writes
 ``long_short.json`` (the same props plus a ``clip`` window) and renders composition ``MahaSparkLongShort``: the title on
@@ -13,6 +13,7 @@ import os
 import subprocess
 from pathlib import Path
 
+import media_validation
 from config import (
     LONG_SHORT_COMPOSITION_ID,
     LONG_SHORT_JSON,
@@ -21,7 +22,7 @@ from config import (
     REMOTION_DIR,
 )
 
-MIN_SECONDS, MAX_SECONDS, TARGET_SECONDS = 28.0, 58.0, 40.0
+MIN_SECONDS, MAX_SECONDS, TARGET_SECONDS = 15.0, 30.0, 24.0
 
 # how interesting a scene is as a Short (the hook and the punchy graphics first)
 KIND_WEIGHT = {
@@ -65,7 +66,7 @@ def make_short(props: dict, output: Path = LONG_SHORT_PATH, crf: int = 24) -> Pa
     """Render the Short; returns its path, or None when no clip fits or the render fails."""
     clip = pick_clip(props)
     if not clip:
-        print("ℹ️ No 30-58 s run of scenes for a Short; skipped.")
+        print("ℹ️ No 15-30 s run of scenes for a Short; skipped.")
         return None
     short_props = {**props, "clip": {"start": clip["start"], "end": clip["end"]}}
     LONG_SHORT_JSON.parent.mkdir(parents=True, exist_ok=True)
@@ -82,6 +83,7 @@ def make_short(props: dict, output: Path = LONG_SHORT_PATH, crf: int = 24) -> Pa
     if result.returncode != 0 or not os.path.exists(output):
         print(f"⚠️ Short render failed (exit {result.returncode}); the long video is unaffected.")
         return None
+    media_validation.video(Path(output), media_validation.SHORT, (9, 16))
     return Path(output)
 
 
@@ -90,6 +92,7 @@ def send_short(path: Path, title: str, label: str) -> None:
     import send_telegram
 
     try:
+        media_validation.video(path, media_validation.SHORT, (9, 16))
         send_telegram.send_video_file(path, f"📱 {label} Short: {title}")
     except Exception as exc:  # noqa: BLE001
         print(f"⚠️ Short not sent to Telegram: {exc}")

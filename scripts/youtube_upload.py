@@ -8,6 +8,7 @@ videos; the video is still uploaded and can be made public by hand in YouTube St
 
 from __future__ import annotations
 
+import re
 import time
 from pathlib import Path
 
@@ -147,58 +148,92 @@ def refresh_error_message(status: int, body: dict, raw: str = "") -> str:
     return text + hints.get(code, "")
 
 
+class UploadNotStarted(RuntimeError):
+    """There is no video upload to reconcile; no media request was made."""
+
+
+def _upload_result(response) -> str:
+    video_id = response.json().get("id")
+    if not video_id:
+        raise RuntimeError("YouTube accepted the upload but returned no video ID.")
+    return f"https://www.youtube.com/watch?v={video_id}"
+
+
+def _received_bytes(response, size: int) -> int:
+    sent = response.headers.get("Range", "")
+    if not sent:
+        return 0
+    match = re.fullmatch(r"bytes=0-(\d+)", sent)
+    if not match or not 0 <= int(match.group(1)) < size:
+        raise RuntimeError("YouTube returned an invalid resumable byte range.")
+    return int(match.group(1)) + 1
+
+
 def upload_video(video_path: Path, title: str, description: str, tags: list[str], max_retries: int = 4) -> str:
-    """Upload ``video_path`` and return the watch URL. Raises YouTubeUnavailable without credentials."""
+    """Upload within one resumable session. An ambiguous chunk is reconciled before more bytes are sent."""
     client_id, client_secret, refresh = credentials()
     video_path = Path(video_path)
-    size = video_path.stat().st_size
-    token = access_token(client_id, client_secret, refresh)
-    headers = {"Authorization": f"Bearer {token}"}
-
-    init = requests.post(
-        UPLOAD_URL,
-        params={"uploadType": "resumable", "part": "snippet,status"},
-        headers={**headers, "X-Upload-Content-Type": "video/mp4", "X-Upload-Content-Length": str(size)},
-        json=build_metadata(title, description, tags),
-        timeout=60,
-    )
+    try:
+        size = video_path.stat().st_size
+    except OSError as exc:
+        raise UploadNotStarted("Video file is unavailable.") from exc
+    if not size:
+        raise UploadNotStarted("Video file is empty.")
+    try:
+        token = access_token(client_id, client_secret, refresh)
+        headers = {"Authorization": f"Bearer {token}"}
+        init = requests.post(
+            UPLOAD_URL, params={"uploadType": "resumable", "part": "snippet,status"},
+            headers={**headers, "X-Upload-Content-Type": "video/mp4", "X-Upload-Content-Length": str(size)},
+            json=build_metadata(title, description, tags), timeout=60,
+        )
+    except (requests.RequestException, RuntimeError, ValueError) as exc:
+        raise UploadNotStarted("YouTube authentication or session creation failed.") from exc
     if init.status_code != 200 or not init.headers.get("Location"):
-        raise RuntimeError(f"YouTube upload could not start: HTTP {init.status_code} {init.text[:300]}")
+        raise UploadNotStarted(f"YouTube upload could not start: HTTP {init.status_code}.")
     session_url = init.headers["Location"]
 
-    offset, failures = 0, 0
-    with open(video_path, "rb") as handle:
+    offset, failures, reconcile = 0, 0, False
+    with video_path.open("rb") as handle:
         while True:
-            handle.seek(offset)
-            chunk = handle.read(CHUNK_BYTES)
-            end = offset + len(chunk) - 1
+            if reconcile:
+                chunk = b""
+                byte_range = f"bytes */{size}"
+            else:
+                handle.seek(offset)
+                chunk = handle.read(CHUNK_BYTES)
+                if not chunk:
+                    raise RuntimeError("No video bytes remain but YouTube has not confirmed completion.")
+                byte_range = f"bytes {offset}-{offset + len(chunk) - 1}/{size}"
             try:
-                resp = requests.put(
-                    session_url,
-                    data=chunk,
-                    headers={**headers, "Content-Length": str(len(chunk)), "Content-Range": f"bytes {offset}-{end}/{size}"},
-                    timeout=300,
-                )
-            except requests.RequestException as exc:
-                failures += 1
-                if failures > max_retries:
-                    raise RuntimeError(f"YouTube upload failed: {exc}") from exc
-                time.sleep(2 * failures)
-                continue
-            if resp.status_code in (200, 201):
-                video_id = resp.json().get("id")
-                if not video_id:
-                    raise RuntimeError("YouTube accepted the upload but returned no video id.")
-                return f"https://www.youtube.com/watch?v={video_id}"
-            if resp.status_code == 308:  # chunk stored, send the next one
-                failures = 0
-                sent = resp.headers.get("Range", "")
-                offset = int(sent.split("-")[-1]) + 1 if "-" in sent else offset + len(chunk)
-                continue
+                response = requests.put(session_url, data=chunk,
+                                        headers={**headers, "Content-Length": str(len(chunk)), "Content-Range": byte_range},
+                                        timeout=300)
+            except requests.RequestException:
+                response = None
+            if response is not None:
+                status = response.status_code
+                if status in (200, 201):
+                    return _upload_result(response)
+                if status == 308:
+                    received = _received_bytes(response, size)
+                    if not reconcile and received > offset:
+                        failures = 0
+                    elif not reconcile:
+                        failures += 1
+                    if failures > max_retries:
+                        raise RuntimeError("YouTube upload made no progress.")
+                    offset = received
+                    reconcile = offset == size
+                    if not reconcile:
+                        continue
+                elif status < 500 and status not in (408, 429):
+                    raise RuntimeError(f"YouTube upload did not confirm publication: HTTP {status}.")
             failures += 1
-            if resp.status_code < 500 or failures > max_retries:
-                raise RuntimeError(f"YouTube upload failed: HTTP {resp.status_code} {resp.text[:300]}")
-            time.sleep(2 * failures)
+            if failures > max_retries:
+                raise RuntimeError("YouTube upload did not confirm publication after bounded session recovery.")
+            reconcile = True
+            time.sleep(min(2 * failures, 8))
 
 
 def set_thumbnail(video_url: str, image_path: Path) -> bool:
