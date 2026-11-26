@@ -200,6 +200,30 @@ def _squash(text: str) -> str:
     return re.sub(r"[\s\"'“”‘’]+", "", str(text or ""))
 
 
+# Original icon drawn next to a key figure (remotion/src/FigureIcon.tsx), chosen from the figure and its label.
+# First match wins; no match = "burst". Plain words only, nothing that would suggest a face for sensitive stories.
+FIGURE_ICONS = (
+    ("percent", ("%", "टक्के")),
+    ("rupee", ("₹", "रुपये", "कोटी", "निधी", "अनुदान", "कर्ज", "तरतूद", "दर")),
+    ("people", ("लोक", "नागरिक", "विद्यार्थी", "शेतकरी", "कर्मचारी", "मतदार", "रुग्ण", "प्रवासी", "महिला", "जण", "कुटुंब")),
+    ("road", ("किमी", "किलोमीटर", "रस्ता", "रस्ते", "मार्ग", "मेट्रो", "महामार्ग", "पूल", "रेल्वे")),
+    ("drop", ("पाणी", "धरण", "पाऊस", "मिमी", "टीएमसी", "टँकर", "जलसाठा")),
+    ("bolt", ("वीज", "मेगावॅट", "युनिट", "ऊर्जा")),
+    ("cross", ("आरोग्य", "रुग्णालय", "लस", "खाट", "औषध")),
+    ("wheat", ("शेती", "हेक्टर", "पीक", "कापूस", "ऊस", "साखर", "टन", "सोयाबीन")),
+    ("building", ("घर", "इमारत", "शाळा", "प्रकल्प", "योजना", "महाविद्यालय")),
+)
+
+
+def figure_icon(value: str, label: str) -> str:
+    """Icon name for a stat graphic, from its figure and label ('burst' when nothing fits)."""
+    text = f"{value} {label}"
+    for name, words in FIGURE_ICONS:
+        if any(w in text for w in words):
+            return name
+    return "burst"
+
+
 def clean_motion(raw, source_text: str) -> dict:
     """One animated graphic for a scene, or {} when it is not fully backed by the source.
 
@@ -222,7 +246,10 @@ def clean_motion(raw, source_text: str) -> dict:
             return {}
     else:
         return {}
-    return {"type": kind, "value": value, "label": label}
+    result = {"type": kind, "value": value, "label": label}
+    if kind == "stat":
+        result["icon"] = figure_icon(value, label)
+    return result
 
 
 def clean_public_figure(value, mood: str) -> str:

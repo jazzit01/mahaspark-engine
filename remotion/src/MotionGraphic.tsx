@@ -1,5 +1,6 @@
 import React from 'react';
 import {Easing, interpolate, spring, useCurrentFrame, useVideoConfig} from 'remotion';
+import {FigureIcon} from './FigureIcon';
 import {Palette} from './theme';
 import {SceneMotion} from './types';
 
@@ -28,6 +29,8 @@ const useEntrance = (delay: number) => {
 /** A key figure: counts up from zero (with a filling bar for percentages). */
 const Stat: React.FC<Props> = ({motion, palette, delay}) => {
   const {local, enter} = useEntrance(delay);
+  const {width, height} = useVideoConfig();
+  const wide = width > height;
   const match = NUMBER.exec(motion.value);
   const target = match ? parseFloat(toLatin(match[1]).replace(/,/g, '')) : 0;
   const decimals = match && match[1].includes('.') ? match[1].split('.')[1].length : 0;
@@ -36,10 +39,12 @@ const Stat: React.FC<Props> = ({motion, palette, delay}) => {
   const progress = interpolate(local, [0, 42], [0, 1], {easing: Easing.out(Easing.cubic), extrapolateRight: 'clamp'});
   const shown = toDeva((target * progress).toLocaleString('en-IN', {minimumFractionDigits: decimals, maximumFractionDigits: decimals}));
   const isPercent = motion.value.includes('%');
-  const fill = Math.min(Math.max(target, 0), 100) * progress;
 
-  return (
-    <div style={{opacity: enter, transform: `translateY(${interpolate(enter, [0, 1], [30, 0])}px)`, marginLeft: 44}}>
+  const icon = (
+    <FigureIcon icon={motion.icon} local={local} color={palette.accent} color2={palette.accent2} percent={isPercent ? target : 0} size={wide ? 170 : 120} />
+  );
+  const figure = (
+    <div style={{minWidth: 0}}>
       <div style={{display: 'flex', alignItems: 'baseline', gap: 14, color: palette.accent, textShadow: palette.textShadow}}>
         {prefix ? <span style={{fontSize: 64, fontWeight: 800}}>{prefix}</span> : null}
         <span style={{fontSize: 132, fontWeight: 800, lineHeight: 1, letterSpacing: -2}}>{match ? shown : motion.value}</span>
@@ -48,11 +53,24 @@ const Stat: React.FC<Props> = ({motion, palette, delay}) => {
       {motion.label ? (
         <div style={{marginTop: 8, fontSize: 38, fontWeight: 700, color: palette.textPrimary, textShadow: palette.textShadow}}>{motion.label}</div>
       ) : null}
-      {isPercent ? (
-        <div style={{marginTop: 18, height: 16, borderRadius: 8, background: palette.cardBorder, overflow: 'hidden', width: '86%'}}>
-          <div style={{width: `${fill}%`, height: '100%', borderRadius: 8, background: palette.accent}} />
-        </div>
-      ) : null}
+    </div>
+  );
+
+  // wide video: icon beside the figure; vertical video: icon above it (the figure needs the full width)
+  return (
+    <div
+      style={{
+        opacity: enter,
+        transform: `translateY(${interpolate(enter, [0, 1], [30, 0])}px)`,
+        marginLeft: 44,
+        display: 'flex',
+        flexDirection: wide ? 'row' : 'column',
+        alignItems: wide ? 'center' : 'flex-start',
+        gap: wide ? 36 : 10,
+      }}
+    >
+      {icon}
+      {figure}
     </div>
   );
 };

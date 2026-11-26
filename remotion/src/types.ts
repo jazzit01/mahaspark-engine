@@ -30,6 +30,8 @@ export type SceneMotion = {
   type: 'stat' | 'place' | 'quote';
   value: string;
   label?: string;
+  /** Stat graphics only: which original icon (FigureIcon.tsx) to draw next to the figure. */
+  icon?: string;
 };
 
 export type StoryScene = {

@@ -318,3 +318,9 @@ Workflow `quiz.yml` step `stems` (same `file` input as produce; no upload, no Te
 - Off unless the repository VARIABLE `ENABLE_FACEBOOK` is exactly `true`. Secrets: `FACEBOOK_PAGE_ID`, `FACEBOOK_PAGE_ACCESS_TOKEN` (a Page access token with `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`; a long-lived one does not expire). Limit: 30 API posts per Page per 24 h.
 - **Instagram is paused**: `runner.yml` sets `ENABLE_INSTAGRAM: 'false'` on purpose. To resume, replace that line with `ENABLE_INSTAGRAM: ${{ vars.ENABLE_INSTAGRAM }}` and set the variable to `true`. The code in `publish_instagram.py` is unchanged.
 - Not verified here (no network, no account): the live Meta calls; check the first run's `[Facebook]` log lines.
+
+### Key-figure illustrations (reels)
+
+- A `stat` motion graphic now draws an original line icon next to the figure (`remotion/src/FigureIcon.tsx`: percent ring that fills to the figure, rupee coin, people, road, water drop, bolt, health cross, wheat, building, generic burst), drawn in with SVG stroke animation. The icon is chosen deterministically in Python: `editorial_engine.figure_icon(value, label)` over the ordered `FIGURE_ICONS` table (percent first, no match = `burst`), saved as `motion["icon"]` by `clean_motion` (stat only). Extend the table and its test, not the prompt. Wide video: icon beside the number; vertical video: icon above it. The old thin percent bar is replaced by the ring.
+- The map pin ("place") stays removed on request; no maps are drawn in reels. People icons are generic outlines (no faces).
+- Not verified here (no real render, `tsc` needs `npm install`): how the icons and the longer stat row fit the safe zones, especially long figures like `₹१,२०० कोटी` in the vertical Short.
