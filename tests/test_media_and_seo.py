@@ -202,7 +202,7 @@ MOTION_SOURCE = "पुणे महापालिकेने 1,200 कोट�
 
 def test_stat_motion_needs_a_figure_that_is_in_the_source():
     ok = ee.clean_motion({"type": "stat", "value": "₹1,200 कोटी", "label": "तरतूद"}, MOTION_SOURCE)
-    assert ok == {"type": "stat", "value": "₹१,२०० कोटी", "label": "तरतूद"}  # shown in Devanagari digits
+    assert ok == {"type": "stat", "value": "₹१,२०० कोटी", "label": "तरतूद", "icon": "rupee"}  # shown in Devanagari digits
     assert ee.clean_motion({"type": "stat", "value": "₹900 कोटी"}, MOTION_SOURCE) == {}
     assert ee.clean_motion({"type": "stat", "value": "मोठा निधी"}, MOTION_SOURCE) == {}
 
