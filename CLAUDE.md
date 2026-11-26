@@ -319,6 +319,11 @@ Workflow `quiz.yml` step `stems` (same `file` input as produce; no upload, no Te
 - **Instagram is paused**: `runner.yml` sets `ENABLE_INSTAGRAM: 'false'` on purpose. To resume, replace that line with `ENABLE_INSTAGRAM: ${{ vars.ENABLE_INSTAGRAM }}` and set the variable to `true`. The code in `publish_instagram.py` is unchanged.
 - Not verified here (no network, no account): the live Meta calls; check the first run's `[Facebook]` log lines.
 
+### Motion behind the headline (reels)
+
+- `remotion/src/HeadlineMotion.tsx` is rendered inside every scene's Sequence, BEHIND the `SceneCard` text and above the studio/footage: two soft colour glows drifting at different speeds (a slow parallax, direction alternates by scene), one light sweep as the scene arrives (about 1.5 s) and a glow right behind the headline that swells with the anchor's voice (`speechEnvelope`: 1 on a spoken word, easing to 0 over 0.35 s of silence; a continuous function of time, so no flicker). Pure CSS gradients (cheap), deterministic (`random(seed)`, no `Math.random`), no text and no badge. Over footage/photos (`overMedia`) everything is about half as strong so the picture stays clean. It uses the story's `words`, so it also works for the voiceless fallback (estimated timings).
+- Not verified here (no real render): how strong the glows and the sweep look on each studio; tune the opacities in `HeadlineMotion.tsx` (0.05-0.2 range) if too busy.
+
 ### Key-figure illustrations (reels)
 
 - A `stat` motion graphic now draws an original line icon next to the figure (`remotion/src/FigureIcon.tsx`: percent ring that fills to the figure, rupee coin, people, road, water drop, bolt, health cross, wheat, building, generic burst), drawn in with SVG stroke animation. The icon is chosen deterministically in Python: `editorial_engine.figure_icon(value, label)` over the ordered `FIGURE_ICONS` table (percent first, no match = `burst`), saved as `motion["icon"]` by `clean_motion` (stat only). Extend the table and its test, not the prompt. Wide video: icon beside the number; vertical video: icon above it. The old thin percent bar is replaced by the ring.
