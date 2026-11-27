@@ -89,7 +89,7 @@ def verify_story(story: dict, references: str) -> None:
 def write_script(title: str, url: str, references: str, assessment: event_memory.Assessment,
                  format: str, previous: dict | None = None, focus: str = "", word_limit: int | None = None) -> dict:
     long = format == "news"
-    lo, hi, count = (570, 690, 18) if long else (32, 62, 4)
+    lo, hi, count = (570, 690, 18) if long else (25, 100, 4)
     if word_limit is not None:
         hi, lo = word_limit, min(lo, word_limit - 40)
     if long and not assessment.long_form_value:

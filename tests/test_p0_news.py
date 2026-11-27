@@ -130,13 +130,13 @@ def test_semantic_comparison_and_legitimate_development(monkeypatch):
     assert seen == ["greenlights water project", "awards school contract", "court stays implementation"]
 
 
-def test_material_development_needs_independent_evidence(monkeypatch):
+def test_material_development_needs_a_new_verified_fact(monkeypatch):
     ledger = fixed_ledger(Book())
     key = ledger.reserve(event(), "short")
     ledger.begin_publish([key], "short")
     ledger.change([key], "published")
     monkeypatch.setattr(memory, "generate_json", lambda **kwargs: reply("development", key, "new quote", "quote"))
-    with pytest.raises(memory.DuplicateEvent, match="independently"):
+    with pytest.raises(memory.DuplicateEvent, match="verified material development"):
         ledger.reserve(event("new quotes on water plan", facts=["A new quotation."]), "news")
 
 
@@ -247,8 +247,8 @@ def test_explicit_companion_has_a_published_parent_and_only_one_slot():
         ledger.reserve_companion(event(), original, "Another angle")
 
 
-@pytest.mark.parametrize(("seconds", "route"), [(14, "skip"), (15, "short"), (30, "short"),
-                                                  (31, "condense"), (60, "condense"), (61, "news")])
+@pytest.mark.parametrize(("seconds", "route"), [(9, "skip"), (10, "short"), (30, "short"),
+                                                  (31, "short"), (60, "short"), (61, "news")])
 def test_duration_routing_boundaries(seconds, route):
     assert media.reel_route(seconds) == route
 
@@ -285,17 +285,7 @@ def test_ffprobe_reads_real_file_and_rejects_aspect_and_missing_audio(tmp_path):
         media.video(silent, media.SHORT, (9, 16))
 
 
-def test_measured_condensation_is_bounded_and_only_final_copy_is_rendered(monkeypatch):
-    inputs = iter((31, 29))
-    drafts = []
-    monkeypatch.setattr(news, "voice", lambda story: next(inputs))
-    monkeypatch.setattr(news, "write_script", lambda *args, **kwargs: drafts.append(kwargs) or {"id": len(drafts)})
-    monkeypatch.setattr(news, "render", lambda story, format: story)
-    assert news.produce_short("title", "url", "ref", assessment(words=100)) == {"id": 2}
-    assert drafts[1]["previous"] == {"id": 1}
-
-
-@pytest.mark.parametrize("seconds", [14, 31, 60, 61])
+@pytest.mark.parametrize("seconds", [9, 61])
 def test_never_renders_an_invalid_short(monkeypatch, seconds):
     monkeypatch.setattr(news, "voice", lambda story: seconds)
     monkeypatch.setattr(news, "write_script", lambda *args, **kwargs: {})

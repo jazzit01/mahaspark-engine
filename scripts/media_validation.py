@@ -4,7 +4,7 @@ import math
 import subprocess
 from pathlib import Path
 
-SHORT = (15, 30)
+SHORT = (10, 60)  # as before P0: a vertical Short may run up to a minute
 NEWS = (240, 300)
 
 
@@ -80,6 +80,4 @@ def reel_route(seconds: float) -> str:
         return "skip"
     if seconds <= SHORT[1]:
         return "short"
-    if seconds <= 60:
-        return "condense"
     return "news"

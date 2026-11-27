@@ -9,19 +9,19 @@ and at most four can reserve publication on an IST date. Interrupted uploads cou
 The remaining 05:00–20:59 IST hours can run the vertical news pipeline.
 The bulletin is available through manual dispatch. Quiz and explainer retain their existing approval workflows.
 
-RSS supplies leads. Production requires readable material from at least two publishers and an editorial assessment
-of independence, corroboration, Maharashtra relevance and public value. Landscape candidates are prioritized by
+RSS supplies leads. Production requires one readable report from a credible publisher (no second source is required) and an editorial
+assessment of genuineness, Maharashtra relevance and public value. Unverified claims are attributed, never stated as fact. Landscape candidates are prioritized by
 Maharashtra politics, crime and accidents, government decisions, then public interest. A slot can go unused.
 The script gets a separate factual and editorial check before synthesis. Long-form scripts need substantive verified
 context, implications and public impact. Vertical scripts estimated to need 31–60 seconds are condensed before TTS.
 A measured overrun gets at most one additional condensation and synthesis. Stories exceeding 60 seconds can be
 handed off to that day's landscape slots when the sources support a full feature.
 
-The vertical output requires actual narration and a playable 9:16 video of 15–30 seconds.
+The vertical output requires actual narration and a playable 9:16 video of 10–60 seconds.
 Landscape news requires actual narration and a playable 16:9 video of 240–300 seconds.
 FFprobe checks metadata and readable packets before upload. The existing one-second studio tail and eight-second landscape outro fit within the output cap;
 only those decorative segments can be shortened to fit. Optional quiz
-and evergreen Shorts also use the 15–30-second media gate. Their long-form timings are unchanged.
+and evergreen Shorts also use the 10–60-second media gate. Their long-form timings are unchanged.
 
 ## Credentials and rollout
 
@@ -33,7 +33,7 @@ and evergreen Shorts also use the 15–30-second media gate. Their long-form tim
   fact-check must both succeed. Gemini TTS supplies the voice audio.
 - Keep `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, and `YOUTUBE_REFRESH_TOKEN` with the
   existing upload scope. Review `YOUTUBE_PRIVACY` before public release. The default is private.
-  The runner defaults `YOUTUBE_UPLOAD_SHORTS` to `0` to leave more quota for landscape videos.
+  The runner defaults `YOUTUBE_UPLOAD_SHORTS` to `1` (Shorts upload to YouTube); set the variable to `0` to turn it off.
   Review the combined YouTube quota before enabling Shorts or manually dispatching a bulletin
   in addition to the four news slots, quiz and explainer.
 - Keep the existing Telegram and optional social-publishing settings. P0 adds no secrets.
