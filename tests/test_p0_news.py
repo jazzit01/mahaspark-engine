@@ -130,13 +130,13 @@ def test_semantic_comparison_and_legitimate_development(monkeypatch):
     assert seen == ["greenlights water project", "awards school contract", "court stays implementation"]
 
 
-def test_material_development_needs_independent_evidence(monkeypatch):
+def test_material_development_needs_a_new_verified_fact(monkeypatch):
     ledger = fixed_ledger(Book())
     key = ledger.reserve(event(), "short")
     ledger.begin_publish([key], "short")
     ledger.change([key], "published")
     monkeypatch.setattr(memory, "generate_json", lambda **kwargs: reply("development", key, "new quote", "quote"))
-    with pytest.raises(memory.DuplicateEvent, match="independently"):
+    with pytest.raises(memory.DuplicateEvent, match="verified material development"):
         ledger.reserve(event("new quotes on water plan", facts=["A new quotation."]), "news")
 
 
