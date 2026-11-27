@@ -1,4 +1,4 @@
-"""Auto-cut a 9:16 Short (15-30 s) from a finished explainer or quiz, sent to Telegram.
+"""Auto-cut a 9:16 Short (30-58 s) from a finished explainer or quiz, sent to Telegram.
 
 ``pick_clip`` chooses a run of whole scenes from ``long.json`` props (no model call, deterministic). ``make_short`` writes
 ``long_short.json`` (the same props plus a ``clip`` window) and renders composition ``MahaSparkLongShort``: the title on
@@ -22,7 +22,7 @@ from config import (
     REMOTION_DIR,
 )
 
-MIN_SECONDS, MAX_SECONDS, TARGET_SECONDS = 15.0, 30.0, 24.0
+MIN_SECONDS, MAX_SECONDS, TARGET_SECONDS = 28.0, 58.0, 40.0
 
 # how interesting a scene is as a Short (the hook and the punchy graphics first)
 KIND_WEIGHT = {
@@ -66,7 +66,7 @@ def make_short(props: dict, output: Path = LONG_SHORT_PATH, crf: int = 24) -> Pa
     """Render the Short; returns its path, or None when no clip fits or the render fails."""
     clip = pick_clip(props)
     if not clip:
-        print("ℹ️ No 15-30 s run of scenes for a Short; skipped.")
+        print("ℹ️ No 30-58 s run of scenes for a Short; skipped.")
         return None
     short_props = {**props, "clip": {"start": clip["start"], "end": clip["end"]}}
     LONG_SHORT_JSON.parent.mkdir(parents=True, exist_ok=True)

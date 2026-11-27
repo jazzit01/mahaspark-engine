@@ -2,7 +2,7 @@
 
 MahaSpark publishes verified Marathi news for Maharashtra. The landscape news pipeline makes one
 240–300-second feature in an available IST slot, with a hard limit of four per IST day.
-Vertical news uses 15–30-second Shorts. The bulletin is manual. See [P0 news operations](docs/p0-news.md)
+Vertical news uses 10–60-second Shorts (25–100 words). The bulletin is manual. See [P0 news operations](docs/p0-news.md)
 for the schedule, shared event history, publishing checks and recovery.
 
 ## Layout
@@ -53,8 +53,8 @@ A model slip is caught and the model gets one repair attempt with the exact erro
 - **Banned phrases** (`FORBIDDEN_PHRASES`): अधिकृत माहितीनुसार, वृत्तानुसार, सूत्रांनी दिलेल्या माहितीनुसार and similar
   agency clichés, plus old filler/clickbait lines. Extend that list rather than adding prompt-only rules.
 - **On-screen numbers** in `headline`/`description` must appear in the source text (no invented figures).
-- **Length.** Production news measures WAV and rendered video durations before publishing. Short-form is strictly
-  15–30 seconds. Stories longer than 60 seconds are considered for 240–300 seconds of 16:9 news if the
+- **Length.** Production news measures WAV and rendered video durations before publishing. A vertical Short runs
+  10–60 seconds (25–100 words). Stories longer than 60 seconds are considered for 240–300 seconds of 16:9 news if the
   sources support it. The landscape composition retains its original outro.
 - **Visuals (reels: OFF by default).** `pipeline.add_visuals` does nothing unless `REEL_VISUALS=1`: reels use the animated studios only because photos did not match the news. The rest of this bullet and `media_fetch.py` still describe the optional/bulletin path. The model writes a generic English `visual_query` per scene and, only for a named public figure acting in
   their public role, `public_figure`. `clean_public_figure` drops it for serious/crime/breaking stories (never a

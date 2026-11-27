@@ -17,11 +17,11 @@ context, implications and public impact. Vertical scripts estimated to need 31�
 A measured overrun gets at most one additional condensation and synthesis. Stories exceeding 60 seconds can be
 handed off to that day's landscape slots when the sources support a full feature.
 
-The vertical output requires actual narration and a playable 9:16 video of 15–30 seconds.
+The vertical output requires actual narration and a playable 9:16 video of 10–60 seconds.
 Landscape news requires actual narration and a playable 16:9 video of 240–300 seconds.
 FFprobe checks metadata and readable packets before upload. The existing one-second studio tail and eight-second landscape outro fit within the output cap;
 only those decorative segments can be shortened to fit. Optional quiz
-and evergreen Shorts also use the 15–30-second media gate. Their long-form timings are unchanged.
+and evergreen Shorts also use the 10–60-second media gate. Their long-form timings are unchanged.
 
 ## Credentials and rollout
 
