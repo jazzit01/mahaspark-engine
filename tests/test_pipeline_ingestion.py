@@ -191,3 +191,25 @@ def test_stale_entries_are_detected():
     assert not fetch_news.is_stale(fresh, now=now, max_hours=36)
     assert fetch_news.is_stale(old, now=now, max_hours=36)
     assert not fetch_news.is_stale({}, now=now, max_hours=36)  # undated entries pass
+
+
+def test_screened_out_rows_do_not_use_up_the_production_allowance(monkeypatch):
+    from llm_providers import ContentRejected
+    from sheet_queue import PendingRow
+
+    queue = RunQueue([PendingRow(i, f"शीर्षक {i} - सारांश", "https://pub.com/x") for i in (1, 2, 3, 4)])
+    monkeypatch.setattr(pipeline.SheetQueue, "connect", classmethod(lambda cls: queue))
+    monkeypatch.setattr(pipeline, "queue_new_items", lambda q: 0)
+    monkeypatch.setattr(pipeline.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(pipeline, "MAX_STORIES_PER_RUN", 1)
+    monkeypatch.setattr(pipeline, "MAX_ATTEMPTS_PER_RUN", 6)
+
+    def process(_queue, _ledger, row):
+        if row.index < 3:
+            raise ContentRejected("same event")
+        return "SUCCESS - Telegram: OK"
+
+    monkeypatch.setattr(pipeline, "process_row", process)
+    assert pipeline.run_queue(queue, object()) == 0
+    assert queue.statuses[1] == queue.statuses[2] == "REJECTED"
+    assert queue.statuses[3] == "DONE" and 4 not in queue.statuses  # one story produced, then the allowance is used

@@ -32,10 +32,11 @@ from config import COMPOSITION_ID, OUT_DIR, SHORT_COMPOSITION_ID, REEL_PATH, REM
 from llm_providers import ContentRejected, LLMUnavailableError
 from sheet_queue import DONE, ERROR, PENDING, PROCESSING, REJECTED, SheetQueue
 
-MAX_NEW_ITEMS_PER_RUN = 2
+MAX_NEW_ITEMS_PER_RUN = 6  # screening is cheap; most feed items are repeats or not news, so queue a few more
 MIN_CONTEXT_CHARS = 80  # title + RSS summary needed when the article page cannot be read
 MAX_CANDIDATES_TO_CHECK = 15  # feed items inspected per run while looking for readable articles
 MAX_STORIES_PER_RUN = int(os.getenv("MAX_STORIES_PER_RUN", "2") or "2")  # matches the 2 items queued per run
+MAX_ATTEMPTS_PER_RUN = int(os.getenv("MAX_ATTEMPTS_PER_RUN", "6") or "6")  # rows screened per run, rejected ones included
 RUN_BUDGET_SECONDS = int(os.getenv("RUN_BUDGET_SECONDS", "1800") or "1800")  # no new story is started after this
 
 
@@ -290,11 +291,15 @@ def run_queue(queue, ledger) -> int:
     queue_new_items(queue)
     editorial_engine.set_avoid_theme(queue.last_theme())
 
-    processed = succeeded = errors = 0
+    processed = succeeded = errors = attempts = 0
     started = time.monotonic()
     for row in queue.pending_rows():
-        if processed >= MAX_STORIES_PER_RUN or (processed and time.monotonic() - started > RUN_BUDGET_SECONDS):
+        # Only stories that reach production count toward MAX_STORIES_PER_RUN. A row rejected at screening
+        # (duplicate, not news, unreadable) must not use up the run, or a feed full of repeats publishes nothing.
+        if (processed >= MAX_STORIES_PER_RUN or attempts >= MAX_ATTEMPTS_PER_RUN
+                or (processed and time.monotonic() - started > RUN_BUDGET_SECONDS)):
             break
+        attempts += 1
         processed += 1
         queue.set_status(row.index, PROCESSING)
         try:
@@ -302,7 +307,11 @@ def run_queue(queue, ledger) -> int:
             state = "DEFERRED" if note.startswith("Deferred") else DONE
             queue.set_status(row.index, state, note)
             succeeded += 1
-        except (ContentRejected, media_validation.InvalidMedia) as exc:
+        except ContentRejected as exc:
+            processed -= 1  # screened out cheaply; do not spend the run's production allowance
+            print(f"Skipped row {row.index}: {exc}")
+            queue.set_status(row.index, REJECTED, str(exc)[:240])
+        except media_validation.InvalidMedia as exc:
             print(f"Skipped row {row.index}: {exc}")
             queue.set_status(row.index, REJECTED, str(exc)[:240])
         except (LLMUnavailableError, event_memory.HistoryUnavailable) as exc:

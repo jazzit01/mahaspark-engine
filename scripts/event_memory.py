@@ -33,7 +33,7 @@ class DuplicateEvent(ContentRejected):
 
 
 class Event(BaseModel):
-    summary: str = Field(min_length=10, max_length=500)
+    summary: str = Field(min_length=10, max_length=1000)
     entities: list[str] = Field(min_length=1, max_length=12)
     location: str
     date: str
