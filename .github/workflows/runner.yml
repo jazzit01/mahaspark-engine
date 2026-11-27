@@ -126,7 +126,7 @@ jobs:
           YOUTUBE_PRIVACY: ${{ vars.YOUTUBE_PRIVACY }}
           NEWS_PUBLISH_HOURS_IST: ${{ vars.NEWS_PUBLISH_HOURS_IST }}
           NEWS_DISPATCH_TIME: ${{ needs.publishing-window.outputs.time }}
-          YOUTUBE_UPLOAD_SHORTS: ${{ vars.YOUTUBE_UPLOAD_SHORTS || '0' }}
+          YOUTUBE_UPLOAD_SHORTS: ${{ vars.YOUTUBE_UPLOAD_SHORTS || '1' }}
           YOUTUBE_UPLOAD_REELS: ${{ vars.YOUTUBE_UPLOAD_REELS }}
           YOUTUBE_SYNTHETIC_FLAG: ${{ vars.YOUTUBE_SYNTHETIC_FLAG }}
           # Stock footage per scene (free key from pexels.com/api). Unset = studio backgrounds only.
