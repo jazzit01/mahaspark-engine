@@ -262,9 +262,9 @@ def publish_short(ledger: event_memory.Ledger, reservation: str, queue: SheetQue
 def process_row(queue, ledger, row) -> str:
     import news
 
-    title, _, _ = row.raw_input.partition(" - ")
+    title, _, summary = row.raw_input.partition(" - ")
     url = fetch_news.resolve_article_url(row.source_url)
-    assessment, references = news.research(title, url, fetch_news.fetch_article_text(url))
+    assessment, references = news.research(title, url, fetch_news.fetch_article_text(url), summary)
     reservation = ledger.reserve(assessment.event, "short")
     try:
         try:

@@ -395,3 +395,24 @@ def test_assessment_checks_named_source_evidence(monkeypatch):
         memory.assess("headline", [])
     result.event.urls = [url for url, _ in reports]
     assert memory.assess("headline", reports).event.urls == result.event.urls
+
+
+def test_unreadable_publisher_page_falls_back_to_headline_and_summary(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(news.fetch_news, "related_sources", lambda *a, **k: [])
+    monkeypatch.setattr(news.event_memory, "assess",
+                        lambda title, reports: seen.setdefault("reports", reports) and SimpleNamespace(event=SimpleNamespace(urls=[reports[0][0]])))
+    title = "पुण्यात पाणीपुरवठा बंद राहणार"
+    summary = "महापालिकेने गुरुवारी शहरातील काही भागांत पाणीपुरवठा बंद राहील असे जाहीर केले आहे. दुरुस्तीच्या कामामुळे शुक्रवारी सकाळपर्यंत नागरिकांनी पाणी साठवून ठेवावे."
+    news.research(title, "https://example.com/a", "", summary)
+    assert title in seen["reports"][0][1] and summary in seen["reports"][0][1]
+
+
+def test_story_with_no_readable_text_and_no_summary_is_still_rejected():
+    with pytest.raises(ContentRejected):
+        news.research("लहान", "https://example.com/a", "", "")
+
+
+def test_readable_article_is_used_as_is():
+    article = "x" * 400
+    assert news.source_text("t", "s", article) == article
