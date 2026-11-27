@@ -42,8 +42,21 @@ def publishing_slot(now: datetime | None = None) -> str | None:
     return f"{local.hour:02d}" if local.hour in slots else None
 
 
-def research(title: str, url: str, article: str) -> tuple[event_memory.Assessment, str]:
-    if len(article) < 350 or not event_memory.canonical_url(url):
+MIN_SOURCE_CHARS = 120  # headline + RSS summary + any article text; the assessment judges whether it is enough
+
+
+def source_text(title: str, summary: str, article: str) -> str:
+    """The lead report: the article when the page could be read, else the headline and RSS summary (as before P0),
+    so one unreadable publisher page does not discard a story."""
+    if article and len(article) >= 350:
+        return article
+    lead = " ".join(part for part in (title.strip(), summary.strip()) if part)
+    return (lead + "\n\n" + article).strip() if article else lead
+
+
+def research(title: str, url: str, article: str, summary: str = "") -> tuple[event_memory.Assessment, str]:
+    article = source_text(title, summary, article)
+    if len(article) < MIN_SOURCE_CHARS or not event_memory.canonical_url(url):
         raise ContentRejected("Could not read a sufficiently detailed primary report.")
     if skip_news(title):
         raise ContentRejected("Story excluded by the channel's editorial policy.")
@@ -277,7 +290,7 @@ def run(slot: str) -> int:
             if event_memory.canonical_url(url) in deferred_urls:
                 continue
             try:
-                assessment, references = research(candidate.title, url, fetch_news.fetch_article_text(url))
+                assessment, references = research(candidate.title, url, fetch_news.fetch_article_text(url), candidate.summary)
                 if assessment.long_form_value:
                     eligible.append((candidate.title, url, references, assessment, None))
             except (ContentRejected, ContentFailed) as exc:
