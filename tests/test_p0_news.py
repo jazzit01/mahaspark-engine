@@ -386,7 +386,12 @@ def test_assessment_checks_named_source_evidence(monkeypatch):
                ("https://beta.example/b", "Independent coverage")]
     result = assessment(event(urls=["https://alpha.example/a", "https://not-a-source.example/a"]))
     monkeypatch.setattr(memory, "generate_json", lambda **kwargs: result.model_dump())
-    with pytest.raises(ContentRejected, match="two corroborating"):
+    assert memory.assess("headline", reports).event.urls == [reports[0][0]]
+    assert memory.assess("headline", reports[:1]).event.urls == [reports[0][0]]
+    result.event.urls = ["https://not-a-source.example/a"]
+    with pytest.raises(ContentRejected, match="supplied supporting source"):
         memory.assess("headline", reports)
+    with pytest.raises(ContentRejected, match="At least one readable source"):
+        memory.assess("headline", [])
     result.event.urls = [url for url, _ in reports]
     assert memory.assess("headline", reports).event.urls == result.event.urls
