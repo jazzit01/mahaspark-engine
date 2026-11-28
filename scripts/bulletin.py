@@ -3,7 +3,7 @@
     RSS -> ten items (headline + one context line + spoken sentences) -> per-item Gemini TTS -> Commons photos
         -> remotion/public/bulletin.json -> Remotion "MahaSparkBulletin" (one render) -> YouTube -> Telegram link
 
-Run ``python scripts/bulletin.py`` (manual only) or with ``--skip-render`` / ``--skip-upload`` /
+Run ``python scripts/bulletin.py`` (scheduled, 07:00 and 17:00 IST) or with ``--skip-render`` / ``--skip-upload`` /
 ``--skip-telegram`` for a local trial. Every story is a real, fresh feed item; nothing is invented.
 """
 
@@ -23,7 +23,6 @@ from pathlib import Path
 import align_timings
 import bulletin_editorial
 import editorial_engine
-import event_memory
 import fetch_news
 import media_fetch
 import send_telegram
@@ -39,7 +38,7 @@ from config import (
     THUMB_JSON,
     THUMB_PATH,
 )
-from llm_providers import ContentFailed, ContentRejected, LLMUnavailableError
+from llm_providers import ContentRejected, LLMUnavailableError
 from sheet_queue import IST, SheetQueue
 
 TARGET_ITEMS = int(os.getenv("BULLETIN_ITEMS", "10") or "10")
@@ -94,7 +93,7 @@ def gather_candidates(feeds: list[str] | None = None) -> list:
 # ----- 1. items --------------------------------------------------------------------------------
 
 
-def collect_items(known: set[str], candidates: list, want: int = TARGET_ITEMS, deadline: float | None = None, *, prepare=None) -> list[dict]:
+def collect_items(known: set[str], candidates: list, want: int = TARGET_ITEMS, deadline: float | None = None) -> list[dict]:
     """Write items from fresh candidates until ``want`` exist. Rejections and unreadable sources are skipped."""
     items: list[dict] = []
     seen_titles: list[str] = []
@@ -109,23 +108,12 @@ def collect_items(known: set[str], candidates: list, want: int = TARGET_ITEMS, d
         if url and url.lower() in known:
             continue
         article = fetch_news.fetch_article_text(url)
-        reservation = None
         try:
-            if prepare:
-                reservation, article = prepare(cand.title, url, article)
             item = bulletin_editorial.write_item(cand.title, cand.summary, article, url)
-            if reservation:
-                import factcheck
-
-                scene = {"kind": "bulletin", "headline": item["headline"], "subtitle": item["context"],
-                         "tts_text": item["tts_text"]}
-                if factcheck.unsupported_statements([scene], article):
-                    raise ContentRejected("The bulletin item contains unsupported claims.")
-                item["_reservation"] = reservation
         except ContentRejected as exc:
             print(f"⏭️ Not used ({str(exc)[:80]}): {cand.title[:60]}")
             continue
-        except (ValueError, ContentFailed) as exc:  # repair attempt also failed: skip this story, keep the bulletin going
+        except ValueError as exc:  # repair attempt also failed: skip this story, keep the bulletin going
             print(f"⏭️ Could not write a valid item ({str(exc)[:80]}): {cand.title[:60]}")
             continue
         twin = next((i for i in items if bulletin_editorial.same_event(item, i)), None)
@@ -378,33 +366,18 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     deadline = time.time() + RUN_BUDGET_SECONDS
+    slot_label, slot_id = slot_for()
+    queue = None
     try:
         queue = SheetQueue.connect()
-        with event_memory.Ledger.locked(queue) as ledger:
-            reservations = []
-            try:
-                return run_bulletin(args, queue, ledger, deadline, reservations)
-            finally:
-                ledger.abandon(reservations)
-    except (event_memory.HistoryUnavailable, RuntimeError) as exc:
-        print(f"Bulletin stopped: {exc}")
-        return 1
-
-
-def run_bulletin(args, queue, ledger, deadline, reservations) -> int:
-    import news
-
-    slot_label, slot_id = slot_for()
-
-    def prepare(title, url, article):
-        assessment, references = news.research(title, url, article)
-        key = ledger.reserve(assessment.event, "bulletin")
-        reservations.append(key)
-        return key, references
+        known = queue.bulletin_known_keys()
+    except Exception as exc:  # noqa: BLE001 - no Sheet means no cross-run de-duplication, not no bulletin
+        print(f"⚠️ Bulletin log unavailable, continuing without de-duplication: {exc}")
+        known = set()
 
     print("🔍 Collecting fresh stories...")
     try:
-        items = collect_items(set(), gather_candidates(), TARGET_ITEMS, deadline, prepare=prepare)
+        items = collect_items(known, gather_candidates(), TARGET_ITEMS, deadline)
         if len(items) < MIN_ITEMS:
             print(f"❌ Only {len(items)} usable stories; at least {MIN_ITEMS} are needed.")
             return 1
@@ -432,15 +405,9 @@ def run_bulletin(args, queue, ledger, deadline, reservations) -> int:
     video_url, uploaded, fail_reason = None, False, ""
     if not args.skip_upload:
         try:
-            youtube_upload.credentials()
-            ids = [item["_reservation"] for item in items]
-            ledger.abandon([key for key in reservations if key not in ids])
-            ledger.begin_publish(ids, "bulletin")
-            print(f"Publishing bulletin event reservations: {', '.join(ids)}")
             video_url = youtube_upload.upload_video(
                 BULLETIN_PATH, build_title(items, slot_label), manual_kit.safe_description(build_description, build_title(items, slot_label), items, props, slot_label), build_tags(items)
             )
-            ledger.change(ids, "published", published_ids={"youtube": video_url})
             uploaded = True
             print(f"▶️ Uploaded: {video_url}")
             thumb = render_thumbnail(props)
@@ -449,20 +416,15 @@ def run_bulletin(args, queue, ledger, deadline, reservations) -> int:
                     youtube_upload.set_thumbnail(video_url, thumb)
                 except Exception as exc:  # noqa: BLE001
                     print(f"⚠️ Thumbnail upload failed: {exc}")
-        except youtube_upload.UploadNotStarted as exc:
-            ledger.change(ids, "failed", resolution="YouTube never received video bytes")
-            fail_reason = str(exc)
         except youtube_upload.YouTubeUnavailable as exc:
             print(f"⏭️ YouTube upload skipped: {exc}")
             fail_reason = str(exc)
-        except (event_memory.HistoryUnavailable, ContentRejected):
-            raise
         except Exception as exc:  # noqa: BLE001
-            print(f"❌ YouTube upload failed: {type(exc).__name__}")
+            print(f"❌ YouTube upload failed: {exc}")
             fail_reason = str(exc)
 
     if not uploaded and not args.skip_upload:
-        manual_kit.deliver("बुलेटिन", BULLETIN_PATH, build_title(items, slot_label), manual_kit.safe_description(build_description, build_title(items, slot_label), items, props, slot_label), build_tags(items), fail_reason or "YouTube is not set up", send=False)
+        manual_kit.deliver("बुलेटिन", BULLETIN_PATH, build_title(items, slot_label), manual_kit.safe_description(build_description, build_title(items, slot_label), items, props, slot_label), build_tags(items), fail_reason or "YouTube is not set up", send=not args.skip_telegram)
 
     if not args.skip_telegram:
         try:
@@ -470,13 +432,13 @@ def run_bulletin(args, queue, ledger, deadline, reservations) -> int:
         except Exception as exc:  # noqa: BLE001
             print(f"⚠️ Telegram notification failed: {exc}")
 
-    if uploaded:
+    if queue is not None and (uploaded or args.skip_upload):
         try:
             queue.record_bulletin(slot_id, items, video_url or "")
         except Exception as exc:  # noqa: BLE001
             print(f"⚠️ Could not record the bulletin in the Sheet: {exc}")
 
-    return 0 if (uploaded or args.skip_upload) else 1
+    return 0 if (uploaded or args.skip_upload or not youtube_upload_configured()) else 1
 
 
 def youtube_upload_configured() -> bool:

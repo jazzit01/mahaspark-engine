@@ -10,6 +10,7 @@ Local one-off, no Sheet needed:   python scripts/pipeline.py --text "<article te
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -19,9 +20,8 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import align_timings
+import dedup
 import editorial_engine
-import event_memory
-import media_validation
 import fetch_news
 import media_fetch
 import send_telegram
@@ -32,11 +32,10 @@ from config import COMPOSITION_ID, OUT_DIR, SHORT_COMPOSITION_ID, REEL_PATH, REM
 from llm_providers import ContentRejected, LLMUnavailableError
 from sheet_queue import DONE, ERROR, PENDING, PROCESSING, REJECTED, SheetQueue
 
-MAX_NEW_ITEMS_PER_RUN = 6  # screening is cheap; most feed items are repeats or not news, so queue a few more
+MAX_NEW_ITEMS_PER_RUN = 2
 MIN_CONTEXT_CHARS = 80  # title + RSS summary needed when the article page cannot be read
 MAX_CANDIDATES_TO_CHECK = 15  # feed items inspected per run while looking for readable articles
 MAX_STORIES_PER_RUN = int(os.getenv("MAX_STORIES_PER_RUN", "2") or "2")  # matches the 2 items queued per run
-MAX_ATTEMPTS_PER_RUN = int(os.getenv("MAX_ATTEMPTS_PER_RUN", "6") or "6")  # rows screened per run, rejected ones included
 RUN_BUDGET_SECONDS = int(os.getenv("RUN_BUDGET_SECONDS", "1800") or "1800")  # no new story is started after this
 
 
@@ -136,6 +135,18 @@ def reel_crf(story: dict) -> int:
     return 21 if media_fetch.has_media(story) else 18
 
 
+def produce_reel(title: str, summary: str, article_text: str, source_url: str) -> dict:
+    """Script -> voiceover -> alignment -> render. Returns the final story dict."""
+    story = editorial_engine.write_story(title, summary, article_text, source_url)
+    editorial_engine.save_story(story)
+    print(f"📝 Script ready ({story.get('format')}, {story['visual_theme']}, {story['audio_mood']}): {story['scenes'][0]['headline']}")
+
+    story = add_voice_and_timings(story)
+    story = add_visuals(story)
+    render_reel(crf=reel_crf(story), composition=SHORT_COMPOSITION_ID if is_short(story) else COMPOSITION_ID)
+    return story
+
+
 def deliver(story: dict, source_url: str) -> str:
     """Send to Telegram. Returns the status text for the Sheet."""
     telegram_ok = send_telegram.send_reel(REEL_PATH, story, source_url)
@@ -203,9 +214,9 @@ def render_reel_thumbnail(story: dict) -> Path | None:
 
 
 def upload_reel_to_youtube(queue, story: dict) -> str:
-    """Best-effort YouTube Short upload within the optional Shorts budget."""
+    """Best-effort YouTube upload of the 16:9 video, within the daily slot budget. Returns a Sheet note fragment."""
     short = is_short(story)
-    if not short or not youtube_upload.reel_uploads_enabled() or not youtube_upload.shorts_uploads_enabled():
+    if not youtube_upload.reel_uploads_enabled() or (short and not youtube_upload.shorts_uploads_enabled()):
         return ""
     try:
         youtube_upload.credentials()
@@ -224,168 +235,130 @@ def upload_reel_to_youtube(queue, story: dict) -> str:
             list(story.get("seo_keywords") or []) + ["MahaSpark", "मराठी बातम्या"] + (["Shorts"] if short else []),
         )
         print(f"▶️ Uploaded to YouTube{' (Short)' if short else ''}: {url}")
+        thumb = None if short else render_reel_thumbnail(story)  # the 16:9 thumbnail does not fit a Short
+        if thumb:
+            try:
+                youtube_upload.set_thumbnail(url, thumb)
+            except Exception as exc:  # noqa: BLE001
+                print(f"⚠️ Thumbnail upload failed: {exc}")
         return f" - YouTube: OK {day} {url}"
     except Exception as exc:  # noqa: BLE001 - the reel is already delivered; never fail the story over YouTube
         print(f"⚠️ YouTube upload failed: {type(exc).__name__}: {str(exc)[:160]}")
         return f" - YouTube: FAIL {str(exc)[:80]}"
 
 
-def publish_short(ledger: event_memory.Ledger, reservation: str, queue: SheetQueue,
-                  story: dict, source_url: str) -> str:
-    media_validation.video(REEL_PATH, media_validation.SHORT, (9, 16))
-    telegram_id = []
-
-    def receipt(message_id: int) -> None:
-        telegram_id.append(str(message_id))
-        ledger.change([reservation], "published", published_ids={"telegram": str(message_id)})
-
-    ledger.begin_publish([reservation], "short")
-    print(f"Publishing vertical news reservation {reservation}.")
-    sent = send_telegram.send_reel(REEL_PATH, story, source_url, max_retries=1, on_delivery=receipt)
-    notes = [f"SUCCESS - Telegram: {'OK' if sent else 'FAIL'}"]
-    for platform, emit in (
-        ("YouTube", lambda: upload_reel_to_youtube(queue, story)),
-        ("Instagram", lambda: post_reel_to_instagram(story)),
-        ("Facebook", lambda: post_reel_to_facebook(story)),
-    ):
-        result = emit()
-        notes.append(result)
-        marker = f" - {platform}: OK "
-        if result.startswith(marker):
-            published = ledger.records[reservation]["published_ids"]
-            ledger.change([reservation], "published",
-                          published_ids={**published, platform.lower(): result.removeprefix(marker).split()[-1]})
-    if not telegram_id and not ledger.records[reservation]["published_ids"]:
-        raise RuntimeError("No publisher confirmed delivery. Reservation remains blocked pending reconciliation.")
-    return "".join(notes)
-
-
-def process_row(queue, ledger, row) -> str:
-    import news
-
-    title, _, summary = row.raw_input.partition(" - ")
-    url = fetch_news.resolve_article_url(row.source_url)
-    assessment, references = news.research(title, url, fetch_news.fetch_article_text(url), summary)
-    reservation = ledger.reserve(assessment.event, "short")
-    try:
-        try:
-            story = news.produce_short(title, url, references, assessment)
-        except news.PromoteToNews:
-            if not assessment.long_form_value:
-                raise ContentRejected("Too long for a Short and insufficient verified material for long-form news.")
-            ledger.defer(reservation, title, url, references, assessment)
-            return "Deferred to the single-topic long-form news pipeline."
-        queue.write_story(row.index, story)
-        return publish_short(ledger, reservation, queue, story, story["source"]["url"])
-    finally:
-        ledger.abandon([reservation])
-
-
 def run_scheduled() -> int:
     queue = SheetQueue.connect()
-    with event_memory.Ledger.locked(queue) as ledger:
-        return run_queue(queue, ledger)
+    try:
+        queue_new_items(queue)
+    except Exception as exc:  # noqa: BLE001
+        print(f"⚠️ Ingestion error: {exc}")
 
+    try:
+        editorial_engine.set_avoid_theme(queue.last_theme())
+    except Exception as exc:  # noqa: BLE001 - variety is a nicety, never a blocker
+        print(f"ℹ️ Could not read the previous studio: {exc}")
 
-def run_queue(queue, ledger) -> int:
-    queue_new_items(queue)
-    editorial_engine.set_avoid_theme(queue.last_theme())
-
-    processed = succeeded = errors = attempts = 0
+    print("\n⚙️ Scanning the sheet for PENDING items...")
+    processed = published = 0  # processed counts every story attempted, so failures also respect the limit
     started = time.monotonic()
     for row in queue.pending_rows():
-        # Only stories that reach production count toward MAX_STORIES_PER_RUN. A row rejected at screening
-        # (duplicate, not news, unreadable) must not use up the run, or a feed full of repeats publishes nothing.
-        if (processed >= MAX_STORIES_PER_RUN or attempts >= MAX_ATTEMPTS_PER_RUN
-                or (processed and time.monotonic() - started > RUN_BUDGET_SECONDS)):
+        if processed >= MAX_STORIES_PER_RUN:
             break
-        attempts += 1
-        processed += 1
+        if processed and time.monotonic() - started > RUN_BUDGET_SECONDS:
+            print("⏱️ Run time budget used; the remaining stories stay PENDING for the next run.")
+            break
+        print(f"\n⚡ Processing row {row.index}: {row.raw_input[:70]}...")
         queue.set_status(row.index, PROCESSING)
+        title, _, summary = row.raw_input.partition(" - ")
+
         try:
-            note = process_row(queue, ledger, row)
-            state = "DEFERRED" if note.startswith("Deferred") else DONE
-            queue.set_status(row.index, state, note)
-            succeeded += 1
-        except ContentRejected as exc:
-            processed -= 1  # screened out cheaply; do not spend the run's production allowance
-            print(f"Skipped row {row.index}: {exc}")
-            queue.set_status(row.index, REJECTED, str(exc)[:240])
-        except media_validation.InvalidMedia as exc:
-            print(f"Skipped row {row.index}: {exc}")
-            queue.set_status(row.index, REJECTED, str(exc)[:240])
-        except (LLMUnavailableError, event_memory.HistoryUnavailable) as exc:
-            queue.set_status(row.index, PENDING, f"Unavailable: {str(exc)[:220]}")
-            print(f"Stopped after row {row.index}: {exc}")
-            return 1
-        except Exception as exc:
-            message = f"{type(exc).__name__}: {str(exc)[:220]}"
-            print(f"Error on row {row.index}: {message}")
-            queue.set_status(row.index, ERROR, message)
-            errors += 1
-        time.sleep(2)
-    return int(bool(errors and not succeeded))
-
-
-def run_adhoc(text: str, url: str, skip_telegram: bool, skip_render: bool, *, companion: str = "", focus: str = "") -> int:
-    import news
-
-    title, _, body = text.strip().partition("\n")
-    if skip_render or skip_telegram:
-        assessment, references = news.research(title, url, body)
-        news.produce_short(title, url, references, assessment, skip_render=skip_render)
-        return 0
-    queue = SheetQueue.connect()
-    with event_memory.Ledger.locked(queue) as ledger:
-        assessment, references = news.research(title, url, body)
-        reservation = (ledger.reserve_companion(assessment.event, companion, focus) if companion
-                       else ledger.reserve(assessment.event, "short"))
-        try:
-            angle = ""
-            if companion:
-                original = ledger.records[companion]
-                angle = original.get("coverage", original["event"]["summary"]).replace("\n", " ") + "\n" + focus
+            # Older rows may still hold an unresolved Google News link, so resolve it again here.
+            source_url = fetch_news.resolve_article_url(row.source_url)
+            article = fetch_news.fetch_article_text(source_url)
+            if not article:
+                print("ℹ️ No full article text available; using the RSS title and summary only.")
             try:
-                story = news.produce_short(title, url, references, assessment, focus=angle)
-            except news.PromoteToNews:
-                if companion or not assessment.long_form_value:
-                    raise
-                ledger.defer(reservation, title, url, references, assessment)
-                print("Deferred to the single-topic long-form news pipeline.")
-                return 0
-            print(publish_short(ledger, reservation, queue, story, story["source"]["url"]))
-        finally:
-            ledger.abandon([reservation])
+                dedup.check(title, summary, source_url, dedup.recent_history(queue))
+            except ContentRejected:
+                raise  # an already published event: skip it before any script, voice or render is made
+            except LLMUnavailableError:
+                raise
+            except Exception as exc:  # noqa: BLE001 - the guard must never stop production on a Sheet hiccup
+                print(f"⚠️ Duplicate check skipped: {type(exc).__name__}: {str(exc)[:160]}")
+            article = fetch_news.enrich_thin_source(title, summary, article, source_url)
+            story = produce_reel(title, summary, article, source_url)
+            queue.write_story(row.index, story)
+            status_note = deliver(story, source_url) + upload_reel_to_youtube(queue, story) + post_reel_to_instagram(story) + post_reel_to_facebook(story)
+            queue.set_status(row.index, DONE, status_note)
+            print(f"✅ Row {row.index} completed.")
+            processed += 1
+            published += 1
+
+        except ContentRejected as exc:
+            print(f"🚫 Row {row.index} rejected: {exc}")
+            queue.set_status(row.index, REJECTED, f"Rejected: {str(exc)[:240]}")
+
+        except LLMUnavailableError as exc:
+            # The story is fine; no AI provider could be used. Requeue it (ERROR is never retried).
+            print(f"⏸️ Row {row.index} returned to PENDING: {exc}")
+            queue.set_status(row.index, PENDING, f"AI unavailable, will retry next run: {str(exc)[:220]}")
+            print("❌ No AI provider could be used in this run. Check the API keys and model names above.")
+            return 1
+
+        except Exception as exc:  # noqa: BLE001
+            message = f"{type(exc).__name__}: {str(exc)[:250]}"
+            print(f"❌ Error on row {row.index}: {message}")
+            queue.set_status(row.index, ERROR, message)
+            processed += 1
+
+        time.sleep(2)
+
+    if published == 0:
+        print("ℹ️ Nothing was published in this run.")
+        if processed > 0:
+            return 1  # a story was attempted and failed: make the workflow run show as failed
+    return 0
+
+
+def run_adhoc(text: str, url: str, skip_telegram: bool, skip_render: bool) -> int:
+    """Local one-off run from pasted text; does not touch the Google Sheet."""
+    title, _, rest = text.strip().partition("\n")
+    story = editorial_engine.write_story(title, "", rest or title, url)
+    editorial_engine.save_story(story)
+    story = add_voice_and_timings(story)
+    story = add_visuals(story)
+    if skip_render:
+        print(f"✅ Script, voiceover and timings are ready in {STORY_PATH.parent}")
+        return 0
+    render_reel(crf=reel_crf(story))
+    if skip_telegram:
+        print(f"✅ Reel rendered: {REEL_PATH}")
+        return 0
+    deliver(story, url)
     return 0
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="MahaSpark vertical news pipeline")
-    parser.add_argument("--text", help="Article text (first line is the title).")
-    parser.add_argument("--url", default="", help="Original article URL for --text runs.")
+    parser = argparse.ArgumentParser(description="MahaSpark prime-time reel pipeline")
+    parser.add_argument("--text", help="Run once on this article text (first line = title); skips the Sheet.")
+    parser.add_argument("--url", default="", help="Source URL for --text runs.")
     parser.add_argument("--skip-render", action="store_true", help="Stop after script, voiceover and timings.")
-    parser.add_argument("--skip-telegram", action="store_true", help="Render locally without publishing.")
-    parser.add_argument("--companion-event", default="", help="Published long-form NewsEvents record ID.")
-    parser.add_argument("--companion-focus", default="", help="Specific editorial angle that adds distinct value.")
+    parser.add_argument("--skip-telegram", action="store_true", help="Render but do not send.")
     args = parser.parse_args()
-    if bool(args.companion_event) != bool(args.companion_focus) or (args.companion_event and (
-            not args.text or args.skip_render or args.skip_telegram)):
-        parser.error("A publishing companion requires --text, --companion-event and --companion-focus.")
-    if not args.text and (args.skip_render or args.skip_telegram):
-        parser.error("Preview flags require --text.")
+
     if not args.skip_render and shutil.which("npx") is None:
-        print("npx is required for rendering.")
-        return 1
+        print("⚠️ npx not found; the Remotion render step will fail.")
+
     try:
         if args.text:
-            return run_adhoc(args.text, args.url, args.skip_telegram, args.skip_render,
-                             companion=args.companion_event, focus=args.companion_focus)
+            return run_adhoc(args.text, args.url, args.skip_telegram, args.skip_render)
         return run_scheduled()
-    except (ContentRejected, media_validation.InvalidMedia) as exc:
-        print(f"Story skipped: {exc}")
+    except ContentRejected as exc:
+        print(f"🚫 Story rejected: {exc}")
         return 2
-    except (LLMUnavailableError, event_memory.HistoryUnavailable) as exc:
-        print(f"Pipeline stopped: {exc}")
+    except LLMUnavailableError as exc:
+        print(f"❌ AI unavailable: {exc}")
         return 1
 
 

@@ -3,11 +3,14 @@ name: MahaSpark News Bulletin (16:9, YouTube)
 # Separate from the hourly reel workflow, which is unchanged. One job renders the whole bulletin
 # (ten stories, one Remotion render) to keep GitHub Actions minutes low.
 concurrency:
-  group: mahaspark-news-publishing
+  group: mahaspark-bulletin
   cancel-in-progress: false
 
 on:
-  # Scheduled bulletins retired; manual dispatch retained for maintenance.
+  schedule:
+    # 05:00 IST = 23:30 UTC (previous day) and 17:00 IST = 11:30 UTC. GitHub may start a run a few minutes late.
+    - cron: '30 23 * * *'
+    - cron: '30 11 * * *'
   workflow_dispatch:
 
 jobs:
@@ -82,7 +85,6 @@ jobs:
 
       - name: Run Bulletin (RSS, ten items, Gemini TTS, photos, Remotion render, YouTube, Telegram)
         env:
-          GOOGLE_SHEET_ID: ${{ vars.GOOGLE_SHEET_ID }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           # Extra keys from OTHER Google Cloud projects (comma separated); used when one key's quota is spent.
           GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}

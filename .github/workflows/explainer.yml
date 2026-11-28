@@ -118,15 +118,6 @@ jobs:
           npm install --no-audit --no-fund
           npx remotion browser ensure
 
-      - name: Ensure FFmpeg and FFprobe for media tests
-        run: |
-          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
-            sudo apt-get update
-            sudo apt-get install -y --no-install-recommends ffmpeg
-          fi
-          ffmpeg -version
-          ffprobe -version
-
       - name: Run unit tests
         run: python -m pytest -q
 
@@ -222,12 +213,3 @@ jobs:
             out/youtube_metadata.txt
           if-no-files-found: ignore
           retention-days: 2
-
-      - name: Keep recoverable drafts on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: explainer-draft-debug
-          path: out/explainer-debug/*.json
-          if-no-files-found: ignore
-          retention-days: 3

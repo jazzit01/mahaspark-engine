@@ -74,8 +74,6 @@ export type Story = {
   /** Same timings as words, but spoken numbers merged into digits (१२, ₹१,२०० कोटी) for the screen. */
   caption_words?: StoryWord[];
   duration_seconds: number;
-  /** Optional publishing cap. Only decorative tail and outro can reach this cut. */
-  delivery_duration_limit?: 60 | 300;
   /** Studio previews set this to false because voiceover.wav does not exist there. */
   audio?: boolean;
   media_credits?: string[];

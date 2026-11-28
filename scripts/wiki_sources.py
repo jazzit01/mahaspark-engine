@@ -42,10 +42,9 @@ def clean_extract(text: str) -> str:
 
 def fetch_extract(title: str, lang: str = "en") -> dict | None:
     """{title, url, text, mr_title} of one article (redirects followed), or None when it does not exist or is stub-short."""
-    other = "en" if lang == "mr" else "mr"
     try:
         data = _get(lang, {"action": "query", "prop": "extracts|langlinks", "explaintext": 1, "redirects": 1, "titles": title,
-                           "lllang": other, "lllimit": 1})
+                           "lllang": "mr", "lllimit": 1})
         page = (data.get("query", {}).get("pages") or [{}])[0]
     except Exception as exc:  # noqa: BLE001 - one bad lookup must not stop the video
         print(f"⚠️ Wikipedia lookup failed for '{title}': {str(exc)[:100]}")
@@ -55,7 +54,7 @@ def fetch_extract(title: str, lang: str = "en") -> dict | None:
         return None
     links = page.get("langlinks") or []
     return {"title": page.get("title", title), "url": page_url(lang, page.get("title", title)), "text": text[:MAX_EXTRACT_CHARS],
-            f"{other}_title": links[0].get("title", "") if links else ""}
+            "mr_title": links[0].get("title", "") if links else ""}
 
 
 def search_title(query: str, lang: str = "en") -> str | None:
@@ -90,26 +89,3 @@ def credit_line(urls: list[str]) -> str:
     """Attribution for the YouTube description (Wikipedia is CC BY-SA)."""
     wiki = [u for u in urls if "wikipedia.org" in u]
     return ("📚 संदर्भ: Wikipedia (CC BY-SA) - " + " , ".join(wiki[:4])) if wiki else ""
-
-
-def discover_topic(topic: str) -> dict | None:
-    """Search Marathi first for a Marathi topic, progressively removing descriptive suffixes."""
-    if not re.search(r"[\u0900-\u097f]", topic):
-        return fetch_topic(topic)
-    words = topic.split()
-    for query in dict.fromkeys((topic, " ".join(words[:2]))):
-        if not query:
-            continue
-        title = search_title(query, "mr")
-        if title:
-            page = fetch_extract(title, "mr")
-            if page:
-                reference = {"title": page["title"], "urls": [page["url"]],
-                             "text": f"[Marathi Wikipedia: {page['title']}]\n{page['text']}"}
-                if len(page["text"]) < 3500 and page.get("en_title"):
-                    english = fetch_extract(page["en_title"], "en")
-                    if english:
-                        reference["urls"].append(english["url"])
-                        reference["text"] += f"\n\n[English Wikipedia: {english['title']}]\n{english['text']}"
-                return reference
-    return None
