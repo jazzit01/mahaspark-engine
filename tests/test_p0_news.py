@@ -406,3 +406,57 @@ def test_story_with_no_readable_text_and_no_summary_is_still_rejected():
 def test_readable_article_is_used_as_is():
     article = "x" * 400
     assert news.source_text("t", "s", article) == article
+
+
+def test_story_without_long_form_value_is_condensed_not_rejected(monkeypatch):
+    assessment = SimpleNamespace(brief_words=400, long_form_value=False, event=SimpleNamespace(urls=["https://x.com/a"]))
+    calls = []
+    seconds = iter([75.0, 40.0])  # first draft too long, the shortened one fits
+
+    def fake_write(*args, **kwargs):
+        calls.append(kwargs.get("previous"))
+        return {"tts_narration_script": "x", "source": {"url": "https://x.com/a"}}
+
+    monkeypatch.setattr(news, "write_script", fake_write)
+    monkeypatch.setattr(news, "voice", lambda story: next(seconds))
+    monkeypatch.setattr(news, "render", lambda story, fmt: {"ok": True})
+    assert news.produce_short("t", "https://x.com/a", "ref", assessment) == {"ok": True}
+    assert calls[0] is None and calls[1] is not None  # second call shortens the first
+
+
+def test_story_with_long_form_value_is_still_promoted():
+    assessment = SimpleNamespace(brief_words=400, long_form_value=True, event=SimpleNamespace(urls=["https://x.com/a"]))
+    with pytest.raises(news.PromoteToNews):
+        news.produce_short("t", "https://x.com/a", "ref", assessment)
+
+
+def test_fact_check_gets_one_repair_before_rejecting(monkeypatch):
+    drafts = []
+    monkeypatch.setattr(news, "generate_json", lambda **kw: drafts.append(kw["prompt"]) or {"scenes": [], "approved": True})
+    verdicts = iter([ContentRejected("Fact check rejected the news script: unsupported claim"), None])
+
+    def verify(story, refs):
+        outcome = next(verdicts)
+        if outcome:
+            raise outcome
+
+    monkeypatch.setattr(news, "verify_story", verify)
+    assessment = SimpleNamespace(brief_words=60, long_form_value=False, event=SimpleNamespace(urls=["https://x.com/a"], category="c", facts="f"))
+    news.write_script("t", "https://x.com/a", "ref", assessment, "short")
+    assert len(drafts) == 2 and "unsupported claim" in drafts[1]
+
+
+def test_ledger_write_retries_a_brief_sheets_error(monkeypatch):
+    class Sheet:
+        calls = 0
+
+        def append_rows(self, rows, **kw):
+            Sheet.calls += 1
+            if Sheet.calls < 3:
+                raise RuntimeError("429 rate limit")
+
+    ledger = news.event_memory.Ledger.__new__(news.event_memory.Ledger)
+    ledger.sheet, ledger.records = Sheet(), {}
+    monkeypatch.setattr(news.event_memory.time, "sleep", lambda _s: None)
+    ledger.write([{"id": "a", "state": "reserved"}])
+    assert Sheet.calls == 3 and "a" in ledger.records

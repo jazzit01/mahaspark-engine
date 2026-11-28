@@ -36,7 +36,7 @@ MAX_NEW_ITEMS_PER_RUN = 6  # screening is cheap; most feed items are repeats or 
 MIN_CONTEXT_CHARS = 80  # title + RSS summary needed when the article page cannot be read
 MAX_CANDIDATES_TO_CHECK = 15  # feed items inspected per run while looking for readable articles
 MAX_STORIES_PER_RUN = int(os.getenv("MAX_STORIES_PER_RUN", "2") or "2")  # matches the 2 items queued per run
-MAX_ATTEMPTS_PER_RUN = int(os.getenv("MAX_ATTEMPTS_PER_RUN", "6") or "6")  # rows screened per run, rejected ones included
+MAX_ATTEMPTS_PER_RUN = int(os.getenv("MAX_ATTEMPTS_PER_RUN", "3") or "3")  # rows screened per run, rejected ones included
 RUN_BUDGET_SECONDS = int(os.getenv("RUN_BUDGET_SECONDS", "1800") or "1800")  # no new story is started after this
 
 

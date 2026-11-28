@@ -128,11 +128,24 @@ def write_script(title: str, url: str, references: str, assessment: event_memory
             raise ValueError("A long news feature needs 10 to 18 substantive scenes.")
         return editorial.validate_story(data, references, min_words=lo, max_words=hi, max_scenes=count)
 
-    story = generate_json(system_instruction=instruction, prompt=prompt, response_model=editorial.Story,
-                          validate=validate, max_calls=6)
-    story["source"] = {"title": title, "url": assessment.event.urls[0], "urls": assessment.event.urls}
-    story["format"] = "landscape" if long else "portrait"
-    verify_story(story, references)
+    def generate(extra: str = "") -> dict:
+        story = generate_json(system_instruction=instruction, prompt=prompt + extra, response_model=editorial.Story,
+                              validate=validate, max_calls=6)
+        story["source"] = {"title": title, "url": assessment.event.urls[0], "urls": assessment.event.urls}
+        story["format"] = "landscape" if long else "portrait"
+        return story
+
+    story = generate()
+    try:
+        verify_story(story, references)
+    except ContentRejected as exc:
+        if not str(exc).startswith("Fact check rejected"):
+            raise
+        # One repair attempt with the exact findings instead of discarding the whole story.
+        story = generate("\nA fact check found statements the source text does not support. Rewrite the script so every "
+                         "statement is stated in the source text above; remove or soften anything else. Findings: "
+                         + str(exc))
+        verify_story(story, references)
     return story
 
 
@@ -210,17 +223,18 @@ def produce_short(title: str, url: str, references: str, assessment: event_memor
                   skip_render: bool = False, focus: str = "") -> dict:
     estimate = assessment.brief_words / 2.4
     route = media.reel_route(estimate)
-    if route == "news" and not focus:
+    promotable = assessment.long_form_value and not focus
+    # A story with enough verified material for a long feature is promoted. Every other story is written as a
+    # condensed Short, as before P0, instead of being thrown away for being "too long".
+    if route == "news" and promotable:
         raise PromoteToNews("The essential story needs more than 60 seconds.")
     story = write_script(title, url, references, assessment, "short", focus=focus)
     seconds = voice(story)
-    if media.reel_route(seconds) == "news":
+    if seconds > media.SHORT[1] and promotable:
         raise PromoteToNews("Measured narration needs more than 60 seconds.")
-    if media.SHORT[1] < seconds <= 60:
+    if seconds > media.SHORT[1]:
         story = write_script(title, url, references, assessment, "short", previous=story, focus=focus)
         seconds = voice(story)
-        if media.reel_route(seconds) == "news":
-            raise PromoteToNews("Measured replacement narration needs more than 60 seconds.")
     media.within(seconds, media.SHORT, "Short narration")
     if skip_render:
         editorial.save_story(story)
