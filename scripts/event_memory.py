@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 import re
 import unicodedata
 from contextlib import contextmanager
@@ -254,11 +255,19 @@ class Ledger:
             raise HistoryUnavailable("Could not read the event ledger safely.") from exc
 
     def write(self, records: list[dict]) -> None:
-        try:
-            self.sheet.append_rows([[r["id"], json.dumps(r, ensure_ascii=False)] for r in records],
-                                   value_input_option="RAW")
-        except Exception as exc:
-            raise HistoryUnavailable("Could not persist the event transaction.") from exc
+        error: Exception | None = None
+        for delay in (0, 3, 10):  # Sheets rate limits and 5xx errors are brief; retry before giving up
+            if delay:
+                time.sleep(delay)
+            try:
+                self.sheet.append_rows([[r["id"], json.dumps(r, ensure_ascii=False)] for r in records],
+                                       value_input_option="RAW")
+                error = None
+                break
+            except Exception as exc:
+                error = exc
+        if error is not None:
+            raise HistoryUnavailable("Could not persist the event transaction.") from error
         self.records.update((r["id"], r) for r in records)
 
     def matches(self, event: Event, exclude: set[str] | None = None) -> Comparison:
