@@ -69,16 +69,9 @@ class LLMUnavailableError(RuntimeError):
 class ContentFailed(Exception):
     """Every provider answered, but none produced content that passed the quality checks."""
 
-    def __init__(self, message: str, errors: list[str] | None = None, draft=None):
+    def __init__(self, message: str, errors: list[str] | None = None):
         super().__init__(message)
         self.errors = errors or []
-        self.draft = draft
-
-
-class InvalidProviderJSON(ValueError):
-    def __init__(self, draft: str):
-        super().__init__("Provider rejected malformed generated JSON (json_validate_failed).")
-        self.draft = draft
 
 
 class ContentRejected(Exception):
@@ -158,19 +151,14 @@ def candidate_gemini_models() -> list:
 
 def parse_json(text: str) -> dict:
     """Turn a model reply into a dict, tolerating code fences and stray text around the JSON."""
-    if not isinstance(text, str):
-        raise ValueError("Provider returned missing or non-text content.")
-    clean = text.strip()
+    clean = (text or "").strip()
     if clean.startswith("```"):
         clean = re.sub(r"^```(?:json)?\s*\n?|\n?```\s*$", "", clean).strip()
     if not clean.startswith("{"):
         start, end = clean.find("{"), clean.rfind("}")
         if start != -1 and end > start:
             clean = clean[start : end + 1]
-    data = json.loads(clean)
-    if not isinstance(data, dict):
-        raise ValueError("JSON must contain one object.")
-    return data
+    return json.loads(clean)
 
 
 # ----- error classification -------------------------------------------------------------------
@@ -262,20 +250,8 @@ def _call_openai_compatible(provider: dict, api_key: str, model: str, system_ins
         timeout=120,
     )
     if response.status_code != 200:
-        if response.status_code == 400 and "json_validate_failed" in response.text:
-            try:
-                draft = response.json().get("error", {}).get("failed_generation", "")
-            except (ValueError, AttributeError):
-                draft = ""
-            raise InvalidProviderJSON(draft if isinstance(draft, str) else "")
-        error = RuntimeError(f"HTTP {response.status_code}")
-        error.status_code = response.status_code
-        error.retry_after = response.headers.get("Retry-After")
-        raise error
-    try:
-        return response.json()["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, TypeError) as exc:
-        raise ValueError("Provider response has no message content.") from exc
+        raise RuntimeError(f"HTTP {response.status_code}: {response.text[:200]}")
+    return response.json()["choices"][0]["message"]["content"]
 
 
 def build_attempts(system_instruction: str, response_model) -> list:
@@ -329,8 +305,6 @@ def generate_json(
     validate: Callable[[dict], dict] = lambda d: d,
     attempts: list | None = None,
     sleep: Callable[[float], None] = time.sleep,
-    max_calls: int = 12,
-    merge_repair: Callable[[dict, dict, str], dict] | None = None,
 ) -> dict:
     """Generate and validate one JSON object, falling back across models and providers.
 
@@ -347,35 +321,19 @@ def generate_json(
     last_error = ""
     bad_content = False
     content_errors: list[str] = []
-    previous = None
-    calls = 0
 
-    for index, (provider, model_name, call) in enumerate(attempts):
+    for provider, model_name, call in attempts:
         slot = f"{provider}:{model_name}"
         if slot in _EXHAUSTED or provider in _EXHAUSTED:
             continue
 
         current_prompt = prompt
-        original_draft = None
-        repair_error = ""
         repaired = False
         retried_transient = False
 
-        # Leave at least one call for a later provider when a model has already used its first call.
-        alternatives = {name for name, _, _ in attempts[index + 1:]
-                        if name != provider and not name.startswith("gemini") and name not in _EXHAUSTED}
-        while calls < max_calls:
-            if calls and alternatives and max_calls - calls <= len(alternatives):
-                break
-            draft = None
-            raw = ""
-            calls += 1
+        while True:
             try:
-                raw = call(current_prompt)
-                draft = plain_names_deep(parse_json(raw))
-                if original_draft is not None and merge_repair is not None:
-                    draft = merge_repair(original_draft, draft, repair_error)
-                data = validate(draft)
+                data = validate(plain_names_deep(parse_json(call(current_prompt))))
                 print(f"✅ Content written by {provider}/{model_name}")
                 return data
 
@@ -386,32 +344,20 @@ def generate_json(
                 # Bad JSON or failed quality rules: the quota is fine, this model just wrote
                 # something unusable. Give it one repair attempt, then move on.
                 bad_content = True
-                if isinstance(e, InvalidProviderJSON):
-                    raw = e.draft
-                if draft is not None:
-                    previous = draft
                 last_error = f"[{slot}] {type(e).__name__}: {e}"
                 content_errors.append(str(e))
                 print(f"⚠️ {slot} returned unusable content: {last_error[:200]}")
                 if repaired:
                     break
                 repaired = True
-                original_draft, repair_error = draft, str(e)
                 current_prompt = (
                     f"{prompt}\n\nYOUR PREVIOUS ANSWER WAS REJECTED BY THE AUTOMATIC CHECKER: {e}\n"
-                    "Preserve valid fields and scenes verbatim. Change only the invalid values and return the complete corrected JSON object.\n"
-                    f"PREVIOUS ANSWER:\n{json.dumps(draft, ensure_ascii=False) if draft is not None else str(raw)[:16000]}"
+                    "Fix exactly this problem and return the complete corrected JSON object."
                 )
                 continue
 
             except Exception as e:  # noqa: BLE001 - classification below decides what to do
                 last_error = f"[{slot}] {type(e).__name__}: {e}"
-
-                retry_after = str(getattr(e, "retry_after", "") or "")
-                if _error_code(e) == 429 and retry_after.isdigit() and 0 < int(retry_after) <= 10 and not retried_transient:
-                    retried_transient = True
-                    sleep(int(retry_after))
-                    continue
 
                 if is_quota_error(e):
                     _EXHAUSTED.add(slot if provider.startswith("gemini") else provider)
@@ -428,7 +374,7 @@ def generate_json(
                     print(f"🚫 {slot} does not exist or is not available to this key. Skipping it.")
                     break
 
-                if is_transient_error(e) and not retried_transient and calls < max_calls:
+                if is_transient_error(e) and not retried_transient:
                     retried_transient = True
                     print(f"⚠️ {slot} temporarily unavailable. Retrying once in 3s...")
                     sleep(3)
@@ -442,5 +388,5 @@ def generate_json(
         f" Last error: {last_error or 'all providers were already unavailable earlier in this run'}"
     )
     if bad_content:
-        raise ContentFailed(message, content_errors, previous)
+        raise ContentFailed(message, content_errors)
     raise LLMUnavailableError(message)

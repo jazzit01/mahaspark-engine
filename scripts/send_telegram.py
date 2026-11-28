@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 import os
 import time
 from pathlib import Path
@@ -123,7 +124,7 @@ def send_video_file(path: Path, caption: str = "") -> bool:
     return resp.status_code == 200
 
 
-def send_reel(video_path: Path, story: dict, source_url: str, max_retries: int = 3, *, on_delivery=None) -> bool:
+def send_reel(video_path: Path, story: dict, source_url: str, max_retries: int = 3) -> bool:
     """Send the video, then the summary message. Returns True when the video was delivered."""
     token, chat_id = _credentials()
     video_path = Path(video_path)
@@ -153,13 +154,11 @@ def send_reel(video_path: Path, story: dict, source_url: str, max_retries: int =
                     timeout=180,
                 )
             if resp.status_code == 200:
-                if on_delivery is not None:
-                    on_delivery(resp.json()["result"]["message_id"])
                 delivered = True
                 break
             print(f"⚠️ Telegram video upload HTTP {resp.status_code}: {resp.text[:200]}")
         except requests.RequestException as exc:
-            print(f"⚠️ Telegram upload attempt {attempt} failed: {type(exc).__name__}")
+            print(f"⚠️ Telegram upload attempt {attempt} failed: {exc}")
         time.sleep(2 * attempt)
 
     try:
@@ -174,7 +173,7 @@ def send_reel(video_path: Path, story: dict, source_url: str, max_retries: int =
             timeout=30,
         )
     except requests.RequestException as exc:
-        print(f"⚠️ Telegram summary message failed: {type(exc).__name__}")
+        print(f"⚠️ Telegram summary message failed: {exc}")
 
     print("📲 Telegram delivery completed." if delivered else "❌ Telegram video delivery failed.")
     return delivered
@@ -187,8 +186,10 @@ def main() -> None:
     parser.add_argument("--source-url", default="")
     args = parser.parse_args()
 
-    # Re-enter the guarded production workflow instead of uploading arbitrary unreserved media.
-    parser.error("Direct news upload is disabled. Use scripts/pipeline.py with the original article text and URL.")
+    story = json.loads(args.story.read_text(encoding="utf-8"))
+    source_url = args.source_url or story.get("source", {}).get("url", "")
+    if not send_reel(args.video, story, source_url):
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

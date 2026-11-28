@@ -107,9 +107,6 @@ class RunQueue(FakeQueue):
         self.rows = rows
         self.statuses = {}
 
-    def last_theme(self):
-        return None
-
     def pending_rows(self):
         return self.rows
 
@@ -127,12 +124,10 @@ def _run_with_rows(monkeypatch, produce):
     monkeypatch.setattr(pipeline, "MAX_STORIES_PER_RUN", 1)
     monkeypatch.setattr(pipeline.fetch_news, "resolve_article_url", lambda u: u)
     monkeypatch.setattr(pipeline.fetch_news, "fetch_article_text", lambda u: "x" * 400)
-    def process(_queue, _ledger, row):
-        produce(row.raw_input)
-        return "SUCCESS - Telegram: OK"
-
-    monkeypatch.setattr(pipeline, "process_row", process)
-    return pipeline.run_queue(queue, object()), queue
+    monkeypatch.setattr(pipeline, "produce_reel", produce)
+    monkeypatch.setattr(pipeline, "deliver", lambda story, url: "SUCCESS - Telegram: OK")
+    monkeypatch.setattr(queue, "write_story", lambda *a, **k: None, raising=False)
+    return pipeline.run_scheduled(), queue
 
 
 def test_a_failing_story_counts_toward_the_run_limit(monkeypatch):
@@ -167,17 +162,15 @@ def test_every_queued_story_is_processed_until_the_limit_and_the_time_budget(mon
     monkeypatch.setattr(pipeline.time, "sleep", lambda _s: None)
     monkeypatch.setattr(pipeline.fetch_news, "resolve_article_url", lambda u: u)
     monkeypatch.setattr(pipeline.fetch_news, "fetch_article_text", lambda u: "x" * 400)
-    def process(_queue, _ledger, row):
-        ok(row.raw_input)
-        return "SUCCESS - Telegram: OK"
-
-    monkeypatch.setattr(pipeline, "process_row", process)
-    assert pipeline.run_queue(queue, object()) == 0
+    monkeypatch.setattr(pipeline, "produce_reel", ok)
+    monkeypatch.setattr(pipeline, "deliver", lambda story, url: "SUCCESS - Telegram: OK")
+    monkeypatch.setattr(queue, "write_story", lambda *a, **k: None, raising=False)
+    assert pipeline.run_scheduled() == 0
     assert len(done) == 3  # the limit stops the fourth
 
     done.clear()
     monkeypatch.setattr(pipeline, "RUN_BUDGET_SECONDS", -1)  # budget already used after the first story
-    pipeline.run_queue(queue, object())
+    pipeline.run_scheduled()
     assert len(done) == 1
 
 
@@ -193,23 +186,23 @@ def test_stale_entries_are_detected():
     assert not fetch_news.is_stale({}, now=now, max_hours=36)  # undated entries pass
 
 
-def test_screened_out_rows_do_not_use_up_the_production_allowance(monkeypatch):
-    from llm_providers import ContentRejected
-    from sheet_queue import PendingRow
+def test_a_duplicate_event_is_rejected_before_anything_is_produced(monkeypatch):
+    import dedup
 
-    queue = RunQueue([PendingRow(i, f"शीर्षक {i} - सारांश", "https://pub.com/x") for i in (1, 2, 3, 4)])
-    monkeypatch.setattr(pipeline.SheetQueue, "connect", classmethod(lambda cls: queue))
-    monkeypatch.setattr(pipeline, "queue_new_items", lambda q: 0)
-    monkeypatch.setattr(pipeline.time, "sleep", lambda _s: None)
-    monkeypatch.setattr(pipeline, "MAX_STORIES_PER_RUN", 1)
-    monkeypatch.setattr(pipeline, "MAX_ATTEMPTS_PER_RUN", 6)
+    def duplicate(title, summary, url, history):
+        if title.endswith("1"):
+            raise dedup.DuplicateEvent("Same event as published story 1")
 
-    def process(_queue, _ledger, row):
-        if row.index < 3:
-            raise ContentRejected("same event")
-        return "SUCCESS - Telegram: OK"
+    monkeypatch.setattr(pipeline.dedup, "check", duplicate)
+    monkeypatch.setattr(pipeline.dedup, "recent_history", lambda queue: [])
+    made = []
+    code, queue = _run_with_rows(monkeypatch, lambda *a: made.append(a) or {"audio": True})
+    assert len(made) == 1 and queue.statuses.get(1) == "REJECTED"
+    assert queue.statuses.get(2) == "DONE"  # a rejected duplicate does not use up the run
+    assert code == 0
 
-    monkeypatch.setattr(pipeline, "process_row", process)
-    assert pipeline.run_queue(queue, object()) == 0
-    assert queue.statuses[1] == queue.statuses[2] == "REJECTED"
-    assert queue.statuses[3] == "DONE" and 4 not in queue.statuses  # one story produced, then the allowance is used
+
+def test_a_sheet_error_in_the_duplicate_guard_does_not_stop_production(monkeypatch):
+    monkeypatch.setattr(pipeline.dedup, "recent_history", lambda queue: (_ for _ in ()).throw(RuntimeError("503")))
+    code, queue = _run_with_rows(monkeypatch, lambda *a: {"audio": True})
+    assert queue.statuses.get(1) == "DONE" and code == 0

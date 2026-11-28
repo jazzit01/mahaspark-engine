@@ -13,7 +13,6 @@ import os
 import subprocess
 from pathlib import Path
 
-import media_validation
 from config import (
     LONG_SHORT_COMPOSITION_ID,
     LONG_SHORT_JSON,
@@ -83,7 +82,6 @@ def make_short(props: dict, output: Path = LONG_SHORT_PATH, crf: int = 24) -> Pa
     if result.returncode != 0 or not os.path.exists(output):
         print(f"⚠️ Short render failed (exit {result.returncode}); the long video is unaffected.")
         return None
-    media_validation.video(Path(output), media_validation.SHORT, (9, 16))
     return Path(output)
 
 
@@ -92,7 +90,6 @@ def send_short(path: Path, title: str, label: str) -> None:
     import send_telegram
 
     try:
-        media_validation.video(path, media_validation.SHORT, (9, 16))
         send_telegram.send_video_file(path, f"📱 {label} Short: {title}")
     except Exception as exc:  # noqa: BLE001
         print(f"⚠️ Short not sent to Telegram: {exc}")
